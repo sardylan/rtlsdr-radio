@@ -1,0 +1,36 @@
+/*
+ * rtlsdr-radio
+ * Copyright (C) 2020  Luca Cireddu (sardylan@gmail.com)
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ */
+
+
+#ifndef __RTLSDR_RADIO__DEFAULT__H
+#define __RTLSDR_RADIO__DEFAULT__H
+
+#define CONFIG_UI_LOG_LEVEL_DEFAULT 4
+#define CONFIG_FILE_LOG_LEVEL_DEFAULT 0
+#define CONFIG_FILE_LOG_NAME_DEFAULT "rtlsdr_radio.log"
+
+#define CONFIG_RTLSDR_DEVICE_ID_DEFAULT 0
+#define CONFIG_RTLSDR_DEVICE_SAMPLE_RATE_DEFAULT 240000
+#define CONFIG_RTLSDR_DEVICE_CENTER_FREQ_DEFAULT 91500000
+#define CONFIG_RTLSDR_DEVICE_FREQ_CORRECTION_DEFAULT 0
+#define CONFIG_RTLSDR_DEVICE_TUNER_GAIN_MODE_DEFAULT 0
+#define CONFIG_RTLSDR_DEVICE_TUNER_GAIN_DEFAULT 0
+#define CONFIG_RTLSDR_DEVICE_AGC_MODEDEFAULT 0
+#define CONFIG_RTLSDR_BUFFER_DEFAULT 4096
+
+#endif
