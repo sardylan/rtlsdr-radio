@@ -15,6 +15,7 @@ add_executable(rtlsdr_radio
         log.c log.h
         cfg.c cfg.h
         device.c device.h
+        circbuf.c circbuf.h
         default.h)
 
 target_link_libraries(rtlsdr_radio
