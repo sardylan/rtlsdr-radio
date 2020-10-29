@@ -23,10 +23,23 @@
 #include <stddef.h>
 #include <stdint.h>
 
+enum work_mode_t {
+    MODE_VERSION = 'v',
+    MODE_HELP = 'h',
+    MODE_RX = 'r',
+    MODE_INFO = 'i'
+};
+
+typedef enum work_mode_t work_mode;
+
 struct cfg_t {
     int ui_log_level;
     int file_log_level;
     char *file_log_name;
+
+    int debug;
+
+    work_mode mode;
 
     uint32_t rtlsdr_device_id;
     uint32_t rtlsdr_device_sample_rate;
@@ -47,5 +60,7 @@ void cfg_free();
 void cfg_print();
 
 int cfg_parse(int, char **);
+
+int cfg_parse_flag(int);
 
 #endif

@@ -22,4 +22,8 @@
 
 int main_program();
 
+int main_program_mode_rx();
+
+int main_program_mode_info();
+
 #endif

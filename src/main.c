@@ -29,13 +29,16 @@
 #include "device.h"
 #include "log.h"
 
+const char *main_program_name;
+int keep_running = 1;
+
 extern cfg *conf;
 extern rtlsdr_dev_t *device;
 
-int keep_running = 1;
-
 int main(int argc, char **argv) {
     int result;
+
+    main_program_name = argv[0];
 
     ui_header();
 
@@ -43,7 +46,8 @@ int main(int argc, char **argv) {
 
     result = cfg_parse(argc, argv);
 
-    cfg_print();
+    if (conf->debug)
+        cfg_print();
 
     if (result == 0) {
         result = main_program();
@@ -57,8 +61,28 @@ int main(int argc, char **argv) {
 }
 
 int main_program() {
+    switch (conf->mode) {
+        case MODE_VERSION:
+            return EXIT_SUCCESS;
+        case MODE_HELP:
+            ui_help();
+            return EXIT_SUCCESS;
+        case MODE_RX:
+            return main_program_mode_rx();
+        case MODE_INFO:
+            return main_program_mode_info();
+        default:
+            log_error("main", "Mode not implemented");
+            return EXIT_FAILURE;
+    }
+}
+
+int main_program_mode_rx() {
     uint8_t *input_buffer;
     int8_t *output_buffer;
+    int j;
+    uint8_t i;
+    uint8_t q;
 
     size_t output_buffer_size;
     int bytes;
@@ -71,11 +95,11 @@ int main_program() {
     double value;
     int8_t elem;
 
-    output_buffer_size = conf->rtlsdr_buffer / 2;
-
     result = device_open();
     if (result == -1)
         return EXIT_FAILURE;
+
+    output_buffer_size = conf->rtlsdr_buffer / 2;
 
     input_buffer = (uint8_t *) calloc(conf->rtlsdr_buffer, sizeof(uint8_t));
     output_buffer = (int8_t *) calloc(output_buffer_size, sizeof(int8_t));
@@ -87,12 +111,17 @@ int main_program() {
         if (result != 0)
             break;
 
-        for (int i = 0; i < conf->rtlsdr_buffer; i += 2) {
-            sample = (input_buffer[i] - 127) + (input_buffer[i + 1] - 127) * I;
+        for (j = 0; j < conf->rtlsdr_buffer; j += 2) {
+            i = input_buffer[j] - 127;
+            q = input_buffer[j + 1] - 127;
+            sample = i + q * I;
+
             product = sample * conj(prev_sample);
             value = atan2(cimag(product), creal(product)) / M_PI;
+//            value = cabs(product);
+
             elem = (int8_t) (value * 127);
-            output_buffer[i / 2] = elem;
+            output_buffer[j / 2] = elem;
             prev_sample = sample;
         }
 
@@ -103,6 +132,12 @@ int main_program() {
     free(output_buffer);
 
     device_close();
+
+    return EXIT_SUCCESS;
+}
+
+int main_program_mode_info() {
+    device_list();
 
     return EXIT_SUCCESS;
 }

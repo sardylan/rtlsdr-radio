@@ -76,3 +76,25 @@ char *log_level_to_char(int level) {
             return "     ";
     }
 }
+
+char *log_mode_to_char(work_mode mode) {
+    switch (mode) {
+        case MODE_VERSION:
+            return "VERSION";
+        case MODE_HELP:
+            return "HELP";
+        case MODE_RX:
+            return "RX";
+        case MODE_INFO:
+            return "INFO";
+        default:
+            return "";
+    }
+}
+
+char *log_bool_to_char(int value) {
+    if (value == 0)
+        return "NO";
+    else
+        return "YES";
+}

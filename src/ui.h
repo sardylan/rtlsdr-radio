@@ -22,8 +22,14 @@
 
 #define UI_MESSAGES_OUTPUT stderr
 
+void ui_message(const char *, ...);
+
+void ui_message_out(const char *, ...);
+
 void ui_header();
 
 void ui_usage();
+
+void ui_help();
 
 #endif

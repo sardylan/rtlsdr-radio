@@ -22,6 +22,8 @@
 
 #include <stddef.h>
 
+#include "cfg.h"
+
 #define LOG_LEVEL_OFF 0
 #define LOG_LEVEL_ERROR 1
 #define LOG_LEVEL_WARNING 2
@@ -36,5 +38,9 @@
 void log_message(int, const char *, const char *, ...);
 
 char *log_level_to_char(int);
+
+char *log_mode_to_char(work_mode);
+
+char *log_bool_to_char(int);
 
 #endif
