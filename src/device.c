@@ -69,7 +69,7 @@ void device_list() {
 
         result = rtlsdr_open(&info_device, i);
         if (result < 0) {
-            log_error("device", "Unable to open RTL-SDR device: %d\n", result);
+            log_error("device", "Unable to open RTL-SDR device: %d", result);
             continue;
         }
 
@@ -78,7 +78,7 @@ void device_list() {
 
         result = rtlsdr_get_tuner_gains(info_device, &gains[0]);
         if (result < 0) {
-            log_error("device", "Failed to get list of gains: %d\n", result);
+            log_error("device", "Failed to get list of gains: %d", result);
             continue;
         }
 
@@ -101,37 +101,37 @@ int device_open() {
 
     result = rtlsdr_open(&device, conf->rtlsdr_device_id);
     if (result < 0) {
-        log_error("device", "Unable to open RTL-SDR device: %d\n", result);
+        log_error("device", "Unable to open RTL-SDR device: %d", result);
         return -1;
     }
 
     result = rtlsdr_set_sample_rate(device, conf->rtlsdr_device_sample_rate);
     if (result < 0)
-        log_error("device", "Failed to set sample rate: %d\n", result);
+        log_error("device", "Failed to set sample rate: %d", result);
 
     result = rtlsdr_set_center_freq(device, conf->rtlsdr_device_center_freq);
     if (result < 0)
-        log_error("device", "Failed to set center frequency: %d\n", result);
+        log_error("device", "Failed to set center frequency: %d", result);
 
     result = rtlsdr_set_freq_correction(device, conf->rtlsdr_device_freq_correction);
     if (result < 0 && result != -2)
-        log_error("device", "Failed to set freq correction: %d\n", result);
+        log_error("device", "Failed to set freq correction: %d", result);
 
     result = rtlsdr_set_tuner_gain_mode(device, conf->rtlsdr_device_tuner_gain_mode);
     if (result < 0) {
-        log_error("device", "Failed to set gain mode: %d\n", result);
+        log_error("device", "Failed to set gain mode: %d", result);
         return -1;
     }
 
     result = rtlsdr_set_tuner_gain(device, conf->rtlsdr_device_tuner_gain);
     if (result < 0) {
-        log_error("device", "Failed to set tuner gain: %d\n", result);
+        log_error("device", "Failed to set tuner gain: %d", result);
         return -1;
     }
 
     result = rtlsdr_set_agc_mode(device, conf->rtlsdr_device_agc_mode);
     if (result < 0)
-        log_error("device", "Failed to disable AGC: %d\n", result);
+        log_error("device", "Failed to disable AGC: %d", result);
 
     rtlsdr_reset_buffer(device);
 

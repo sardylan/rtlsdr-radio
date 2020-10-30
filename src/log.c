@@ -21,43 +21,69 @@
 #include <stdarg.h>
 #include <time.h>
 #include <string.h>
+#include <pthread.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/syscall.h>
 
 #include "log.h"
 #include "cfg.h"
 #include "ui.h"
 
+pthread_mutex_t log_lock;
+
 extern cfg *conf;
+
+void log_init() {
+    pthread_mutex_init(&log_lock, NULL);
+}
+
+void log_free() {
+    pthread_mutex_destroy(&log_lock);
+}
 
 void log_message(const int level, const char *element, const char *message, ...) {
     va_list args;
-    char datetime[20];
-    time_t rawtime;
+    char datetime[27];
     struct tm *timeinfo;
-    char content[131072];
+    struct timespec ts;
+    char content[LOG_BUFFER];
     char prefix[1025];
-    char *level_string;
 
-    if (level <= conf->ui_log_level || level <= conf->file_log_level) {
-        rawtime = time(NULL);
-        timeinfo = localtime(&rawtime);
-        strftime(datetime, 20, "%Y-%m-%d %H:%M:%S", timeinfo);
+    if (level > conf->ui_log_level && level > conf->file_log_level)
+        return;
 
-        level_string = log_level_to_char(level);
-        sprintf(prefix, "%s [%s] {%s} ", datetime, level_string, element);
+    pthread_mutex_lock(&log_lock);
 
-        fprintf(UI_MESSAGES_OUTPUT, "%s", prefix);
+    timespec_get(&ts, TIME_UTC);
 
-        memset(content, '\0', sizeof(content));
+    timeinfo = localtime(&ts.tv_sec);
+    strftime(datetime, 20, "%Y-%m-%d %H:%M:%S", timeinfo);
+    sprintf(datetime + 19, ".%06zu", ts.tv_nsec / 1000);
 
-        va_start(args, message);
-        vsprintf(content, message, args);
-        va_end(args);
+    sprintf(prefix, "%s (%lx) [%s] {%s} ", datetime, pthread_self(), log_level_to_char(level), element);
 
-        if (level <= conf->ui_log_level)
-            fprintf(UI_MESSAGES_OUTPUT, "%s\n", content);
-    }
+    fprintf(UI_MESSAGES_OUTPUT, "%s", prefix);
 
-//    log_file_message(level, prefix, content);
+    memset(content, '\0', sizeof(content));
+
+    va_start(args, message);
+    vsnprintf(content, LOG_BUFFER, message, args);
+    va_end(args);
+
+    if (level <= conf->ui_log_level)
+        ui_message("%s\n", content);
+//        fprintf(UI_MESSAGES_OUTPUT, "%s\n", content);
+
+    pthread_mutex_unlock(&log_lock);
+}
+
+void log_start() {
+    ui_message("------- START -------\n");
+}
+
+void log_stop() {
+    ui_message("-------- END --------\n");
 }
 
 char *log_level_to_char(int level) {
@@ -72,6 +98,8 @@ char *log_level_to_char(int level) {
             return "INFO ";
         case LOG_LEVEL_DEBUG:
             return "DEBUG";
+        case LOG_LEVEL_TRACE:
+            return "TRACE";
         default:
             return "     ";
     }

@@ -29,13 +29,25 @@
 #define LOG_LEVEL_WARNING 2
 #define LOG_LEVEL_INFO 3
 #define LOG_LEVEL_DEBUG 4
+#define LOG_LEVEL_TRACE 5
+
+#define LOG_BUFFER 131072
 
 #define log_error(element, message, ...) log_message(LOG_LEVEL_ERROR, element, message, ##__VA_ARGS__)
 #define log_warn(element, message, ...) log_message(LOG_LEVEL_WARNING, element, message, ##__VA_ARGS__)
 #define log_info(element, message, ...) log_message(LOG_LEVEL_INFO, element, message, ##__VA_ARGS__)
 #define log_debug(element, message, ...) log_message(LOG_LEVEL_DEBUG, element, message, ##__VA_ARGS__)
+#define log_trace(element, message, ...) log_message(LOG_LEVEL_TRACE, element, message, ##__VA_ARGS__)
+
+void log_init();
+
+void log_free();
 
 void log_message(int, const char *, const char *, ...);
+
+void log_start();
+
+void log_stop();
 
 char *log_level_to_char(int);
 

@@ -20,10 +20,16 @@
 #ifndef __RTLSDR_RADIO__RTLSDR_RADIO__H
 #define __RTLSDR_RADIO__RTLSDR_RADIO__H
 
+void signal_handler(int signum);
+
 int main_program();
 
 int main_program_mode_rx();
 
 int main_program_mode_info();
+
+void *thread_rx_device_read(void *);
+
+void *thread_rx_demod(void *);
 
 #endif

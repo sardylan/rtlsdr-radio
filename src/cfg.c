@@ -181,7 +181,7 @@ int cfg_parse(int argc, char **argv) {
             else if (strcmp(optarg, "info") == 0)
                 conf->mode = MODE_INFO;
             else {
-                log_error("conf", "Wrong mode: %s\n", optarg);
+                log_error("conf", "Wrong mode: %s", optarg);
                 ret = EXIT_FAILURE;
                 break;
             }

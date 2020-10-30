@@ -34,7 +34,8 @@ struct circbuf_ctx_t {
     size_t size;
     size_t free;
 
-    pthread_mutex_t *lock;
+    pthread_mutex_t mutex;
+    pthread_cond_t cond;
 };
 
 typedef struct circbuf_ctx_t circbuf_ctx;
