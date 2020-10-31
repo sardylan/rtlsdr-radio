@@ -82,7 +82,7 @@ int circbuf_put(circbuf_ctx *ctx, void *data, size_t len) {
     size_t front_avail;
     size_t ln;
 
-    log_info("circbuf", "Putting %zu bytes", len);
+    log_debug("circbuf", "Putting %zu bytes", len);
 
     ret = EXIT_SUCCESS;
 
@@ -128,7 +128,7 @@ int circbuf_get(circbuf_ctx *ctx, void *data, size_t len) {
     size_t front_avail;
     size_t ln;
 
-    log_info("circbuf", "Getting %zu bytes", len);
+    log_debug("circbuf", "Getting %zu bytes", len);
 
     ret = EXIT_SUCCESS;
 
