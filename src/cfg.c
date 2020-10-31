@@ -52,6 +52,8 @@ void cfg_init() {
     conf->rtlsdr_device_tuner_gain = CONFIG_RTLSDR_DEVICE_TUNER_GAIN_DEFAULT;
     conf->rtlsdr_device_agc_mode = CONFIG_RTLSDR_DEVICE_AGC_MODEDEFAULT;
     conf->rtlsdr_buffer = CONFIG_RTLSDR_BUFFER_DEFAULT;
+
+    conf->modulation = CONFIG_MODULATION_DEFAULT;
 }
 
 void cfg_free() {
@@ -74,17 +76,20 @@ void cfg_print() {
     fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_device_tuner_gain:      %u\n", conf->rtlsdr_device_tuner_gain);
     fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_device_agc_mode:        %u\n", conf->rtlsdr_device_agc_mode);
     fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_buffer:                 %zu\n", conf->rtlsdr_buffer);
+    fprintf(UI_MESSAGES_OUTPUT, "modulation:                    %s\n", log_modulation_to_char(conf->modulation));
     fprintf(UI_MESSAGES_OUTPUT, "\n");
 }
 
 int cfg_parse(int argc, char **argv) {
-    int ret = EXIT_SUCCESS;
+    int ret;
     int option_index = 0;
     int c;
     size_t ln;
     int conf_file = 0;
     char *config_file;
     char *endptr;
+
+    ret = EXIT_SUCCESS;
 
     static struct option long_options[] = {
             {"config",                        required_argument, 0, 'c'},
@@ -111,6 +116,8 @@ int cfg_parse(int argc, char **argv) {
             {"rtlsdr-device-agc-mode",        required_argument, 0, 'a'},
             {"rtlsdr-buffer",                 required_argument, 0, 'b'},
 
+            {"modulation",                    required_argument, 0, 'M'},
+
             {0, 0,                                               0, 0}
     };
 
@@ -118,7 +125,7 @@ int cfg_parse(int argc, char **argv) {
     *config_file = '\0';
 
     while (1) {
-        c = getopt_long(argc, argv, "c:hVqvd:l:L:Dm:i:s:f:p:G:g:a:b:", long_options, &option_index);
+        c = getopt_long(argc, argv, "c:hVqvd:l:L:Dm:i:s:f:p:G:g:a:b:M:", long_options, &option_index);
 
         if (c == -1) {
             break;
@@ -174,8 +181,6 @@ int cfg_parse(int argc, char **argv) {
         }
 
         if (c == 'm') {
-            ln = strlen(optarg) + 1;
-
             if (strcmp(optarg, "rx") == 0)
                 conf->mode = MODE_RX;
             else if (strcmp(optarg, "info") == 0)
@@ -217,6 +222,18 @@ int cfg_parse(int argc, char **argv) {
 
         if (c == 'b') {
             conf->rtlsdr_buffer = (size_t) strtol(optarg, &endptr, 10);
+        }
+
+        if (c == 'M') {
+            if (strcmp(optarg, "am") == 0)
+                conf->modulation = MOD_TYPE_AM;
+            else if (strcmp(optarg, "fm") == 0)
+                conf->modulation = MOD_TYPE_FM;
+            else {
+                log_error("conf", "Wrong modulation: %s", optarg);
+                ret = EXIT_FAILURE;
+                break;
+            }
         }
     }
 

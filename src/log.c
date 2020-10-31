@@ -126,3 +126,14 @@ char *log_bool_to_char(int value) {
     else
         return "YES";
 }
+
+char *log_modulation_to_char(modulation_type value) {
+    switch (value) {
+        case MOD_TYPE_AM:
+            return "AM";
+        case MOD_TYPE_FM:
+            return "FM";
+        default:
+            return "";
+    }
+}

@@ -55,4 +55,6 @@ char *log_mode_to_char(work_mode);
 
 char *log_bool_to_char(int);
 
+char *log_modulation_to_char(modulation_type);
+
 #endif

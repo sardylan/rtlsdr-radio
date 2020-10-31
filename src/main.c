@@ -229,8 +229,13 @@ void *thread_rx_demod(void *data) {
             sample = i + q * I;
 
             product = sample * conj(prev_sample);
-            value = atan2(cimag(product), creal(product)) / M_PI;
-//            value = cabs(product);
+
+            if (conf->modulation == MOD_TYPE_FM)
+                value = atan2(cimag(product), creal(product)) / M_PI;
+            else if (conf->modulation == MOD_TYPE_AM)
+                value = cabs(product);
+            else
+                value = 0;
 
             elem = (int8_t) (value * 127);
             output_buffer[j / 2] = elem;

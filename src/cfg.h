@@ -32,6 +32,13 @@ enum work_mode_t {
 
 typedef enum work_mode_t work_mode;
 
+enum modulation_type_t {
+    MOD_TYPE_AM = 0,
+    MOD_TYPE_FM = 1
+};
+
+typedef enum modulation_type_t modulation_type;
+
 struct cfg_t {
     int ui_log_level;
     int file_log_level;
@@ -49,6 +56,8 @@ struct cfg_t {
     int rtlsdr_device_tuner_gain;
     int rtlsdr_device_agc_mode;
     size_t rtlsdr_buffer;
+
+    modulation_type modulation;
 };
 
 typedef struct cfg_t cfg;
