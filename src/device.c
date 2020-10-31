@@ -142,6 +142,21 @@ void device_close() {
     rtlsdr_close(device);
 }
 
+void device_info() {
+    uint32_t sample_rate;
+    uint32_t center_freq;
+    int freq_correction;
+    int tuner_gain;
+
+    sample_rate = rtlsdr_get_sample_rate(device);
+    center_freq = rtlsdr_get_center_freq(device);
+    freq_correction = rtlsdr_get_freq_correction(device);
+    tuner_gain = rtlsdr_get_tuner_gain(device);
+
+    log_info("device", "Sample rate: %zu - Center freq: %zu - Freq correction: %d - Tuner gain: %d",
+             sample_rate, center_freq, freq_correction, tuner_gain);
+}
+
 char *device_tuner_to_char(enum rtlsdr_tuner tuner) {
     switch (tuner) {
 

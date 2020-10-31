@@ -103,6 +103,8 @@ int main_program() {
 int main_program_mode_rx() {
     int result;
     pthread_attr_t attr;
+    struct timespec sleep_req;
+    struct timespec sleep_rem;
 
     log_debug("main", "Allocating circbuf");
     buffer_iq = (circbuf_ctx *) malloc(sizeof(circbuf_ctx));
@@ -130,6 +132,15 @@ int main_program_mode_rx() {
 
     log_debug("main", "Starting RX demod thread");
     pthread_create(&demod_thread, &attr, thread_rx_demod, NULL);
+
+    sleep_req.tv_sec = 2;
+    sleep_req.tv_nsec = 0;
+
+    log_debug("main", "Printing device infos");
+    while (keep_running) {
+        device_info();
+        nanosleep(&sleep_req, &sleep_rem);
+    }
 
     log_debug("main", "Joining threads");
     pthread_join(device_thread, NULL);
@@ -182,8 +193,8 @@ void *thread_rx_demod(void *data) {
     uint8_t *input_buffer;
     int8_t *output_buffer;
     int j;
-    uint8_t i;
-    uint8_t q;
+    int8_t i;
+    int8_t q;
 
     size_t output_buffer_size;
 
@@ -205,14 +216,16 @@ void *thread_rx_demod(void *data) {
 
     output_buffer_size = conf->rtlsdr_buffer / 2;
 
+    prev_sample = 0 + 0 * I;
+
     log_debug("thread-demod", "Starting demod loop");
     while (keep_running) {
         circbuf_get(buffer_iq, input_buffer, conf->rtlsdr_buffer);
         log_trace("thread-demod", "Read %zu bytes", conf->rtlsdr_buffer);
 
         for (j = 0; j < conf->rtlsdr_buffer; j += 2) {
-            i = input_buffer[j] - 127;
-            q = input_buffer[j + 1] - 127;
+            i = input_buffer[j] - 128;
+            q = input_buffer[j + 1] - 128;
             sample = i + q * I;
 
             product = sample * conj(prev_sample);
@@ -221,6 +234,7 @@ void *thread_rx_demod(void *data) {
 
             elem = (int8_t) (value * 127);
             output_buffer[j / 2] = elem;
+
             prev_sample = sample;
         }
 

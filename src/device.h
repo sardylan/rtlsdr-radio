@@ -26,6 +26,8 @@ int device_open();
 
 void device_close();
 
+void device_info();
+
 char *device_tuner_to_char(enum rtlsdr_tuner);
 
 #endif
