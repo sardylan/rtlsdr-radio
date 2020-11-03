@@ -191,12 +191,11 @@ void *thread_rx_device_read(void *data) {
 
 void *thread_rx_demod(void *data) {
     uint8_t *input_buffer;
+    double complex *samples;
     int8_t *output_buffer;
     int j;
-    int8_t i;
-    int8_t q;
 
-    size_t output_buffer_size;
+    size_t samples_num;
 
     double complex sample;
     double complex product;
@@ -207,27 +206,26 @@ void *thread_rx_demod(void *data) {
 
     log_info("thread-demod", "Thread start");
 
-    output_buffer_size = conf->rtlsdr_buffer / 2;
-    log_debug("thread-demod", "Output buffer size is %zu", output_buffer_size);
+    samples_num = conf->rtlsdr_buffer / 2;
+    log_debug("thread-demod", "Output buffer size is %zu", samples_num);
 
-    log_debug("thread-demod", "Allocating input and output buffers");
+    log_debug("thread-demod", "Allocating input, samples and output buffers");
     input_buffer = (uint8_t *) calloc(conf->rtlsdr_buffer, sizeof(uint8_t));
-    output_buffer = (int8_t *) calloc(output_buffer_size, sizeof(int8_t));
-
-    output_buffer_size = conf->rtlsdr_buffer / 2;
+    samples = (double complex *) calloc(samples_num, sizeof(double complex));
+    output_buffer = (int8_t *) calloc(samples_num, sizeof(int8_t));
 
     prev_sample = 0 + 0 * I;
 
     log_debug("thread-demod", "Starting demod loop");
     while (keep_running) {
+        log_trace("thread-demod", "Reading %zu bytes", conf->rtlsdr_buffer);
         circbuf_get(buffer_iq, input_buffer, conf->rtlsdr_buffer);
-        log_trace("thread-demod", "Read %zu bytes", conf->rtlsdr_buffer);
 
-        for (j = 0; j < conf->rtlsdr_buffer; j += 2) {
-            i = input_buffer[j] - 128;
-            q = input_buffer[j + 1] - 128;
-            sample = i + q * I;
+        log_trace("thread-demod", "Converting to complex samples", conf->rtlsdr_buffer);
+        device_buffer_to_samples(input_buffer, samples, conf->rtlsdr_buffer);
 
+        for (j = 0; j < samples_num; j++) {
+            sample = samples[j];
             product = sample * conj(prev_sample);
 
             if (conf->modulation == MOD_TYPE_FM)
@@ -238,12 +236,12 @@ void *thread_rx_demod(void *data) {
                 value = 0;
 
             elem = (int8_t) (value * 127);
-            output_buffer[j / 2] = elem;
+            output_buffer[j] = elem;
 
             prev_sample = sample;
         }
 
-        fwrite(output_buffer, sizeof(int8_t), output_buffer_size, stdout);
+        fwrite(output_buffer, sizeof(int8_t), samples_num, stdout);
     }
 
     free(input_buffer);

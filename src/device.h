@@ -20,6 +20,8 @@
 #ifndef __RTLSDR_RADIO__DEVICE__H
 #define __RTLSDR_RADIO__DEVICE__H
 
+#include <complex.h>
+
 void device_list();
 
 int device_open();
@@ -27,6 +29,8 @@ int device_open();
 void device_close();
 
 void device_info();
+
+int device_buffer_to_samples(const uint8_t *, double complex *, size_t);
 
 char *device_tuner_to_char(enum rtlsdr_tuner);
 

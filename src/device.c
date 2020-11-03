@@ -18,6 +18,7 @@
 
 
 #include <string.h>
+#include <stdlib.h>
 #include <malloc.h>
 #include <rtl-sdr.h>
 
@@ -135,7 +136,7 @@ int device_open() {
 
     rtlsdr_reset_buffer(device);
 
-    return 0;
+    return EXIT_SUCCESS;
 }
 
 void device_close() {
@@ -155,6 +156,20 @@ void device_info() {
 
     log_info("device", "Sample rate: %zu - Center freq: %zu - Freq correction: %d - Tuner gain: %d",
              sample_rate, center_freq, freq_correction, tuner_gain);
+}
+
+int device_buffer_to_samples(const uint8_t *buffer, double complex *samples, size_t buffer_size) {
+    int8_t i;
+    int8_t q;
+    size_t j;
+
+    for (j = 0; j < buffer_size; j += 2) {
+        i = buffer[j] - 128;
+        q = buffer[j + 1] - 128;
+        samples[j / 2] = i + q * I;
+    }
+
+    return EXIT_SUCCESS;
 }
 
 char *device_tuner_to_char(enum rtlsdr_tuner tuner) {
