@@ -25,6 +25,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/syscall.h>
+#include <libgen.h>
 
 #include "log.h"
 #include "cfg.h"
@@ -42,7 +43,7 @@ void log_free() {
     pthread_mutex_destroy(&log_lock);
 }
 
-void log_message(const int level, const char *element, const char *message, ...) {
+void log_message(const int level, const char *element, char *filename, const int row, const char *message, ...) {
     va_list args;
     char datetime[27];
     struct tm *timeinfo;
@@ -61,7 +62,13 @@ void log_message(const int level, const char *element, const char *message, ...)
     strftime(datetime, 20, "%Y-%m-%d %H:%M:%S", timeinfo);
     sprintf(datetime + 19, ".%06zu", ts.tv_nsec / 1000);
 
-    sprintf(prefix, "%s (%lx) [%s] {%s} ", datetime, pthread_self(), log_level_to_char(level), element);
+    sprintf(prefix, "%s (%lx) [%s] {%s} (%s:%d) ",
+            datetime,
+            pthread_self(),
+            log_level_to_char(level),
+            element,
+            basename(filename),
+            row);
 
     fprintf(UI_MESSAGES_OUTPUT, "%s", prefix);
 

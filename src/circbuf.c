@@ -27,33 +27,33 @@
 int circbuf_init(circbuf_ctx *ctx) {
     int result;
 
-    log_info("circbuf", "Circular buffer init");
+    log_info("Circular buffer init");
 
-    log_debug("circbuf", "Allocating %zu bytes for data", CIRCBUF_INITIAL_SIZE);
+    log_debug("Allocating %zu bytes for data", CIRCBUF_INITIAL_SIZE);
     ctx->pointer = (void *) calloc(CIRCBUF_INITIAL_SIZE, sizeof(uint8_t));
     if (ctx->pointer == NULL) {
         free(ctx);
         return EXIT_FAILURE;
     }
 
-    log_debug("circbuf", "Setting internal references and counters");
+    log_debug("Setting internal references and counters");
     ctx->head = 0;
     ctx->tail = 0;
 
     ctx->size = CIRCBUF_INITIAL_SIZE;
     ctx->free = CIRCBUF_INITIAL_SIZE;
 
-    log_debug("circbuf", "Initializing mutex");
+    log_debug("Initializing mutex");
     result = pthread_mutex_init(&ctx->mutex, NULL);
     if (result != 0) {
-        log_error("circbuf", "Error initializing mutex: %d", result);
+        log_error("Error initializing mutex: %d", result);
         return EXIT_FAILURE;
     }
 
-    log_debug("circbuf", "Initializing condition");
+    log_debug("Initializing condition");
     result = pthread_cond_init(&ctx->cond, NULL);
     if (result != 0) {
-        log_error("circbuf", "Error initializing condition: %d", result);
+        log_error("Error initializing condition: %d", result);
         return EXIT_FAILURE;
     }
 
@@ -61,18 +61,18 @@ int circbuf_init(circbuf_ctx *ctx) {
 }
 
 void circbuf_free(circbuf_ctx *ctx) {
-    log_info("circbuf", "Circular buffer free");
+    log_info("Circular buffer free");
 
-    log_debug("circbuf", "Destroying mutex");
+    log_debug("Destroying mutex");
     pthread_mutex_destroy(&ctx->mutex);
 
-    log_debug("circbuf", "Destroying cond");
+    log_debug("Destroying cond");
     pthread_cond_destroy(&ctx->cond);
 
-    log_debug("circbuf", "Freeing data pointer");
+    log_debug("Freeing data pointer");
     free(ctx->pointer);
 
-    log_debug("circbuf", "Freeing circbuf");
+    log_debug("Freeing circbuf");
     free(ctx);
 }
 
@@ -82,14 +82,14 @@ int circbuf_put(circbuf_ctx *ctx, void *data, size_t len) {
     size_t front_avail;
     size_t ln;
 
-    log_debug("circbuf", "Putting %zu bytes", len);
+    log_debug("Putting %zu bytes", len);
 
     ret = EXIT_SUCCESS;
 
-    log_debug("circbuf", "Locking mutex");
+    log_debug("Locking mutex");
     pthread_mutex_lock(&ctx->mutex);
 
-    log_debug("circbuf", "Adding data");
+    log_debug("Adding data");
     if (len <= ctx->free) {
         begin = ctx->pointer + ctx->head;
         front_avail = ctx->size - ctx->head;
@@ -112,10 +112,10 @@ int circbuf_put(circbuf_ctx *ctx, void *data, size_t len) {
         ret = EXIT_FAILURE;
     }
 
-    log_debug("circbuf", "Unlocking mutex");
+    log_debug("Unlocking mutex");
     pthread_mutex_unlock(&ctx->mutex);
 
-    log_debug("circbuf", "Signaling condition");
+    log_debug("Signaling condition");
     pthread_cond_signal(&ctx->cond);
 
     return ret;
@@ -128,19 +128,19 @@ int circbuf_get(circbuf_ctx *ctx, void *data, size_t len) {
     size_t front_avail;
     size_t ln;
 
-    log_debug("circbuf", "Getting %zu bytes", len);
+    log_debug("Getting %zu bytes", len);
 
     ret = EXIT_SUCCESS;
 
-    log_debug("circbuf", "Locking mutex");
+    log_debug("Locking mutex");
     pthread_mutex_lock(&ctx->mutex);
 
     while ((used = ctx->size - ctx->free) < len) {
-        log_trace("circbuf", "Data not available yet, waiting");
+        log_trace("Data not available yet, waiting");
         pthread_cond_wait(&ctx->cond, &ctx->mutex);
     }
 
-    log_debug("circbuf", "Getting data");
+    log_debug("Getting data");
     if (len <= used) {
         begin = ctx->pointer + ctx->tail;
         front_avail = ctx->size - ctx->tail;
@@ -163,7 +163,7 @@ int circbuf_get(circbuf_ctx *ctx, void *data, size_t len) {
         ret = EXIT_FAILURE;
     }
 
-    log_debug("circbuf", "Unlocking mutex");
+    log_debug("Unlocking mutex");
     pthread_mutex_unlock(&ctx->mutex);
 
     return ret;

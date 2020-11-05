@@ -188,7 +188,7 @@ int cfg_parse(int argc, char **argv) {
             else if (strcmp(optarg, "info") == 0)
                 conf->mode = MODE_INFO;
             else {
-                log_error("conf", "Wrong mode: %s", optarg);
+                log_error("Wrong mode: %s", optarg);
                 ret = EXIT_FAILURE;
                 break;
             }
@@ -232,7 +232,7 @@ int cfg_parse(int argc, char **argv) {
             else if (strcmp(optarg, "fm") == 0)
                 conf->modulation = MOD_TYPE_FM;
             else {
-                log_error("conf", "Wrong modulation: %s", optarg);
+                log_error("Wrong modulation: %s", optarg);
                 ret = EXIT_FAILURE;
                 break;
             }
