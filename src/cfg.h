@@ -58,6 +58,8 @@ struct cfg_t {
     size_t rtlsdr_buffer;
 
     modulation_type modulation;
+
+    uint32_t audio_sample_rate;
 };
 
 typedef struct cfg_t cfg;

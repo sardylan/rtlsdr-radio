@@ -31,6 +31,7 @@
 #include "device.h"
 #include "log.h"
 #include "circbuf.h"
+#include "resample.h"
 
 const char *main_program_name;
 static volatile int keep_running = 1;
@@ -193,16 +194,18 @@ void *thread_rx_demod(void *data) {
     uint8_t *input_buffer;
     double complex *samples;
     int8_t *output_buffer;
-    int j;
-
-    size_t samples_num;
+    int8_t *audio_buffer;
 
     double complex sample;
     double complex product;
     double complex prev_sample;
 
+    resample_ctx *res_ctx;
     double value;
     int8_t elem;
+    size_t samples_num;
+    size_t audio_num;
+    int j;
 
     log_info("thread-demod", "Thread start");
 
@@ -213,6 +216,15 @@ void *thread_rx_demod(void *data) {
     input_buffer = (uint8_t *) calloc(conf->rtlsdr_buffer, sizeof(uint8_t));
     samples = (double complex *) calloc(samples_num, sizeof(double complex));
     output_buffer = (int8_t *) calloc(samples_num, sizeof(int8_t));
+
+    log_debug("thread-demod", "Creating resample context");
+    res_ctx = resample_init(conf->rtlsdr_device_sample_rate, conf->audio_sample_rate);
+
+    audio_num = resample_compute_output_size(res_ctx, samples_num);
+    log_debug("thread-demod", "Audio buffer size is %zu", audio_num);
+
+    log_debug("thread-demod", "Allocating audio buffer");
+    audio_buffer = (int8_t *) calloc(audio_num, sizeof(int8_t));
 
     prev_sample = 0 + 0 * I;
 
@@ -228,12 +240,18 @@ void *thread_rx_demod(void *data) {
             sample = samples[j];
             product = sample * conj(prev_sample);
 
-            if (conf->modulation == MOD_TYPE_FM)
-                value = atan2(cimag(product), creal(product)) / M_PI;
-            else if (conf->modulation == MOD_TYPE_AM)
-                value = cabs(product);
-            else
-                value = 0;
+            switch (conf->modulation) {
+                case MOD_TYPE_FM:
+                    value = atan2(cimag(product), creal(product)) / M_PI;
+                    break;
+
+                case MOD_TYPE_AM:
+                    value = cabs(product);
+                    break;
+
+                default:
+                    value = 0;
+            }
 
             elem = (int8_t) (value * 127);
             output_buffer[j] = elem;
@@ -241,10 +259,21 @@ void *thread_rx_demod(void *data) {
             prev_sample = sample;
         }
 
-        fwrite(output_buffer, sizeof(int8_t), samples_num, stdout);
+        resample_do(res_ctx, output_buffer, samples_num, audio_buffer, audio_num);
+        fwrite(audio_buffer, sizeof(int8_t), audio_num, stdout);
+
+//        fwrite(output_buffer, sizeof(int8_t), samples_num, stdout);
+
+//        for (j = 0; j < samples_num; j += 32)
+//            fwrite(&output_buffer[j], sizeof(int8_t), 1, stdout);
     }
 
+    resample_free(res_ctx);
+
     free(input_buffer);
+    free(samples);
+    free(output_buffer);
+    free(audio_buffer);
 
     log_info("thread-demod", "Thread end");
 

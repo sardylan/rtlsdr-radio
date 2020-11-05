@@ -54,6 +54,8 @@ void cfg_init() {
     conf->rtlsdr_buffer = CONFIG_RTLSDR_BUFFER_DEFAULT;
 
     conf->modulation = CONFIG_MODULATION_DEFAULT;
+
+    conf->audio_sample_rate = CONFIG_AUDIO_SAMPLE_RATE_DEFAULT;
 }
 
 void cfg_free() {
@@ -77,6 +79,7 @@ void cfg_print() {
     fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_device_agc_mode:        %u\n", conf->rtlsdr_device_agc_mode);
     fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_buffer:                 %zu\n", conf->rtlsdr_buffer);
     fprintf(UI_MESSAGES_OUTPUT, "modulation:                    %s\n", log_modulation_to_char(conf->modulation));
+    fprintf(UI_MESSAGES_OUTPUT, "audio_sample_rate:             %u\n", conf->audio_sample_rate);
     fprintf(UI_MESSAGES_OUTPUT, "\n");
 }
 
@@ -108,7 +111,6 @@ int cfg_parse(int argc, char **argv) {
             {"mode",                          required_argument, 0, 'm'},
 
             {"rtlsdr-device-id",              required_argument, 0, 'i'},
-            {"rtlsdr-device-sample-rate",     required_argument, 0, 's'},
             {"rtlsdr-device-center-freq",     required_argument, 0, 'f'},
             {"rtlsdr-device-freq-correction", required_argument, 0, 'p'},
             {"rtlsdr-device-tuner-gain-mode", required_argument, 0, 'G'},
@@ -125,7 +127,7 @@ int cfg_parse(int argc, char **argv) {
     *config_file = '\0';
 
     while (1) {
-        c = getopt_long(argc, argv, "c:hVqvd:l:L:Dm:i:s:f:p:G:g:a:b:M:", long_options, &option_index);
+        c = getopt_long(argc, argv, "c:hVqvd:l:L:Dm:i:f:p:G:g:a:b:M:", long_options, &option_index);
 
         if (c == -1) {
             break;
