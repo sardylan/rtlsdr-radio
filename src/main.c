@@ -261,11 +261,6 @@ void *thread_rx_demod(void *data) {
 
         resample_do(res_ctx, output_buffer, samples_num, audio_buffer, audio_num);
         fwrite(audio_buffer, sizeof(int8_t), audio_num, stdout);
-
-//        fwrite(output_buffer, sizeof(int8_t), samples_num, stdout);
-
-//        for (j = 0; j < samples_num; j += 32)
-//            fwrite(&output_buffer[j], sizeof(int8_t), 1, stdout);
     }
 
     resample_free(res_ctx);
