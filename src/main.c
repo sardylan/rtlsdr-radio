@@ -36,9 +36,11 @@
 const char *main_program_name;
 static volatile int keep_running = 1;
 circbuf_ctx *buffer_iq;
+circbuf_ctx *buffer_demod;
 
-pthread_t device_thread;
-pthread_t demod_thread;
+pthread_t rx_device_thread;
+pthread_t rx_demod_thread;
+pthread_t rx_resample_thread;
 
 extern cfg *conf;
 extern rtlsdr_dev_t *device;
@@ -81,7 +83,7 @@ int main(int argc, char **argv) {
 
 void signal_handler(int signum) {
     if (signum == SIGINT)
-        keep_running = 0;
+        main_stop();
 }
 
 int main_program() {
@@ -107,32 +109,55 @@ int main_program_mode_rx() {
     struct timespec sleep_req;
     struct timespec sleep_rem;
 
-    log_debug("Allocating circbuf");
+    log_info("Main program RX mode");
+
+    log_debug("Allocating IQ circbuf");
     buffer_iq = (circbuf_ctx *) malloc(sizeof(circbuf_ctx));
     if (buffer_iq == NULL) {
-        log_error("Unable to allocate circular buffer");
+        log_error("Unable to allocate IQ circular buffer");
         return EXIT_FAILURE;
     }
 
+    log_debug("Init IQ circbuf");
     result = circbuf_init(buffer_iq);
     if (result == EXIT_FAILURE) {
         log_error("Unable to init IQ circular buffer");
         return EXIT_FAILURE;
     }
 
-    result = device_open();
-    if (result == -1)
+    log_debug("Allocating demod circbuf");
+    buffer_demod = (circbuf_ctx *) malloc(sizeof(circbuf_ctx));
+    if (buffer_demod == NULL) {
+        log_error("Unable to allocate demod circular buffer");
         return EXIT_FAILURE;
+    }
+
+    log_debug("Init demod circbuf");
+    result = circbuf_init(buffer_demod);
+    if (result == EXIT_FAILURE) {
+        log_error("Unable to init demod circular buffer");
+        return EXIT_FAILURE;
+    }
+
+    log_debug("Opening RTL-SDR device");
+    result = device_open();
+    if (result == EXIT_FAILURE) {
+        log_error("Unable to open RTL-SDR device");
+        return EXIT_FAILURE;
+    }
 
     log_debug("Setting thread attributes");
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
 
     log_debug("Starting RX device read thread");
-    pthread_create(&device_thread, &attr, thread_rx_device_read, NULL);
+    pthread_create(&rx_device_thread, &attr, thread_rx_device_read, NULL);
 
     log_debug("Starting RX demod thread");
-    pthread_create(&demod_thread, &attr, thread_rx_demod, NULL);
+    pthread_create(&rx_demod_thread, &attr, thread_rx_demod, NULL);
+
+    log_debug("Starting RX resample thread");
+    pthread_create(&rx_resample_thread, &attr, thread_rx_resample, NULL);
 
     sleep_req.tv_sec = 2;
     sleep_req.tv_nsec = 0;
@@ -144,12 +169,16 @@ int main_program_mode_rx() {
     }
 
     log_debug("Joining threads");
-    pthread_join(device_thread, NULL);
-    pthread_join(demod_thread, NULL);
+    pthread_join(rx_device_thread, NULL);
+    pthread_join(rx_demod_thread, NULL);
+    pthread_join(rx_resample_thread, NULL);
 
+    log_debug("Closing RTL-SDR device");
     device_close();
 
+    log_debug("Freeing buffers");
     circbuf_free(buffer_iq);
+    circbuf_free(buffer_demod);
 
     return EXIT_SUCCESS;
 }
@@ -158,6 +187,10 @@ int main_program_mode_info() {
     device_list();
 
     return EXIT_SUCCESS;
+}
+
+void main_stop() {
+    keep_running = 0;
 }
 
 void *thread_rx_device_read(void *data) {
@@ -197,17 +230,14 @@ void *thread_rx_demod(void *data) {
     uint8_t *input_buffer;
     double complex *samples;
     int8_t *output_buffer;
-    int8_t *audio_buffer;
 
     double complex sample;
     double complex product;
     double complex prev_sample;
 
-    resample_ctx *res_ctx;
     double value;
     int8_t elem;
     size_t rtlsdr_buffer_size;
-    size_t audio_num;
     int j;
 
     log_info("Thread start");
@@ -218,15 +248,6 @@ void *thread_rx_demod(void *data) {
     input_buffer = (uint8_t *) calloc(rtlsdr_buffer_size, sizeof(uint8_t));
     samples = (double complex *) calloc(conf->rtlsdr_samples, sizeof(double complex));
     output_buffer = (int8_t *) calloc(conf->rtlsdr_samples, sizeof(int8_t));
-
-    log_debug("Creating resample context");
-    res_ctx = resample_init(conf->rtlsdr_device_sample_rate, conf->audio_sample_rate);
-
-    audio_num = resample_compute_output_size(res_ctx, conf->rtlsdr_samples);
-    log_debug("Audio buffer size is %zu", audio_num);
-
-    log_debug("Allocating audio buffer");
-    audio_buffer = (int8_t *) calloc(audio_num, sizeof(int8_t));
 
     prev_sample = 0 + 0 * I;
 
@@ -261,16 +282,72 @@ void *thread_rx_demod(void *data) {
             prev_sample = sample;
         }
 
-        resample_do(res_ctx, output_buffer, conf->rtlsdr_samples, audio_buffer, audio_num);
-        fwrite(audio_buffer, sizeof(int8_t), audio_num, stdout);
+        circbuf_put(buffer_demod, output_buffer, conf->rtlsdr_samples);
     }
-
-    resample_free(res_ctx);
 
     free(input_buffer);
     free(samples);
     free(output_buffer);
-    free(audio_buffer);
+
+    log_info("Thread end");
+
+    return (void *) EXIT_SUCCESS;
+}
+
+void *thread_rx_resample(void *data) {
+    size_t audio_num;
+    int8_t *input_buffer;
+    int8_t *output_buffer;
+    resample_ctx *res_ctx;
+
+    log_debug("Initializing resample context");
+    res_ctx = resample_init();
+    if (res_ctx == NULL) {
+        log_error("Unable to allocate resample context");
+        main_stop();
+        return (void *) EXIT_FAILURE;
+    }
+
+    audio_num = resample_compute_output_size(res_ctx, conf->rtlsdr_samples);
+    log_debug("Audio buffer size is %zu", audio_num);
+
+    log_debug("Allocating input buffer");
+    input_buffer = (int8_t *) calloc(conf->rtlsdr_samples, sizeof(uint8_t));
+    if (input_buffer == NULL) {
+        log_error("Unable to allocate input buffer");
+        main_stop();
+        return (void *) EXIT_FAILURE;
+    }
+
+    log_debug("Allocating output buffer");
+    output_buffer = (int8_t *) calloc(audio_num, sizeof(int8_t));
+    if (res_ctx == NULL) {
+        log_error("Unable to allocate resample context");
+        main_stop();
+        return (void *) EXIT_FAILURE;
+    }
+
+    log_debug("Creating resample context");
+    res_ctx = resample_init(conf->rtlsdr_device_sample_rate, conf->audio_sample_rate);
+
+    log_debug("Starting demod loop");
+    while (keep_running) {
+        log_trace("Reading %zu bytes", conf->rtlsdr_samples);
+        circbuf_get(buffer_demod, input_buffer, conf->rtlsdr_samples);
+
+        log_trace("Resampling %zu bytes in %zu bytes", conf->rtlsdr_samples, audio_num);
+        resample_do(res_ctx, input_buffer, conf->rtlsdr_samples, output_buffer, audio_num);
+
+        log_trace("Output %zu bytes", audio_num);
+        fwrite(output_buffer, sizeof(int8_t), audio_num, stdout);
+    }
+
+    log_debug("Freeing resample context");
+    resample_free(res_ctx);
+
+    log_debug("Freeing buffers");
+    free(input_buffer);
+    free(output_buffer);
 
     log_info("Thread end");
 

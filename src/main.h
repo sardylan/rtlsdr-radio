@@ -28,8 +28,12 @@ int main_program_mode_rx();
 
 int main_program_mode_info();
 
+void main_stop();
+
 void *thread_rx_device_read(void *);
 
 void *thread_rx_demod(void *);
+
+void *thread_rx_resample(void *);
 
 #endif

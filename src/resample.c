@@ -31,6 +31,10 @@ resample_ctx *resample_init() {
 
     log_debug("Create resample context");
     ctx = (resample_ctx *) malloc(sizeof(resample_ctx));
+    if (ctx == NULL) {
+        log_error("Unable to allocate resample context");
+        return NULL;
+    }
 
     log_debug("Setting src and dest sample rate");
     ctx->src_rate = conf->rtlsdr_device_sample_rate;
