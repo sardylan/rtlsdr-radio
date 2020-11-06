@@ -22,6 +22,7 @@
 
 #include <stddef.h>
 #include <pthread.h>
+#include <time.h>
 
 #define CIRCBUF_INITIAL_SIZE 2097152
 
@@ -46,7 +47,7 @@ void circbuf_free(circbuf_ctx *);
 
 int circbuf_put(circbuf_ctx *, void *, size_t);
 
-int circbuf_get(circbuf_ctx *, void *,size_t);
+int circbuf_get(circbuf_ctx *, void *, size_t);
 
 size_t circbuf_size(circbuf_ctx *);
 
