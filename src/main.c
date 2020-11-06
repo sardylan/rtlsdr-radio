@@ -198,6 +198,7 @@ void *thread_rx_device_read(void *data) {
     size_t rtlsdr_buffer_size;
     int bytes;
     int result;
+    struct timespec ts;
 
     log_info("Thread start");
 
@@ -216,12 +217,20 @@ void *thread_rx_device_read(void *data) {
 
         log_trace("Read %zu bytes", bytes);
 
-        circbuf_put(buffer_iq, input_buffer, bytes);
+        timespec_get(&ts, TIME_UTC);
+
+        result = circbuf_put(buffer_iq, &ts, input_buffer, bytes);
+        if (result != EXIT_SUCCESS) {
+            log_error("Unable to put data to circbuf");
+            break;
+        }
     }
 
     free(input_buffer);
 
     log_info("Thread end");
+
+    main_stop();
 
     return (void *) EXIT_SUCCESS;
 }
@@ -239,6 +248,8 @@ void *thread_rx_demod(void *data) {
     int8_t elem;
     size_t rtlsdr_buffer_size;
     int j;
+    struct timespec ts;
+    int result;
 
     log_info("Thread start");
 
@@ -254,7 +265,11 @@ void *thread_rx_demod(void *data) {
     log_debug("Starting demod loop");
     while (keep_running) {
         log_trace("Reading %zu bytes", rtlsdr_buffer_size);
-        circbuf_get(buffer_iq, input_buffer, rtlsdr_buffer_size);
+        result = circbuf_get(buffer_iq, &ts, input_buffer, rtlsdr_buffer_size);
+        if (result != EXIT_SUCCESS) {
+            log_error("Unable to get data from circbuf");
+            break;
+        }
 
         log_trace("Converting to complex samples", rtlsdr_buffer_size);
         device_buffer_to_samples(input_buffer, samples, rtlsdr_buffer_size);
@@ -282,7 +297,11 @@ void *thread_rx_demod(void *data) {
             prev_sample = sample;
         }
 
-        circbuf_put(buffer_demod, output_buffer, conf->rtlsdr_samples);
+        result = circbuf_put(buffer_demod, &ts, output_buffer, conf->rtlsdr_samples);
+        if (result != EXIT_SUCCESS) {
+            log_error("Unable to put data to circbuf");
+            break;
+        }
     }
 
     free(input_buffer);
@@ -290,6 +309,8 @@ void *thread_rx_demod(void *data) {
     free(output_buffer);
 
     log_info("Thread end");
+
+    main_stop();
 
     return (void *) EXIT_SUCCESS;
 }
@@ -299,6 +320,8 @@ void *thread_rx_resample(void *data) {
     int8_t *input_buffer;
     int8_t *output_buffer;
     resample_ctx *res_ctx;
+    int result;
+    struct timespec ts;
 
     log_debug("Initializing resample context");
     res_ctx = resample_init();
@@ -333,7 +356,11 @@ void *thread_rx_resample(void *data) {
     log_debug("Starting demod loop");
     while (keep_running) {
         log_trace("Reading %zu bytes", conf->rtlsdr_samples);
-        circbuf_get(buffer_demod, input_buffer, conf->rtlsdr_samples);
+        result = circbuf_get(buffer_demod, &ts, input_buffer, conf->rtlsdr_samples);
+        if (result != EXIT_SUCCESS) {
+            log_error("Unable to get data from circbuf");
+            break;
+        }
 
         log_trace("Resampling %zu bytes in %zu bytes", conf->rtlsdr_samples, audio_num);
         resample_do(res_ctx, input_buffer, conf->rtlsdr_samples, output_buffer, audio_num);
@@ -350,6 +377,8 @@ void *thread_rx_resample(void *data) {
     free(output_buffer);
 
     log_info("Thread end");
+
+    main_stop();
 
     return (void *) EXIT_SUCCESS;
 }

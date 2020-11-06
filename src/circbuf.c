@@ -76,53 +76,44 @@ void circbuf_free(circbuf_ctx *ctx) {
     free(ctx);
 }
 
-int circbuf_put(circbuf_ctx *ctx, void *data, size_t len) {
-    int ret;
+size_t circbuf_size(circbuf_ctx *ctx) {
+    return ctx->size;
+}
+
+int circbuf_put_data(circbuf_ctx *ctx, void *data, size_t len) {
     void *begin;
     size_t front_avail;
     size_t ln;
 
     log_debug("Putting %zu bytes", len);
 
-    ret = EXIT_SUCCESS;
-
-    log_debug("Locking mutex");
-    pthread_mutex_lock(&ctx->mutex);
+    if (len > ctx->free)
+        return EXIT_FAILURE;
 
     log_debug("Adding data");
-    if (len <= ctx->free) {
-        begin = ctx->pointer + ctx->head;
-        front_avail = ctx->size - ctx->head;
 
-        if (len < front_avail) {
-            memcpy(begin, data, len);
-            ctx->head += len;
-        } else if (len == front_avail) {
-            memcpy(begin, data, len);
-            ctx->head = 0;
-        } else {
-            ln = len - front_avail;
-            memcpy(begin, data, front_avail);
-            memcpy(ctx->pointer, data + front_avail, ln);
-            ctx->head = ln;
-        }
+    begin = ctx->pointer + ctx->head;
+    front_avail = ctx->size - ctx->head;
 
-        ctx->free -= len;
+    if (len < front_avail) {
+        memcpy(begin, data, len);
+        ctx->head += len;
+    } else if (len == front_avail) {
+        memcpy(begin, data, len);
+        ctx->head = 0;
     } else {
-        ret = EXIT_FAILURE;
+        ln = len - front_avail;
+        memcpy(begin, data, front_avail);
+        memcpy(ctx->pointer, data + front_avail, ln);
+        ctx->head = ln;
     }
 
-    log_debug("Unlocking mutex");
-    pthread_mutex_unlock(&ctx->mutex);
+    ctx->free -= len;
 
-    log_debug("Signaling condition");
-    pthread_cond_signal(&ctx->cond);
-
-    return ret;
+    return EXIT_SUCCESS;
 }
 
-int circbuf_get(circbuf_ctx *ctx, void *data, size_t len) {
-    int ret;
+int circbuf_get_data(circbuf_ctx *ctx, void *data, size_t len) {
     size_t used;
     void *begin;
     size_t front_avail;
@@ -130,45 +121,76 @@ int circbuf_get(circbuf_ctx *ctx, void *data, size_t len) {
 
     log_debug("Getting %zu bytes", len);
 
-    ret = EXIT_SUCCESS;
-
-    log_debug("Locking mutex");
-    pthread_mutex_lock(&ctx->mutex);
-
     while ((used = ctx->size - ctx->free) < len) {
         log_trace("Data not available yet, waiting");
         pthread_cond_wait(&ctx->cond, &ctx->mutex);
     }
 
+    if (len > used)
+        return EXIT_FAILURE;
+
     log_debug("Getting data");
-    if (len <= used) {
-        begin = ctx->pointer + ctx->tail;
-        front_avail = ctx->size - ctx->tail;
 
-        if (len < front_avail) {
-            memcpy(data, begin, len);
-            ctx->tail += len;
-        } else if (len == front_avail) {
-            memcpy(data, begin, len);
-            ctx->tail = 0;
-        } else {
-            ln = len - front_avail;
-            memcpy(data, begin, front_avail);
-            memcpy(data + front_avail, ctx->pointer, ln);
-            ctx->tail = ln;
-        }
+    begin = ctx->pointer + ctx->tail;
+    front_avail = ctx->size - ctx->tail;
 
-        ctx->free += len;
+    if (len < front_avail) {
+        memcpy(data, begin, len);
+        ctx->tail += len;
+    } else if (len == front_avail) {
+        memcpy(data, begin, len);
+        ctx->tail = 0;
     } else {
-        ret = EXIT_FAILURE;
+        ln = len - front_avail;
+        memcpy(data, begin, front_avail);
+        memcpy(data + front_avail, ctx->pointer, ln);
+        ctx->tail = ln;
     }
+
+    ctx->free += len;
+
+    return EXIT_SUCCESS;
+}
+
+int circbuf_put(circbuf_ctx *ctx, struct timespec *ts, void *data, size_t data_size) {
+    int result;
+
+    log_debug("Locking mutex");
+    pthread_mutex_lock(&ctx->mutex);
+
+    result = circbuf_put_data(ctx, ts, sizeof(struct timespec));
+    if(result != EXIT_SUCCESS)
+        return EXIT_FAILURE;
+
+    result = circbuf_put_data(ctx, data, data_size);
+    if(result != EXIT_SUCCESS)
+        return EXIT_FAILURE;
 
     log_debug("Unlocking mutex");
     pthread_mutex_unlock(&ctx->mutex);
 
-    return ret;
+    log_debug("Signaling condition");
+    pthread_cond_signal(&ctx->cond);
+
+    return result;
 }
 
-size_t circbuf_size(circbuf_ctx *ctx) {
-    return ctx->size;
+int circbuf_get(circbuf_ctx *ctx, struct timespec *ts, void *data, size_t data_size) {
+    int result;
+
+    log_debug("Locking mutex");
+    pthread_mutex_lock(&ctx->mutex);
+
+    result = circbuf_get_data(ctx, ts, sizeof(struct timespec));
+    if(result != EXIT_SUCCESS)
+        return EXIT_FAILURE;
+
+    result = circbuf_get_data(ctx, data, data_size);
+    if(result != EXIT_SUCCESS)
+        return EXIT_FAILURE;
+
+    log_debug("Unlocking mutex");
+    pthread_mutex_unlock(&ctx->mutex);
+
+    return result;
 }
