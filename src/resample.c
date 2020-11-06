@@ -23,12 +23,6 @@
 #include "log.h"
 #include "cfg.h"
 
-#define src_ch_layout AV_CH_LAYOUT_MONO
-#define dst_ch_layout AV_CH_LAYOUT_MONO
-
-#define src_sample_fmt AV_SAMPLE_FMT_U8
-#define dst_sample_fmt AV_SAMPLE_FMT_U8
-
 extern cfg *conf;
 
 resample_ctx *resample_init() {
@@ -61,8 +55,11 @@ int resample_do(resample_ctx *ctx, const int8_t *input, size_t input_size, int8_
 
     log_info("Resampling");
 
+    // TODO: Simple resample algorithm. It just skip samples, but there is no low-pass filter
     for (i = 0; i < output_size; i++) {
         shift = ctx->ratio * i;
+        if (shift >= input_size)
+            break;
         output[i] = input[shift];
     }
 

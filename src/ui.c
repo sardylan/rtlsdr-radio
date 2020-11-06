@@ -96,12 +96,6 @@ void ui_help() {
     ui_message("\n");
     ui_message("\n");
     ui_message("    -i | --rtlsdr-device-id               Device ID (%zu)\n", CONFIG_RTLSDR_DEVICE_ID_DEFAULT);
-    ui_message("\n");
-    ui_message("    -s | --rtlsdr-device-sample-rate      Sample Rate in samples per second (%zu)\n",
-               CONFIG_RTLSDR_DEVICE_SAMPLE_RATE_DEFAULT);
-    ui_message("                                          min:  250000\n");
-    ui_message("                                          max: 3200000\n");
-    ui_message("\n");
     ui_message("    -f | --rtlsdr-device-center-freq      Center frequency in Hz (%zu)\n",
                CONFIG_RTLSDR_DEVICE_CENTER_FREQ_DEFAULT);
     ui_message("    -p | --rtlsdr-device-freq-correction  Frequency correction in ppm (%d)\n",
@@ -118,9 +112,6 @@ void ui_help() {
     ui_message("    -a | --rtlsdr-device-agc-mode         AGC Mode (%d)\n", CONFIG_RTLSDR_DEVICE_AGC_MODEDEFAULT);
     ui_message("                                          - 0 Disabled\n");
     ui_message("                                          - 1 Enabled\n");
-    ui_message("\n");
-    ui_message("    -b | --rtlsdr-buffer                  Reading buffer chunk size in bytes (%d)\n",
-               CONFIG_RTLSDR_BUFFER_DEFAULT);
     ui_message("\n");
     ui_message("All outputs are on Standard Error.\n");
 }

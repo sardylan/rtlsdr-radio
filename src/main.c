@@ -162,17 +162,20 @@ int main_program_mode_info() {
 
 void *thread_rx_device_read(void *data) {
     uint8_t *input_buffer;
+    size_t rtlsdr_buffer_size;
     int bytes;
     int result;
 
     log_info("Thread start");
 
+    rtlsdr_buffer_size = conf->rtlsdr_samples * 2;
+
     log_debug("Allocating input buffer");
-    input_buffer = (uint8_t *) calloc(conf->rtlsdr_buffer, sizeof(uint8_t));
+    input_buffer = (uint8_t *) calloc(rtlsdr_buffer_size, sizeof(uint8_t));
 
     log_debug("Starting read loop");
     while (keep_running) {
-        result = rtlsdr_read_sync(device, input_buffer, conf->rtlsdr_buffer, &bytes);
+        result = rtlsdr_read_sync(device, input_buffer, rtlsdr_buffer_size, &bytes);
         if (result != 0) {
             log_error("Error reading data from RTL-SDR device: %d", result);
             break;
@@ -203,24 +206,23 @@ void *thread_rx_demod(void *data) {
     resample_ctx *res_ctx;
     double value;
     int8_t elem;
-    size_t samples_num;
+    size_t rtlsdr_buffer_size;
     size_t audio_num;
     int j;
 
     log_info("Thread start");
 
-    samples_num = conf->rtlsdr_buffer / 2;
-    log_debug("Output buffer size is %zu", samples_num);
+    rtlsdr_buffer_size = conf->rtlsdr_samples * 2;
 
     log_debug("Allocating input, samples and output buffers");
-    input_buffer = (uint8_t *) calloc(conf->rtlsdr_buffer, sizeof(uint8_t));
-    samples = (double complex *) calloc(samples_num, sizeof(double complex));
-    output_buffer = (int8_t *) calloc(samples_num, sizeof(int8_t));
+    input_buffer = (uint8_t *) calloc(rtlsdr_buffer_size, sizeof(uint8_t));
+    samples = (double complex *) calloc(conf->rtlsdr_samples, sizeof(double complex));
+    output_buffer = (int8_t *) calloc(conf->rtlsdr_samples, sizeof(int8_t));
 
     log_debug("Creating resample context");
     res_ctx = resample_init(conf->rtlsdr_device_sample_rate, conf->audio_sample_rate);
 
-    audio_num = resample_compute_output_size(res_ctx, samples_num);
+    audio_num = resample_compute_output_size(res_ctx, conf->rtlsdr_samples);
     log_debug("Audio buffer size is %zu", audio_num);
 
     log_debug("Allocating audio buffer");
@@ -230,13 +232,13 @@ void *thread_rx_demod(void *data) {
 
     log_debug("Starting demod loop");
     while (keep_running) {
-        log_trace("Reading %zu bytes", conf->rtlsdr_buffer);
-        circbuf_get(buffer_iq, input_buffer, conf->rtlsdr_buffer);
+        log_trace("Reading %zu bytes", rtlsdr_buffer_size);
+        circbuf_get(buffer_iq, input_buffer, rtlsdr_buffer_size);
 
-        log_trace("Converting to complex samples", conf->rtlsdr_buffer);
-        device_buffer_to_samples(input_buffer, samples, conf->rtlsdr_buffer);
+        log_trace("Converting to complex samples", rtlsdr_buffer_size);
+        device_buffer_to_samples(input_buffer, samples, rtlsdr_buffer_size);
 
-        for (j = 0; j < samples_num; j++) {
+        for (j = 0; j < conf->rtlsdr_samples; j++) {
             sample = samples[j];
             product = sample * conj(prev_sample);
 
@@ -259,7 +261,7 @@ void *thread_rx_demod(void *data) {
             prev_sample = sample;
         }
 
-        resample_do(res_ctx, output_buffer, samples_num, audio_buffer, audio_num);
+        resample_do(res_ctx, output_buffer, conf->rtlsdr_samples, audio_buffer, audio_num);
         fwrite(audio_buffer, sizeof(int8_t), audio_num, stdout);
     }
 

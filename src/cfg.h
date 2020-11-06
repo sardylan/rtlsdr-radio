@@ -55,7 +55,7 @@ struct cfg_t {
     int rtlsdr_device_tuner_gain_mode;
     int rtlsdr_device_tuner_gain;
     int rtlsdr_device_agc_mode;
-    size_t rtlsdr_buffer;
+    size_t rtlsdr_samples;
 
     modulation_type modulation;
 

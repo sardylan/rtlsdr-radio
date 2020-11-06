@@ -51,7 +51,7 @@ void cfg_init() {
     conf->rtlsdr_device_tuner_gain_mode = CONFIG_RTLSDR_DEVICE_TUNER_GAIN_MODE_DEFAULT;
     conf->rtlsdr_device_tuner_gain = CONFIG_RTLSDR_DEVICE_TUNER_GAIN_DEFAULT;
     conf->rtlsdr_device_agc_mode = CONFIG_RTLSDR_DEVICE_AGC_MODEDEFAULT;
-    conf->rtlsdr_buffer = CONFIG_RTLSDR_BUFFER_DEFAULT;
+    conf->rtlsdr_samples = CONFIG_RTLSDR_SAMPLES_DEFAULT;
 
     conf->modulation = CONFIG_MODULATION_DEFAULT;
 
@@ -77,7 +77,7 @@ void cfg_print() {
     fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_device_tuner_gain_mode: %u\n", conf->rtlsdr_device_tuner_gain_mode);
     fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_device_tuner_gain:      %u\n", conf->rtlsdr_device_tuner_gain);
     fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_device_agc_mode:        %u\n", conf->rtlsdr_device_agc_mode);
-    fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_buffer:                 %zu\n", conf->rtlsdr_buffer);
+    fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_samples:                %zu\n", conf->rtlsdr_samples);
     fprintf(UI_MESSAGES_OUTPUT, "modulation:                    %s\n", log_modulation_to_char(conf->modulation));
     fprintf(UI_MESSAGES_OUTPUT, "audio_sample_rate:             %u\n", conf->audio_sample_rate);
     fprintf(UI_MESSAGES_OUTPUT, "\n");
@@ -116,7 +116,6 @@ int cfg_parse(int argc, char **argv) {
             {"rtlsdr-device-tuner-gain-mode", required_argument, 0, 'G'},
             {"rtlsdr-device-tuner-gain",      required_argument, 0, 'g'},
             {"rtlsdr-device-agc-mode",        required_argument, 0, 'a'},
-            {"rtlsdr-buffer",                 required_argument, 0, 'b'},
 
             {"modulation",                    required_argument, 0, 'M'},
 
@@ -127,7 +126,7 @@ int cfg_parse(int argc, char **argv) {
     *config_file = '\0';
 
     while (1) {
-        c = getopt_long(argc, argv, "c:hVqvd:l:L:Dm:i:f:p:G:g:a:b:M:", long_options, &option_index);
+        c = getopt_long(argc, argv, "c:hVqvd:l:L:Dm:i:f:p:G:g:a:M:", long_options, &option_index);
 
         if (c == -1) {
             break;
@@ -220,10 +219,6 @@ int cfg_parse(int argc, char **argv) {
 
         if (c == 'a') {
             conf->rtlsdr_device_agc_mode = cfg_parse_flag((int) strtol(optarg, &endptr, 10));
-        }
-
-        if (c == 'b') {
-            conf->rtlsdr_buffer = (size_t) strtol(optarg, &endptr, 10);
         }
 
         if (c == 'M') {
