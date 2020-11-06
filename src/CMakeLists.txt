@@ -2,8 +2,9 @@ configure_file(version.h.in version.h @ONLY)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 find_package(Threads REQUIRED)
-find_package(rtlsdr REQUIRED)
-pkg_check_modules(FFTW3 REQUIRED IMPORTED_TARGET fftw3)
+
+pkg_check_modules(rtlsdr REQUIRED IMPORTED_TARGET librtlsdr)
+pkg_check_modules(fftw3 REQUIRED IMPORTED_TARGET fftw3)
 
 add_executable(rtlsdr_radio
         main.c main.h
@@ -18,8 +19,8 @@ add_executable(rtlsdr_radio
 target_link_libraries(rtlsdr_radio
         Threads::Threads
         m
-        rtlsdr::rtlsdr
-        PkgConfig::FFTW3)
+        PkgConfig::rtlsdr
+        PkgConfig::fftw3)
 
 target_compile_options(rtlsdr_radio
         PRIVATE
