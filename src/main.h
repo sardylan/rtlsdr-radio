@@ -30,6 +30,8 @@ int main_program_mode_info();
 
 void main_stop();
 
+void main_program_mode_rx_wait_init();
+
 void *thread_rx_device_read(void *);
 
 void *thread_rx_demod(void *);

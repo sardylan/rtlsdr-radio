@@ -24,6 +24,7 @@
 #include <rtl-sdr.h>
 #include <complex.h>
 #include <math.h>
+#include <pthread.h>
 
 #include "main.h"
 #include "ui.h"
@@ -32,6 +33,8 @@
 #include "log.h"
 #include "circbuf.h"
 #include "resample.h"
+#include "fft.h"
+#include "dsp.h"
 
 const char *main_program_name;
 static volatile int keep_running = 1;
@@ -41,6 +44,12 @@ circbuf_ctx *buffer_demod;
 pthread_t rx_device_thread;
 pthread_t rx_demod_thread;
 pthread_t rx_resample_thread;
+
+pthread_mutex_t rx_ready_mutex;
+pthread_cond_t rx_ready_cond;
+int rx_device_ready;
+int rx_demod_ready;
+int rx_resample_ready;
 
 extern cfg *conf;
 extern rtlsdr_dev_t *device;
@@ -146,6 +155,24 @@ int main_program_mode_rx() {
         return EXIT_FAILURE;
     }
 
+    rx_device_ready = 0;
+    rx_demod_ready = 0;
+    rx_resample_ready = 0;
+
+    log_debug("Initializing mutex");
+    result = pthread_mutex_init(&rx_ready_mutex, NULL);
+    if (result != 0) {
+        log_error("Error initializing mutex: %d", result);
+        return EXIT_FAILURE;
+    }
+
+    log_debug("Initializing condition");
+    result = pthread_cond_init(&rx_ready_cond, NULL);
+    if (result != 0) {
+        log_error("Error initializing condition: %d", result);
+        return EXIT_FAILURE;
+    }
+
     log_debug("Setting thread attributes");
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
@@ -180,6 +207,12 @@ int main_program_mode_rx() {
     circbuf_free(buffer_iq);
     circbuf_free(buffer_demod);
 
+    log_debug("Destroying mutex");
+    pthread_mutex_destroy(&rx_ready_mutex);
+
+    log_debug("Destroying cond");
+    pthread_cond_destroy(&rx_ready_cond);
+
     return EXIT_SUCCESS;
 }
 
@@ -191,6 +224,19 @@ int main_program_mode_info() {
 
 void main_stop() {
     keep_running = 0;
+}
+
+void main_program_mode_rx_wait_init() {
+    log_debug("Locking mutex");
+    pthread_mutex_lock(&rx_ready_mutex);
+
+    if (rx_device_ready == 0 || rx_demod_ready == 0 || rx_resample_ready == 0)
+        pthread_cond_wait(&rx_ready_cond, &rx_ready_mutex);
+
+    log_debug("Unlocking mutex");
+    pthread_mutex_unlock(&rx_ready_mutex);
+
+    pthread_cond_broadcast(&rx_ready_cond);
 }
 
 void *thread_rx_device_read(void *data) {
@@ -206,6 +252,10 @@ void *thread_rx_device_read(void *data) {
 
     log_debug("Allocating input buffer");
     input_buffer = (uint8_t *) calloc(rtlsdr_buffer_size, sizeof(uint8_t));
+
+    log_debug("Waiting for other threads to init");
+    rx_device_ready = 1;
+    main_program_mode_rx_wait_init();
 
     log_debug("Starting read loop");
     while (keep_running) {
@@ -238,6 +288,7 @@ void *thread_rx_device_read(void *data) {
 void *thread_rx_demod(void *data) {
     uint8_t *input_buffer;
     double complex *samples;
+    double complex *fft_buffer;
     int8_t *output_buffer;
 
     double complex sample;
@@ -251,6 +302,10 @@ void *thread_rx_demod(void *data) {
     struct timespec ts;
     int result;
 
+    fft_ctx *demod_fft_ctx;
+
+    double rms;
+
     log_info("Thread start");
 
     rtlsdr_buffer_size = conf->rtlsdr_samples * 2;
@@ -258,9 +313,17 @@ void *thread_rx_demod(void *data) {
     log_debug("Allocating input, samples and output buffers");
     input_buffer = (uint8_t *) calloc(rtlsdr_buffer_size, sizeof(uint8_t));
     samples = (double complex *) calloc(conf->rtlsdr_samples, sizeof(double complex));
+    fft_buffer = (double complex *) calloc(conf->rtlsdr_samples, sizeof(double complex));
     output_buffer = (int8_t *) calloc(conf->rtlsdr_samples, sizeof(int8_t));
 
+    log_debug("Preparing FFT context");
+    demod_fft_ctx = fft_init(conf->rtlsdr_samples);
+
     prev_sample = 0 + 0 * I;
+
+    log_debug("Waiting for other threads to init");
+    rx_demod_ready = 1;
+    main_program_mode_rx_wait_init();
 
     log_debug("Starting demod loop");
     while (keep_running) {
@@ -271,9 +334,16 @@ void *thread_rx_demod(void *data) {
             break;
         }
 
-        log_trace("Converting to complex samples", rtlsdr_buffer_size);
+        log_trace("Converting to complex samples");
         device_buffer_to_samples(input_buffer, samples, rtlsdr_buffer_size);
 
+        log_trace("Computing FFT");
+        fft_compute(demod_fft_ctx, samples, fft_buffer);
+
+        log_trace("Computing RMS");
+        rms = dsp_rms(samples, conf->rtlsdr_samples);
+
+        log_trace("Demodulating");
         for (j = 0; j < conf->rtlsdr_samples; j++) {
             sample = samples[j];
             product = sample * conj(prev_sample);
@@ -353,7 +423,11 @@ void *thread_rx_resample(void *data) {
     log_debug("Creating resample context");
     res_ctx = resample_init(conf->rtlsdr_device_sample_rate, conf->audio_sample_rate);
 
-    log_debug("Starting demod loop");
+    log_debug("Waiting for other threads to init");
+    rx_resample_ready = 1;
+    main_program_mode_rx_wait_init();
+
+    log_debug("Starting resample loop");
     while (keep_running) {
         log_trace("Reading %zu bytes", conf->rtlsdr_samples);
         result = circbuf_get(buffer_demod, &ts, input_buffer, conf->rtlsdr_samples);

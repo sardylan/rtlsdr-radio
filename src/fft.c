@@ -18,6 +18,7 @@
 
 
 #include <malloc.h>
+#include <string.h>
 
 #include "fft.h"
 #include "log.h"
@@ -25,22 +26,51 @@
 fft_ctx *fft_init(size_t size) {
     fft_ctx *ctx;
 
+    log_init("Initializing");
+
+    log_debug("Allocating context");
     ctx = (fft_ctx *) malloc(sizeof(fft_ctx));
     if (ctx == NULL) {
-        log_error("Unable to allocate FFT contest");
+        log_error("Unable to allocate contest");
         return NULL;
     }
 
+    log_debug("Setting size");
     ctx->size = size;
 
-    ctx->input = (fftw_complex *) fftw_malloc(sizeof(double) * ctx->size);
-    ctx->output = (fftw_complex *) fftw_malloc(sizeof(double) * ctx->size);
+    log_debug("Allocating input and output buffers");
+    ctx->input = fftw_alloc_complex(ctx->size);
+    ctx->output = fftw_alloc_complex(ctx->size);
 
-    ctx->plan = fftw_plan_dft_c2r((int) ctx->size, FFT::input, FFT::output, FFTW_R2HC, FFTW_ESTIMATE);
+    log_debug("Computing FFT plan");
+    ctx->plan = fftw_plan_dft_1d((int) ctx->size, ctx->input, ctx->output, FFTW_FORWARD, FFTW_EXHAUSTIVE);
 
     return ctx;
 }
 
 void fft_free(fft_ctx *ctx) {
+    log_init("Freeing");
+
+    log_debug("Destroing plan");
+    fftw_destroy_plan(ctx->plan);
+
+    log_debug("Deallocationg buffers");
+    fftw_free(ctx->input);
+    fftw_free(ctx->output);
+
+    log_debug("Deallocationg context");
     free(ctx);
+}
+
+void fft_compute(fft_ctx *ctx, double complex *input, double complex *output) {
+    log_info("Computing FFT");
+
+    log_debug("Copying input values");
+    memcpy(input, ctx->input, ctx->size);
+
+    log_debug("Computing FFT");
+    fftw_execute(ctx->plan);
+
+    log_debug("Copying output values");
+    memcpy(output, ctx->output, ctx->size);
 }

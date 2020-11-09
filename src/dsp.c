@@ -17,28 +17,19 @@
  */
 
 
-#ifndef __RTLSDR_RADIO__FFT__H
-#define __RTLSDR_RADIO__FFT__H
+#include <math.h>
 
-#include <stddef.h>
-#include <complex.h>
-#include <fftw3.h>
+#include "dsp.h"
 
-struct fft_ctx_t {
-    size_t size;
+double dsp_rms(double complex *buffer, size_t len) {
+    size_t i;
+    double sum;
 
-    fftw_complex *input;
-    fftw_complex *output;
+    sum = 0;
+    for (i = 0; i < len; i++)
+        sum += cabs(buffer[i]);
 
-    fftw_plan plan;
-};
+    sum /= len;
 
-typedef struct fft_ctx_t fft_ctx;
-
-fft_ctx *fft_init(size_t);
-
-void fft_free(fft_ctx *);
-
-void fft_compute(fft_ctx *, double complex *, double complex *);
-
-#endif
+    return sqrt(sum);
+}

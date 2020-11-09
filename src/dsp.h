@@ -17,28 +17,13 @@
  */
 
 
-#ifndef __RTLSDR_RADIO__FFT__H
-#define __RTLSDR_RADIO__FFT__H
+#ifndef __RTLSDR_RADIO__DSP__H
+#define __RTLSDR_RADIO__DSP__H
 
+#include <stdint.h>
 #include <stddef.h>
 #include <complex.h>
-#include <fftw3.h>
 
-struct fft_ctx_t {
-    size_t size;
-
-    fftw_complex *input;
-    fftw_complex *output;
-
-    fftw_plan plan;
-};
-
-typedef struct fft_ctx_t fft_ctx;
-
-fft_ctx *fft_init(size_t);
-
-void fft_free(fft_ctx *);
-
-void fft_compute(fft_ctx *, double complex *, double complex *);
+double dsp_rms(double complex *, size_t);
 
 #endif
