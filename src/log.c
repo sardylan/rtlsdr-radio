@@ -80,7 +80,6 @@ void log_message(const int level, const char *element, char *filename, const int
 
     if (level <= conf->ui_log_level)
         ui_message("%s\n", content);
-//        fprintf(UI_MESSAGES_OUTPUT, "%s\n", content);
 
     pthread_mutex_unlock(&log_lock);
 }
