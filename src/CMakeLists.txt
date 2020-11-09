@@ -14,6 +14,7 @@ add_executable(rtlsdr_radio
         device.c device.h
         circbuf.c circbuf.h
         resample.c resample.h
+        fft.c fft.h
         default.h)
 
 target_link_libraries(rtlsdr_radio
