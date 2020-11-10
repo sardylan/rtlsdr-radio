@@ -24,40 +24,55 @@
 #include "circbuf.h"
 #include "log.h"
 
-int circbuf_init(circbuf_ctx *ctx) {
+circbuf_ctx *circbuf_init(size_t item_size, size_t initial_size) {
+    circbuf_ctx *ctx;
     int result;
+    size_t alloc_size;
 
     log_info("Circular buffer init");
 
-    log_debug("Allocating %zu bytes for data", CIRCBUF_INITIAL_SIZE);
-    ctx->pointer = (void *) calloc(CIRCBUF_INITIAL_SIZE, sizeof(uint8_t));
-    if (ctx->pointer == NULL) {
-        free(ctx);
-        return EXIT_FAILURE;
+    log_debug("Allocating circbuf context", initial_size);
+    ctx = (circbuf_ctx *) malloc(sizeof(circbuf_ctx));
+    if (ctx == NULL) {
+        log_error("Unable to allocate circbuf context");
+        return NULL;
     }
 
-    log_debug("Setting internal references and counters");
+    log_debug("Allocating %zu bytes for data", initial_size);
+    alloc_size = item_size * initial_size;
+    ctx->pointer = (void *) calloc(alloc_size, sizeof(uint8_t));
+    if (ctx->pointer == NULL) {
+        log_error("Error allocating data buffer");
+        free(ctx);
+        return NULL;
+    }
+
+    log_debug("Setting size");
+    ctx->item_size = item_size;
+
+    log_debug("Initializing internal vars");
     ctx->head = 0;
     ctx->tail = 0;
-
-    ctx->size = CIRCBUF_INITIAL_SIZE;
-    ctx->free = CIRCBUF_INITIAL_SIZE;
+    ctx->size = initial_size;
+    ctx->free = initial_size;
 
     log_debug("Initializing mutex");
     result = pthread_mutex_init(&ctx->mutex, NULL);
     if (result != 0) {
         log_error("Error initializing mutex: %d", result);
-        return EXIT_FAILURE;
+        free(ctx);
+        return NULL;
     }
 
     log_debug("Initializing condition");
     result = pthread_cond_init(&ctx->cond, NULL);
     if (result != 0) {
         log_error("Error initializing condition: %d", result);
-        return EXIT_FAILURE;
+        free(ctx);
+        return NULL;
     }
 
-    return EXIT_SUCCESS;
+    return ctx;
 }
 
 void circbuf_free(circbuf_ctx *ctx) {
@@ -70,21 +85,20 @@ void circbuf_free(circbuf_ctx *ctx) {
     pthread_cond_destroy(&ctx->cond);
 
     log_debug("Freeing data pointer");
-    free(ctx->pointer);
+    if (ctx->pointer != NULL)
+        free(ctx->pointer);
 
     log_debug("Freeing circbuf");
     free(ctx);
 }
 
-size_t circbuf_size(circbuf_ctx *ctx) {
-    return ctx->size;
-}
-
-int circbuf_put_data(circbuf_ctx *ctx, void *data, size_t len) {
+int circbuf_put_data(circbuf_ctx *ctx, void *data, size_t data_size) {
     void *begin;
+    size_t len;
     size_t front_avail;
     size_t ln;
 
+    len = data_size * ctx->item_size;
     log_debug("Putting %zu bytes", len);
 
     if (len > ctx->free)
@@ -113,12 +127,14 @@ int circbuf_put_data(circbuf_ctx *ctx, void *data, size_t len) {
     return EXIT_SUCCESS;
 }
 
-int circbuf_get_data(circbuf_ctx *ctx, void *data, size_t len) {
+int circbuf_get_data(circbuf_ctx *ctx, void *data, size_t data_size) {
     size_t used;
     void *begin;
     size_t front_avail;
     size_t ln;
+    size_t len;
 
+    len = data_size * ctx->item_size;
     log_debug("Getting %zu bytes", len);
 
     while ((used = ctx->size - ctx->free) < len) {
@@ -159,11 +175,11 @@ int circbuf_put(circbuf_ctx *ctx, struct timespec *ts, void *data, size_t data_s
     pthread_mutex_lock(&ctx->mutex);
 
     result = circbuf_put_data(ctx, ts, sizeof(struct timespec));
-    if(result != EXIT_SUCCESS)
+    if (result != EXIT_SUCCESS)
         return EXIT_FAILURE;
 
     result = circbuf_put_data(ctx, data, data_size);
-    if(result != EXIT_SUCCESS)
+    if (result != EXIT_SUCCESS)
         return EXIT_FAILURE;
 
     log_debug("Unlocking mutex");
@@ -182,11 +198,11 @@ int circbuf_get(circbuf_ctx *ctx, struct timespec *ts, void *data, size_t data_s
     pthread_mutex_lock(&ctx->mutex);
 
     result = circbuf_get_data(ctx, ts, sizeof(struct timespec));
-    if(result != EXIT_SUCCESS)
+    if (result != EXIT_SUCCESS)
         return EXIT_FAILURE;
 
     result = circbuf_get_data(ctx, data, data_size);
-    if(result != EXIT_SUCCESS)
+    if (result != EXIT_SUCCESS)
         return EXIT_FAILURE;
 
     log_debug("Unlocking mutex");

@@ -24,10 +24,10 @@
 #include <pthread.h>
 #include <time.h>
 
-#define CIRCBUF_INITIAL_SIZE 2097152
-
 struct circbuf_ctx_t {
     void *pointer;
+
+    size_t item_size;
 
     size_t head;
     size_t tail;
@@ -41,11 +41,9 @@ struct circbuf_ctx_t {
 
 typedef struct circbuf_ctx_t circbuf_ctx;
 
-int circbuf_init(circbuf_ctx *);
+circbuf_ctx * circbuf_init(size_t, size_t);
 
 void circbuf_free(circbuf_ctx *);
-
-size_t circbuf_size(circbuf_ctx *);
 
 int circbuf_put_data(circbuf_ctx *, void *, size_t);
 
