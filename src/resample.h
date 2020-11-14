@@ -23,32 +23,13 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#include <libavutil/opt.h>
-#include <libavutil/channel_layout.h>
-#include <libavutil/samplefmt.h>
-#include <libswresample/swresample.h>
+#include "fir.h"
 
 struct resample_ctx_t {
     uint32_t src_rate;
     uint32_t dst_rate;
 
     uint32_t ratio;
-
-    struct SwrContext *swr_ctx;
-
-    uint8_t **src_data;
-    uint8_t **dst_data;
-
-    int src_nb_channels;
-    int dst_nb_channels;
-
-    int src_linesize;
-    int dst_linesize;
-
-    int src_nb_samples;
-    int dst_nb_samples;
-
-    int max_dst_nb_samples;
 };
 
 typedef struct resample_ctx_t resample_ctx;

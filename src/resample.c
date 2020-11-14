@@ -22,6 +22,7 @@
 #include "resample.h"
 #include "log.h"
 #include "cfg.h"
+#include "fir_lpf.h"
 
 extern cfg *conf;
 
@@ -40,6 +41,7 @@ resample_ctx *resample_init() {
     ctx->src_rate = conf->rtlsdr_device_sample_rate;
     ctx->dst_rate = conf->audio_sample_rate;
 
+    log_debug("Computing resample ratio");
     ctx->ratio = ctx->src_rate / ctx->dst_rate;
 
     return ctx;
@@ -59,7 +61,6 @@ int resample_do(resample_ctx *ctx, const int8_t *input, size_t input_size, int8_
 
     log_info("Resampling");
 
-    // TODO: Simple resample algorithm. It just skip samples, but there is no low-pass filter
     for (i = 0; i < output_size; i++) {
         shift = ctx->ratio * i;
         if (shift >= input_size)

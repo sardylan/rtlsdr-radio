@@ -17,27 +17,24 @@
  */
 
 
-#ifndef __RTLSDR_RADIO__RTLSDR_RADIO__H
-#define __RTLSDR_RADIO__RTLSDR_RADIO__H
 
-void signal_handler(int signum);
+#ifndef __RTLSDR_RADIO__FIR__H
+#define __RTLSDR_RADIO__FIR__H
 
-int main_program();
+#include <stdint.h>
 
-int main_program_mode_rx();
+struct fir_ctx_t {
+    size_t kernel_size;
+    double *kernel;
+    int8_t *prev;
+};
 
-int main_program_mode_info();
+typedef struct fir_ctx_t fir_ctx;
 
-void main_stop();
+fir_ctx *fir_init(const double *, size_t);
 
-void main_program_mode_rx_wait_init();
+void fir_free(fir_ctx *);
 
-void *thread_rx_device_read(void *);
-
-void *thread_rx_demod(void *);
-
-void *thread_rx_lpf(void *);
-
-void *thread_rx_resample(void *);
+int fir_convolve(fir_ctx *ctx, int8_t *output, const int8_t *input, size_t size);
 
 #endif

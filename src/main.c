@@ -25,6 +25,7 @@
 #include <complex.h>
 #include <math.h>
 #include <pthread.h>
+#include <string.h>
 
 #include "main.h"
 #include "ui.h"
@@ -35,20 +36,24 @@
 #include "resample.h"
 #include "fft.h"
 #include "dsp.h"
+#include "fir_lpf.h"
 
 const char *main_program_name;
 static volatile int keep_running = 1;
 circbuf_ctx *buffer_samples;
 circbuf_ctx *buffer_demod;
+circbuf_ctx *buffer_filtered;
 
 pthread_t rx_device_thread;
 pthread_t rx_demod_thread;
+pthread_t rx_lpf_thread;
 pthread_t rx_resample_thread;
 
 pthread_mutex_t rx_ready_mutex;
 pthread_cond_t rx_ready_cond;
 int rx_device_ready;
 int rx_demod_ready;
+int rx_lpf_ready;
 int rx_resample_ready;
 
 extern cfg *conf;
@@ -134,8 +139,23 @@ int main_program_mode_rx() {
         return EXIT_FAILURE;
     }
 
+    log_debug("Init filtered circbuf");
+    buffer_filtered = circbuf_init(sizeof(int8_t), 2097152);
+    if (buffer_filtered == NULL) {
+        log_error("Unable to allocate lpf circular buffer");
+        return EXIT_FAILURE;
+    }
+
+    log_debug("Opening RTL-SDR device");
+    result = device_open();
+    if (result == EXIT_FAILURE) {
+        log_error("Unable to open RTL-SDR device");
+        return EXIT_FAILURE;
+    }
+
     rx_device_ready = 0;
     rx_demod_ready = 0;
+    rx_lpf_ready = 0;
     rx_resample_ready = 0;
 
     log_debug("Initializing mutex");
@@ -162,6 +182,9 @@ int main_program_mode_rx() {
     log_debug("Starting RX demod thread");
     pthread_create(&rx_demod_thread, &attr, thread_rx_demod, NULL);
 
+    log_debug("Starting RX lpf thread");
+    pthread_create(&rx_lpf_thread, &attr, thread_rx_lpf, NULL);
+
     log_debug("Starting RX resample thread");
     pthread_create(&rx_resample_thread, &attr, thread_rx_resample, NULL);
 
@@ -177,11 +200,13 @@ int main_program_mode_rx() {
     log_debug("Joining threads");
     pthread_join(rx_device_thread, NULL);
     pthread_join(rx_demod_thread, NULL);
+    pthread_join(rx_lpf_thread, NULL);
     pthread_join(rx_resample_thread, NULL);
 
     log_debug("Freeing buffers");
     circbuf_free(buffer_samples);
     circbuf_free(buffer_demod);
+    circbuf_free(buffer_filtered);
 
     log_debug("Destroying mutex");
     pthread_mutex_destroy(&rx_ready_mutex);
@@ -206,7 +231,10 @@ void main_program_mode_rx_wait_init() {
     log_debug("Locking mutex");
     pthread_mutex_lock(&rx_ready_mutex);
 
-    if (rx_device_ready == 0 || rx_demod_ready == 0 || rx_resample_ready == 0)
+    if (rx_device_ready == 0
+        || rx_demod_ready == 0
+        || rx_resample_ready == 0
+        || rx_lpf_ready == 0)
         pthread_cond_wait(&rx_ready_cond, &rx_ready_mutex);
 
     log_debug("Unlocking mutex");
@@ -362,6 +390,79 @@ void *thread_rx_demod(void *data) {
     return (void *) EXIT_SUCCESS;
 }
 
+void *thread_rx_lpf(void *data) {
+    int8_t *input_buffer;
+    int8_t *output_buffer;
+
+    fir_ctx *lpf_ctx;
+    int result;
+    struct timespec ts;
+
+    log_debug("Allocating input buffer");
+    input_buffer = (int8_t *) calloc(conf->rtlsdr_samples, sizeof(int8_t));
+    if (input_buffer == NULL) {
+        log_error("Unable to allocate input buffer");
+        main_stop();
+        return (void *) EXIT_FAILURE;
+    }
+
+    log_debug("Allocating output buffer");
+    output_buffer = (int8_t *) calloc(conf->rtlsdr_samples, sizeof(int8_t));
+    if (output_buffer == NULL) {
+        log_error("Unable to allocate resample context");
+        free(input_buffer);
+        main_stop();
+        return (void *) EXIT_FAILURE;
+    }
+
+    log_debug("Initializing FIR low-pass filter context");
+    lpf_ctx = fir_init_lpf5();
+    if (lpf_ctx == NULL) {
+        log_error("Unable to allocate FIR low-pass filter context");
+        main_stop();
+        return (void *) EXIT_FAILURE;
+    }
+
+    log_debug("Waiting for other threads to init");
+    rx_lpf_ready = 1;
+    main_program_mode_rx_wait_init();
+
+    log_debug("Starting FIR low-pass filter loop");
+    while (keep_running) {
+        log_trace("Reading %zu bytes", conf->rtlsdr_samples);
+        result = circbuf_get(buffer_demod, &ts, input_buffer, conf->rtlsdr_samples);
+        if (result != EXIT_SUCCESS) {
+            log_error("Unable to get data from circbuf");
+            break;
+        }
+
+        log_trace("Filtering");
+        fir_convolve(lpf_ctx, output_buffer, input_buffer, conf->rtlsdr_samples);
+//        memcpy(output_buffer, input_buffer, conf->rtlsdr_samples);
+
+        log_trace("Output %zu bytes", conf->rtlsdr_samples);
+        result = circbuf_put(buffer_filtered, &ts, output_buffer, conf->rtlsdr_samples);
+        if (result != EXIT_SUCCESS) {
+            log_error("Unable to put data to circbuf");
+            break;
+        }
+    }
+
+    log_debug("Freeing resample context");
+    fir_free(lpf_ctx);
+
+    log_debug("Freeing buffers");
+    free(input_buffer);
+    free(output_buffer);
+
+    log_info("Thread end");
+
+    main_stop();
+
+    return (void *) EXIT_SUCCESS;
+
+}
+
 void *thread_rx_resample(void *data) {
     size_t audio_num;
     int8_t *input_buffer;
@@ -370,10 +471,6 @@ void *thread_rx_resample(void *data) {
     resample_ctx *res_ctx;
     int result;
     struct timespec ts;
-    fft_ctx *demod_fft_ctx;
-
-    log_debug("Preparing FFT context");
-    demod_fft_ctx = fft_init(conf->rtlsdr_samples);
 
     log_debug("Initializing resample context");
     res_ctx = resample_init();
@@ -386,8 +483,9 @@ void *thread_rx_resample(void *data) {
     audio_num = resample_compute_output_size(res_ctx, conf->rtlsdr_samples);
     log_debug("Audio buffer size is %zu", audio_num);
 
-    log_debug("Allocating buffer");
-    input_buffer = (int8_t *) calloc(conf->rtlsdr_samples, sizeof(uint8_t));
+    log_debug("Allocating input buffer");
+    input_buffer = (int8_t *) calloc(conf->rtlsdr_samples, sizeof(int8_t));
+
     if (input_buffer == NULL) {
         log_error("Unable to allocate input buffer");
         main_stop();
@@ -420,14 +518,11 @@ void *thread_rx_resample(void *data) {
     log_debug("Starting resample loop");
     while (keep_running) {
         log_trace("Reading %zu bytes", conf->rtlsdr_samples);
-        result = circbuf_get(buffer_demod, &ts, input_buffer, conf->rtlsdr_samples);
+        result = circbuf_get(buffer_filtered, &ts, input_buffer, conf->rtlsdr_samples);
         if (result != EXIT_SUCCESS) {
             log_error("Unable to get data from circbuf");
             break;
         }
-
-//        log_trace("Computing FFT");
-//        fft_compute(demod_fft_ctx, samples, fft_buffer);
 
         log_trace("Resampling %zu bytes in %zu bytes", conf->rtlsdr_samples, audio_num);
         resample_do(res_ctx, input_buffer, conf->rtlsdr_samples, output_buffer, audio_num);
