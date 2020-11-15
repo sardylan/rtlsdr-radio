@@ -69,9 +69,9 @@ void fir_free(fir_ctx *ctx) {
 }
 
 int fir_convolve(fir_ctx *ctx, int8_t *output, const int8_t *input, size_t size) {
-    size_t i;
-    size_t j;
-    size_t input_pos;
+    int i;
+    int j;
+    int input_pos;
     int8_t *item;
     double sum;
 
