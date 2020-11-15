@@ -33,3 +33,19 @@ double dsp_rms(double complex *buffer, size_t len) {
 
     return sqrt(sum);
 }
+
+void dsp_remove_dc_offset(int8_t *buffer, size_t buffer_size) {
+    size_t i;
+    double sum;
+    int8_t offset;
+
+    sum = 0;
+
+    for (i = 0; i < buffer_size; i++)
+        sum += buffer[i];
+
+    offset = sum / buffer_size;
+
+    for (i = 0; i < buffer_size; i++)
+        buffer[i] -= offset;
+}

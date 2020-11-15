@@ -26,4 +26,6 @@
 
 double dsp_rms(double complex *, size_t);
 
+void dsp_remove_dc_offset(int8_t *, size_t);
+
 #endif

@@ -373,6 +373,9 @@ void *thread_rx_demod(void *data) {
             prev_sample = sample;
         }
 
+        log_trace("Removing DC offset");
+//        dsp_remove_dc_offset(output_buffer, conf->rtlsdr_samples);
+
         result = circbuf_put(buffer_demod, &ts, output_buffer, conf->rtlsdr_samples);
         if (result != EXIT_SUCCESS) {
             log_error("Unable to put data to circbuf");
@@ -416,7 +419,7 @@ void *thread_rx_lpf(void *data) {
     }
 
     log_debug("Initializing FIR low-pass filter context");
-    lpf_ctx = fir_init_lpf5();
+    lpf_ctx = fir_init_lpf1();
     if (lpf_ctx == NULL) {
         log_error("Unable to allocate FIR low-pass filter context");
         main_stop();
