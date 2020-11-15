@@ -61,6 +61,10 @@ int resample_do(resample_ctx *ctx, const int8_t *input, size_t input_size, int8_
 
     log_info("Resampling");
 
+    // TODO:
+    //  This function just skips some samples, which is not a real resampling,
+    //  but if we applied a low-pass filter before, it could works.
+
     for (i = 0; i < output_size; i++) {
         shift = ctx->ratio * i;
         if (shift >= input_size)
