@@ -311,7 +311,6 @@ void *thread_rx_demod(void *data) {
     double complex *samples;
     int8_t *output_buffer;
 
-    double complex sample;
     double complex product;
     double complex prev_sample;
 
@@ -347,20 +346,18 @@ void *thread_rx_demod(void *data) {
         log_trace("Computing RMS");
         rms = dsp_rms(samples, conf->rtlsdr_samples);
 
-        ui_message("RMS: %.02f", rms);
+        ui_message("RMS: %.02f\n", rms);
 
         log_trace("Demodulating");
         for (j = 0; j < conf->rtlsdr_samples; j++) {
-            sample = samples[j];
-            product = sample * conj(prev_sample);
-
             switch (conf->modulation) {
                 case MOD_TYPE_FM:
+                    product = samples[j] * conj(prev_sample);
                     value = atan2(cimag(product), creal(product)) / M_PI;
                     break;
 
                 case MOD_TYPE_AM:
-                    value = cabs(product);
+                    value = cabs(samples[j]);
                     break;
 
                 default:
@@ -370,11 +367,11 @@ void *thread_rx_demod(void *data) {
             elem = (int8_t) (value * 127);
             output_buffer[j] = elem;
 
-            prev_sample = sample;
+            prev_sample = samples[j];
         }
 
         log_trace("Removing DC offset");
-//        dsp_remove_dc_offset(output_buffer, conf->rtlsdr_samples);
+        dsp_remove_dc_offset(output_buffer, conf->rtlsdr_samples);
 
         result = circbuf_put(buffer_demod, &ts, output_buffer, conf->rtlsdr_samples);
         if (result != EXIT_SUCCESS) {
