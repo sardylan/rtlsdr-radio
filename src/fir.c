@@ -43,7 +43,7 @@ fir_ctx *fir_init(const double *kernel, size_t kernel_size) {
         return NULL;
     }
 
-    ctx->prev = (int8_t *) calloc(ctx->kernel_size, sizeof(int8_t));
+    ctx->prev = (int8_t *) calloc((ctx->kernel_size - 1), sizeof(int8_t));
     if (ctx->prev == NULL) {
         log_error("Unable to allocate previous values buffer");
         fir_free(ctx);
@@ -84,15 +84,15 @@ int fir_convolve(fir_ctx *ctx, int8_t *output, const int8_t *input, size_t size)
             if (input_pos >= 0)
                 item = (int8_t *) &input[input_pos];
             else
-                item = &ctx->prev[ctx->kernel_size - j];
+                item = &ctx->prev[ctx->kernel_size + input_pos];
 
-            sum += (*item) * (ctx->kernel[(ctx->kernel_size - 1) - j]);
+            sum += (*item) * (ctx->kernel[j]);
         }
 
-        output[i] = sum;
+        output[i] = (int8_t) sum;
     }
 
-    memcpy(ctx->prev, &output[size - ctx->kernel_size], ctx->kernel_size * sizeof(int8_t));
+    memcpy(ctx->prev, &input[size - ctx->kernel_size], (ctx->kernel_size - 1) * sizeof(int8_t));
 
     return EXIT_SUCCESS;
 }
