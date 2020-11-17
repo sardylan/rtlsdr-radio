@@ -29,7 +29,7 @@ double dsp_rms(double complex *buffer, size_t len) {
     for (i = 0; i < len; i++)
         sum += cabs(buffer[i]);
 
-    sum /= len;
+    sum /= (len * M_SQRT2);
 
     return sqrt(sum);
 }
