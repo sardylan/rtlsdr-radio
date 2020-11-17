@@ -37,6 +37,7 @@
 #include "fft.h"
 #include "dsp.h"
 #include "fir_lpf.h"
+#include "agc.h"
 
 const char *main_program_name;
 static volatile int keep_running = 1;
@@ -344,7 +345,7 @@ void *thread_rx_demod(void *data) {
         }
 
         log_trace("Computing RMS");
-        rms = dsp_rms(samples, conf->rtlsdr_samples);
+        rms = dsp_complex_rms(samples, conf->rtlsdr_samples);
 
         ui_message("RMS: %.02f\n", rms);
 
@@ -526,6 +527,9 @@ void *thread_rx_resample(void *data) {
 
         log_trace("Resampling %zu bytes in %zu bytes", conf->rtlsdr_samples, audio_num);
         resample_do(res_ctx, input_buffer, conf->rtlsdr_samples, output_buffer, audio_num);
+
+        log_trace("Applying limiter");
+        agc_limiter(output_buffer, audio_num);
 
         log_trace("Output %zu bytes", audio_num);
         fwrite(output_buffer, sizeof(int8_t), audio_num, stdout);

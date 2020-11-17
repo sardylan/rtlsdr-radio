@@ -17,23 +17,12 @@
  */
 
 
-#ifndef __RTLSDR_RADIO__FIR__H
-#define __RTLSDR_RADIO__FIR__H
+#ifndef __RTLSDR_RADIO__AGC__H
+#define __RTLSDR_RADIO__AGC__H
 
+#include <stddef.h>
 #include <stdint.h>
 
-struct fir_ctx_t {
-    size_t kernel_size;
-    double *kernel;
-    int8_t *prev;
-};
-
-typedef struct fir_ctx_t fir_ctx;
-
-fir_ctx *fir_init(const double *, size_t);
-
-void fir_free(fir_ctx *);
-
-int fir_convolve(fir_ctx *ctx, int8_t *output, const int8_t *input, size_t size);
+int agc_limiter(int8_t *, size_t);
 
 #endif

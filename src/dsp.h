@@ -24,7 +24,9 @@
 #include <stddef.h>
 #include <complex.h>
 
-double dsp_rms(double complex *, size_t);
+double dsp_complex_rms(double complex *, size_t);
+
+double dsp_rms(int8_t *, size_t data_size);
 
 void dsp_remove_dc_offset(int8_t *, size_t);
 

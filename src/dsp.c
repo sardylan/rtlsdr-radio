@@ -21,15 +21,28 @@
 
 #include "dsp.h"
 
-double dsp_rms(double complex *buffer, size_t len) {
+double dsp_complex_rms(double complex *data, size_t data_size) {
     size_t i;
     double sum;
 
     sum = 0;
-    for (i = 0; i < len; i++)
-        sum += cabs(buffer[i]);
+    for (i = 0; i < data_size; i++)
+        sum += cabs(data[i]);
 
-    sum /= (len * M_SQRT2);
+    sum /= (data_size * M_SQRT2);
+
+    return sqrt(sum);
+}
+
+double dsp_rms(int8_t *data, size_t data_size) {
+    size_t i;
+    double sum;
+
+    sum = 0;
+    for (i = 0; i < data_size; i++)
+        sum += pow(data[i], 2);
+
+    sum /= (data_size * M_SQRT2);
 
     return sqrt(sum);
 }

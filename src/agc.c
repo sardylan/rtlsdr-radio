@@ -17,23 +17,36 @@
  */
 
 
-#ifndef __RTLSDR_RADIO__FIR__H
-#define __RTLSDR_RADIO__FIR__H
+#include <stdlib.h>
+#include <math.h>
 
-#include <stdint.h>
+#include "agc.h"
+#include "log.h"
+#include "dsp.h"
 
-struct fir_ctx_t {
-    size_t kernel_size;
-    double *kernel;
-    int8_t *prev;
-};
+int agc_limiter(int8_t *data, size_t data_size) {
+    size_t i;
+    int8_t abs_value;
+    int8_t max;
+    double rms;
+    double gain;
 
-typedef struct fir_ctx_t fir_ctx;
+    rms = dsp_rms(data, data_size);
+    gain = pow(2, rms + 4);
 
-fir_ctx *fir_init(const double *, size_t);
+    max = 0;
 
-void fir_free(fir_ctx *);
+    for (i = 0; i < data_size; i++) {
+        abs_value = abs(data[i]);
+        if (abs_value > max)
+            max = abs_value;
+    }
 
-int fir_convolve(fir_ctx *ctx, int8_t *output, const int8_t *input, size_t size);
+    if (max * gain > 127)
+        gain = 127.0 / max;
 
-#endif
+    for (i = 0; i < data_size; i++)
+        data[i] *= gain;
+
+    return EXIT_SUCCESS;
+}
