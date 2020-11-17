@@ -954,10 +954,10 @@ static double fir_kernel_lpf4_filter_taps[FIR_KERNEL_LPF4_TAP_NUM] = {
  * Bypass filter
  */
 
-#define FIR_KERNEL_LPF5_TAP_NUM 1
+#define FIR_KERNEL_LPF5_TAP_NUM 10
 
 static double fir_kernel_lpf5_filter_taps[FIR_KERNEL_LPF5_TAP_NUM] = {
-        1
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 
 #define fir_init_lpf5() fir_init(fir_kernel_lpf5_filter_taps, FIR_KERNEL_LPF5_TAP_NUM)
