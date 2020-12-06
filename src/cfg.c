@@ -56,10 +56,17 @@ void cfg_init() {
     conf->modulation = CONFIG_MODULATION_DEFAULT;
 
     conf->audio_sample_rate = CONFIG_AUDIO_SAMPLE_RATE_DEFAULT;
+
+    ln = strlen(CONFIG_NETWORK_SERVER_DEFAULT) + 1;
+    conf->network_server = (char *) calloc(sizeof(char), ln);
+    strcpy(conf->network_server, CONFIG_NETWORK_SERVER_DEFAULT);
+
+    conf->network_port = CONFIG_NETWORK_PORT_DEFAULT;
 }
 
 void cfg_free() {
     free(conf->file_log_name);
+    free(conf->network_server);
 
     free(conf);
 }

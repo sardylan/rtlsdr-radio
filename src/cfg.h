@@ -60,6 +60,9 @@ struct cfg_t {
     modulation_type modulation;
 
     uint32_t audio_sample_rate;
+
+    char *network_server;
+    uint16_t network_port;
 };
 
 typedef struct cfg_t cfg;

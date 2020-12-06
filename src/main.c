@@ -38,6 +38,7 @@
 #include "dsp.h"
 #include "fir_lpf.h"
 #include "agc.h"
+#include "network.h"
 
 const char *main_program_name;
 static volatile int keep_running = 1;
@@ -49,6 +50,7 @@ pthread_t rx_device_thread;
 pthread_t rx_demod_thread;
 pthread_t rx_lpf_thread;
 pthread_t rx_resample_thread;
+pthread_t rx_network_thread;
 
 pthread_mutex_t rx_ready_mutex;
 pthread_cond_t rx_ready_cond;
@@ -56,6 +58,7 @@ int rx_device_ready;
 int rx_demod_ready;
 int rx_lpf_ready;
 int rx_resample_ready;
+int rx_network_ready;
 
 extern cfg *conf;
 extern rtlsdr_dev_t *device;
@@ -177,17 +180,20 @@ int main_program_mode_rx() {
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
 
-    log_debug("Starting RX device read thread");
-    pthread_create(&rx_device_thread, &attr, thread_rx_device_read, NULL);
+//    log_debug("Starting RX device read thread");
+//    pthread_create(&rx_device_thread, &attr, thread_rx_device_read, NULL);
+//
+//    log_debug("Starting RX demod thread");
+//    pthread_create(&rx_demod_thread, &attr, thread_rx_demod, NULL);
+//
+//    log_debug("Starting RX lpf thread");
+//    pthread_create(&rx_lpf_thread, &attr, thread_rx_lpf, NULL);
+//
+//    log_debug("Starting RX resample thread");
+//    pthread_create(&rx_resample_thread, &attr, thread_rx_resample, NULL);
 
-    log_debug("Starting RX demod thread");
-    pthread_create(&rx_demod_thread, &attr, thread_rx_demod, NULL);
-
-    log_debug("Starting RX lpf thread");
-    pthread_create(&rx_lpf_thread, &attr, thread_rx_lpf, NULL);
-
-    log_debug("Starting RX resample thread");
-    pthread_create(&rx_resample_thread, &attr, thread_rx_resample, NULL);
+    log_debug("Starting RX network thread");
+    pthread_create(&rx_network_thread, &attr, thread_rx_network, NULL);
 
     sleep_req.tv_sec = 2;
     sleep_req.tv_nsec = 0;
@@ -199,10 +205,11 @@ int main_program_mode_rx() {
     }
 
     log_debug("Joining threads");
-    pthread_join(rx_device_thread, NULL);
-    pthread_join(rx_demod_thread, NULL);
-    pthread_join(rx_lpf_thread, NULL);
-    pthread_join(rx_resample_thread, NULL);
+//    pthread_join(rx_device_thread, NULL);
+//    pthread_join(rx_demod_thread, NULL);
+//    pthread_join(rx_lpf_thread, NULL);
+//    pthread_join(rx_resample_thread, NULL);
+    pthread_join(rx_network_thread, NULL);
 
     log_debug("Freeing buffers");
     circbuf_free(buffer_samples);
@@ -399,6 +406,8 @@ void *thread_rx_lpf(void *data) {
     int result;
     struct timespec ts;
 
+    log_info("Thread start");
+
     log_debug("Allocating input buffer");
     input_buffer = (int8_t *) calloc(conf->rtlsdr_samples, sizeof(int8_t));
     if (input_buffer == NULL) {
@@ -461,7 +470,6 @@ void *thread_rx_lpf(void *data) {
     main_stop();
 
     return (void *) EXIT_SUCCESS;
-
 }
 
 void *thread_rx_resample(void *data) {
@@ -472,6 +480,8 @@ void *thread_rx_resample(void *data) {
     resample_ctx *res_ctx;
     int result;
     struct timespec ts;
+
+    log_info("Thread start");
 
     log_debug("Initializing resample context");
     res_ctx = resample_init();
@@ -541,6 +551,34 @@ void *thread_rx_resample(void *data) {
     log_debug("Freeing buffers");
     free(input_buffer);
     free(output_buffer);
+
+    log_info("Thread end");
+
+    main_stop();
+
+    return (void *) EXIT_SUCCESS;
+}
+
+void *thread_rx_network(void *data) {
+    network_ctx *ctx;
+    int result;
+
+    log_info("Thread start");
+
+    log_debug("Initializing network context");
+    ctx = network_init(conf->network_server, conf->network_port);
+    if (ctx == NULL) {
+        log_error("Unable to allocate network context");
+        main_stop();
+        return (void *) EXIT_FAILURE;
+    }
+
+    result = network_socket_open(ctx);
+    if (result != EXIT_SUCCESS) {
+        log_error("Unable to open socket");
+        main_stop();
+        return (void *) EXIT_FAILURE;
+    }
 
     log_info("Thread end");
 

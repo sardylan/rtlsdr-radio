@@ -26,12 +26,12 @@
 fft_ctx *fft_init(size_t size) {
     fft_ctx *ctx;
 
-    log_init("Initializing");
+    log_info("Initializing");
 
     log_debug("Allocating context");
     ctx = (fft_ctx *) malloc(sizeof(fft_ctx));
     if (ctx == NULL) {
-        log_error("Unable to allocate contest");
+        log_error("Unable to allocate context");
         return NULL;
     }
 
@@ -49,7 +49,7 @@ fft_ctx *fft_init(size_t size) {
 }
 
 void fft_free(fft_ctx *ctx) {
-    log_init("Freeing");
+    log_info("Freeing");
 
     log_debug("Destroing plan");
     fftw_destroy_plan(ctx->plan);

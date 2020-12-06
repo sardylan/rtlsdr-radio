@@ -17,29 +17,32 @@
  */
 
 
-#ifndef __RTLSDR_RADIO__RTLSDR_RADIO__H
-#define __RTLSDR_RADIO__RTLSDR_RADIO__H
+#ifndef __RTLSDR_RADIO__NETWORK__H
+#define __RTLSDR_RADIO__NETWORK__H
 
-void signal_handler(int signum);
+#include <stddef.h>
+#include <pthread.h>
+#include <time.h>
 
-int main_program();
+struct network_ctx_t {
+    pthread_mutex_t mutex;
 
-int main_program_mode_rx();
+    char *address;
+    uint16_t port;
 
-int main_program_mode_info();
+    int sck;
+};
 
-void main_stop();
+typedef struct network_ctx_t network_ctx;
 
-void main_program_mode_rx_wait_init();
+network_ctx *network_init(const char *, uint16_t);
 
-void *thread_rx_device_read(void *);
+void network_free(network_ctx *);
 
-void *thread_rx_demod(void *);
+int network_socket_open(network_ctx *ctx);
 
-void *thread_rx_lpf(void *);
+void network_socket_close(network_ctx *ctx);
 
-void *thread_rx_resample(void *);
-
-void *thread_rx_network(void *);
+int network_socket_send(network_ctx *ctx, uint8_t *, size_t );
 
 #endif

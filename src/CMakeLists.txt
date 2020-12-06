@@ -6,6 +6,8 @@ find_package(Threads REQUIRED)
 pkg_check_modules(rtlsdr REQUIRED IMPORTED_TARGET librtlsdr)
 pkg_check_modules(fftw3 REQUIRED IMPORTED_TARGET fftw3)
 
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D__FILENAME__='\"$(subst ${CMAKE_SOURCE_DIR}/src,,$(abspath $<))\"'")
+
 add_executable(rtlsdr_radio
         main.c main.h
         ui.c ui.h
@@ -18,6 +20,7 @@ add_executable(rtlsdr_radio
         dsp.c dsp.h
         fir.c fir.h fir_lpf.h
         agc.c agc.h
+        network.h network.c
         default.h)
 
 target_link_libraries(rtlsdr_radio
