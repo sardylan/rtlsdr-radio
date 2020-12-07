@@ -43,6 +43,8 @@ int network_socket_open(network_ctx *ctx);
 
 void network_socket_close(network_ctx *ctx);
 
-int network_socket_send(network_ctx *ctx, uint8_t *, size_t );
+int network_socket_send(network_ctx *ctx, int8_t *, size_t);
+
+int network_socket_recv(network_ctx *ctx, int8_t *, size_t, ssize_t*);
 
 #endif

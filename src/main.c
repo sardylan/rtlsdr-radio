@@ -562,6 +562,8 @@ void *thread_rx_resample(void *data) {
 void *thread_rx_network(void *data) {
     network_ctx *ctx;
     int result;
+    ssize_t bytes_read;
+    int8_t buffer[2048];
 
     log_info("Thread start");
 
@@ -578,6 +580,16 @@ void *thread_rx_network(void *data) {
         log_error("Unable to open socket");
         main_stop();
         return (void *) EXIT_FAILURE;
+    }
+
+    while (1) {
+        result = network_socket_recv(ctx, buffer, sizeof(buffer), &bytes_read);
+        if (result != EXIT_SUCCESS) {
+            log_error("Error reading data from socket");
+            break;
+        }
+
+        log_debug("Read %zu bytes: %s", bytes_read, buffer);
     }
 
     log_info("Thread end");

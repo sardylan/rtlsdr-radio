@@ -137,7 +137,16 @@ void network_socket_close(network_ctx *ctx) {
     }
 }
 
-int network_socket_send(network_ctx *ctx, uint8_t *data, size_t data_size) {
+int network_socket_send(network_ctx *ctx, int8_t *data, size_t data_size) {
+
+    return EXIT_SUCCESS;
+}
+
+int network_socket_recv(network_ctx *ctx, int8_t *data, size_t data_size, ssize_t *bytes_read) {
+    *bytes_read = read(ctx->sck, data, data_size);
+
+    if (*bytes_read == -1)
+        return EXIT_FAILURE;
 
     return EXIT_SUCCESS;
 }
