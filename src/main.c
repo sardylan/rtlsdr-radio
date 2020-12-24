@@ -180,20 +180,20 @@ int main_program_mode_rx() {
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
 
-//    log_debug("Starting RX device read thread");
-//    pthread_create(&rx_device_thread, &attr, thread_rx_device_read, NULL);
-//
-//    log_debug("Starting RX demod thread");
-//    pthread_create(&rx_demod_thread, &attr, thread_rx_demod, NULL);
-//
-//    log_debug("Starting RX lpf thread");
-//    pthread_create(&rx_lpf_thread, &attr, thread_rx_lpf, NULL);
-//
-//    log_debug("Starting RX resample thread");
-//    pthread_create(&rx_resample_thread, &attr, thread_rx_resample, NULL);
+    log_debug("Starting RX device read thread");
+    pthread_create(&rx_device_thread, &attr, thread_rx_device_read, NULL);
 
-    log_debug("Starting RX network thread");
-    pthread_create(&rx_network_thread, &attr, thread_rx_network, NULL);
+    log_debug("Starting RX demod thread");
+    pthread_create(&rx_demod_thread, &attr, thread_rx_demod, NULL);
+
+    log_debug("Starting RX lpf thread");
+    pthread_create(&rx_lpf_thread, &attr, thread_rx_lpf, NULL);
+
+    log_debug("Starting RX resample thread");
+    pthread_create(&rx_resample_thread, &attr, thread_rx_resample, NULL);
+
+//    log_debug("Starting RX network thread");
+//    pthread_create(&rx_network_thread, &attr, thread_rx_network, NULL);
 
     sleep_req.tv_sec = 2;
     sleep_req.tv_nsec = 0;
@@ -205,11 +205,11 @@ int main_program_mode_rx() {
     }
 
     log_debug("Joining threads");
-//    pthread_join(rx_device_thread, NULL);
-//    pthread_join(rx_demod_thread, NULL);
-//    pthread_join(rx_lpf_thread, NULL);
-//    pthread_join(rx_resample_thread, NULL);
-    pthread_join(rx_network_thread, NULL);
+    pthread_join(rx_device_thread, NULL);
+    pthread_join(rx_demod_thread, NULL);
+    pthread_join(rx_lpf_thread, NULL);
+    pthread_join(rx_resample_thread, NULL);
+//    pthread_join(rx_network_thread, NULL);
 
     log_debug("Freeing buffers");
     circbuf_free(buffer_samples);
@@ -323,6 +323,8 @@ void *thread_rx_demod(void *data) {
     double complex prev_sample;
 
     double value;
+    double prod_fm;
+    double prod_am;
     int8_t elem;
     int j;
     struct timespec ts;
@@ -341,6 +343,9 @@ void *thread_rx_demod(void *data) {
     log_debug("Waiting for other threads to init");
     rx_demod_ready = 1;
     main_program_mode_rx_wait_init();
+
+    prod_fm = 127 / M_PI;
+    prod_am = (127 * M_SQRT2) / 2;
 
     log_debug("Starting demod loop");
     while (keep_running) {
@@ -361,18 +366,18 @@ void *thread_rx_demod(void *data) {
             switch (conf->modulation) {
                 case MOD_TYPE_FM:
                     product = samples[j] * conj(prev_sample);
-                    value = atan2(cimag(product), creal(product)) / M_PI;
+                    value = atan2(cimag(product), creal(product)) * prod_fm;
                     break;
 
                 case MOD_TYPE_AM:
-                    value = cabs(samples[j]);
+                    value = ((cabs(samples[j]) / prod_am) - 1) * 127;
                     break;
 
                 default:
                     value = 0;
             }
 
-            elem = (int8_t) (value * 127);
+            elem = (int8_t) value;
             output_buffer[j] = elem;
 
             prev_sample = samples[j];
@@ -538,8 +543,8 @@ void *thread_rx_resample(void *data) {
         log_trace("Resampling %zu bytes in %zu bytes", conf->rtlsdr_samples, audio_num);
         resample_do(res_ctx, input_buffer, conf->rtlsdr_samples, output_buffer, audio_num);
 
-        log_trace("Applying limiter");
-        agc_limiter(output_buffer, audio_num);
+//        log_trace("Applying limiter");
+//        agc_limiter(output_buffer, audio_num);
 
         log_trace("Output %zu bytes", audio_num);
         fwrite(output_buffer, sizeof(int8_t), audio_num, stdout);

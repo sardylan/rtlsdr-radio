@@ -21,6 +21,7 @@
 #define __RTLSDR_RADIO__DEFAULT__H
 
 #include "log.h"
+#include "cfg.h"
 
 #define CONFIG_UI_LOG_LEVEL_DEFAULT LOG_LEVEL_TRACE
 #define CONFIG_FILE_LOG_LEVEL_DEFAULT LOG_LEVEL_OFF
