@@ -21,6 +21,7 @@ add_executable(rtlsdr_radio
         fir.c fir.h fir_lpf.h
         agc.c agc.h
         network.h network.c
+        frame.c frame.h
         default.h)
 
 target_link_libraries(rtlsdr_radio
