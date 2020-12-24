@@ -5,6 +5,7 @@ find_package(Threads REQUIRED)
 
 pkg_check_modules(rtlsdr REQUIRED IMPORTED_TARGET librtlsdr)
 pkg_check_modules(fftw3 REQUIRED IMPORTED_TARGET fftw3)
+pkg_check_modules(opus REQUIRED IMPORTED_TARGET opus)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D__FILENAME__='\"$(subst ${CMAKE_SOURCE_DIR}/src,,$(abspath $<))\"'")
 
@@ -28,7 +29,8 @@ target_link_libraries(rtlsdr_radio
         Threads::Threads
         m
         PkgConfig::rtlsdr
-        PkgConfig::fftw3)
+        PkgConfig::fftw3
+        PkgConfig::opus)
 
 target_compile_options(rtlsdr_radio
         PRIVATE

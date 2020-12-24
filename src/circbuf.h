@@ -49,8 +49,8 @@ int circbuf_put_data(circbuf_ctx *, void *, size_t);
 
 int circbuf_get_data(circbuf_ctx *, void *, size_t);
 
-int circbuf_put(circbuf_ctx *, struct timespec *, void *, size_t);
+int circbuf_put(circbuf_ctx *, void *, size_t);
 
-int circbuf_get(circbuf_ctx *, struct timespec *, void *, size_t);
+int circbuf_get(circbuf_ctx *, void *, size_t);
 
 #endif

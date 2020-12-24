@@ -35,6 +35,8 @@ frame *frame_init(size_t size_iq, size_t size_sample, size_t size_pcm) {
         return NULL;
     }
 
+    f->number = 0;
+
     log_debug("Setting IQ buffer size");
     f->size_iq = size_iq;
 
@@ -84,15 +86,18 @@ frame *frame_init(size_t size_iq, size_t size_sample, size_t size_pcm) {
         return NULL;
     }
 
-    frame_clear(f);
+    frame_clear(f, 0);
 
     return f;
 }
 
-void frame_clear(frame *f) {
+void frame_clear(frame *f, uint64_t number) {
     size_t i;
 
     log_info("Cleaning frame");
+
+    log_debug("Clearing number");
+    f->number = number;
 
     log_debug("Setting timestamp");
     timespec_get(&f->ts, TIME_UTC);

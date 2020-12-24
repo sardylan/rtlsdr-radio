@@ -31,6 +31,8 @@ int agc_limiter(int8_t *data, size_t data_size) {
     double rms;
     double gain;
 
+    log_info("Applying limiter");
+
     rms = dsp_rms(data, data_size);
     gain = pow(2, rms + 4);
 

@@ -26,6 +26,7 @@
 #include <stddef.h>
 
 struct frame_t {
+    uint64_t number;
     struct timespec ts;
 
     size_t size_iq;
@@ -46,7 +47,7 @@ typedef struct frame_t frame;
 
 frame *frame_init(size_t, size_t, size_t);
 
-void frame_clear(frame *);
+void frame_clear(frame *, uint64_t);
 
 void frame_free(frame *);
 

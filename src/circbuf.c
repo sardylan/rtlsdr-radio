@@ -168,15 +168,11 @@ int circbuf_get_data(circbuf_ctx *ctx, void *data, size_t data_size) {
     return EXIT_SUCCESS;
 }
 
-int circbuf_put(circbuf_ctx *ctx, struct timespec *ts, void *data, size_t data_size) {
+int circbuf_put(circbuf_ctx *ctx, void *data, size_t data_size) {
     int result;
 
     log_debug("Locking mutex");
     pthread_mutex_lock(&ctx->mutex);
-
-    result = circbuf_put_data(ctx, ts, sizeof(struct timespec));
-    if (result != EXIT_SUCCESS)
-        return EXIT_FAILURE;
 
     result = circbuf_put_data(ctx, data, data_size);
     if (result != EXIT_SUCCESS)
@@ -191,15 +187,11 @@ int circbuf_put(circbuf_ctx *ctx, struct timespec *ts, void *data, size_t data_s
     return result;
 }
 
-int circbuf_get(circbuf_ctx *ctx, struct timespec *ts, void *data, size_t data_size) {
+int circbuf_get(circbuf_ctx *ctx, void *data, size_t data_size) {
     int result;
 
     log_debug("Locking mutex");
     pthread_mutex_lock(&ctx->mutex);
-
-    result = circbuf_get_data(ctx, ts, sizeof(struct timespec));
-    if (result != EXIT_SUCCESS)
-        return EXIT_FAILURE;
 
     result = circbuf_get_data(ctx, data, data_size);
     if (result != EXIT_SUCCESS)
