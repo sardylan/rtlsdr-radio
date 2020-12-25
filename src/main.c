@@ -17,9 +17,9 @@
  */
 
 
+#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <signal.h>
 #include <rtl-sdr.h>
 #include <complex.h>
@@ -34,17 +34,16 @@
 #include "log.h"
 #include "circbuf.h"
 #include "resample.h"
-#include "fft.h"
 #include "dsp.h"
-#include "fir_lpf.h"
 #include "agc.h"
 #include "frame.h"
 #include "network.h"
 
 #define MAIN_BUFFERS_SIZE 8192
 
-const char *main_program_name;
 static volatile int keep_running = 1;
+
+extern const char *ui_program_name;
 
 frame **frames;
 uint64_t frame_number = 0;
@@ -52,6 +51,7 @@ uint64_t frame_number = 0;
 circbuf_ctx *buffer_samples;
 circbuf_ctx *buffer_demod;
 circbuf_ctx *buffer_filtered;
+circbuf_ctx *buffer_network;
 
 pthread_t rx_device_thread;
 pthread_t rx_demod_thread;
@@ -74,7 +74,7 @@ extern rtlsdr_dev_t *device;
 int main(int argc, char **argv) {
     int result;
 
-    main_program_name = argv[0];
+    ui_program_name = argv[0];
 
     signal(SIGINT, signal_handler);
 
@@ -145,25 +145,42 @@ int main_program_mode_rx() {
 
     log_info("Main program RX mode");
 
+    frames = NULL;
+    buffer_samples = NULL;
+    buffer_demod = NULL;
+    buffer_filtered = NULL;
+    buffer_network = NULL;
+
     log_debug("Allocating frames buffer");
     frames = (frame **) calloc(MAIN_BUFFERS_SIZE, sizeof(frame *));
     if (frames == NULL) {
         log_error("Unable to allocate frames buffer");
+        main_program_mode_rx_end();
         return EXIT_FAILURE;
     }
+
+    for (i = 0; i < MAIN_BUFFERS_SIZE; i++)
+        frames[i] = NULL;
 
     log_debug("Preparing frames buffer");
     size_iq = conf->rtlsdr_samples * 2;
     size_sample = conf->rtlsdr_samples;
     size_pcm = (size_t) ((double) conf->rtlsdr_device_sample_rate / (double) conf->audio_sample_rate);
 
-    for (i = 0; i < MAIN_BUFFERS_SIZE; i++)
+    for (i = 0; i < MAIN_BUFFERS_SIZE; i++) {
         frames[i] = frame_init(size_iq, size_sample, size_pcm);
+        if (frames[i] == NULL) {
+            log_error("Unable to initialize frames");
+            main_program_mode_rx_end();
+            return EXIT_FAILURE;
+        }
+    }
 
     log_debug("Init IQ circbuf");
     buffer_samples = circbuf_init(sizeof(uint64_t), MAIN_BUFFERS_SIZE);
     if (buffer_samples == NULL) {
         log_error("Unable to init IQ circular buffer");
+        main_program_mode_rx_end();
         return EXIT_FAILURE;
     }
 
@@ -171,6 +188,7 @@ int main_program_mode_rx() {
     buffer_demod = circbuf_init(sizeof(uint64_t), MAIN_BUFFERS_SIZE);
     if (buffer_demod == NULL) {
         log_error("Unable to init demod circular buffer");
+        main_program_mode_rx_end();
         return EXIT_FAILURE;
     }
 
@@ -178,25 +196,29 @@ int main_program_mode_rx() {
     buffer_filtered = circbuf_init(sizeof(uint64_t), MAIN_BUFFERS_SIZE);
     if (buffer_filtered == NULL) {
         log_error("Unable to allocate lpf circular buffer");
+        main_program_mode_rx_end();
         return EXIT_FAILURE;
     }
 
-//    log_debug("Opening RTL-SDR device");
-//    result = device_open();
-//    if (result == EXIT_FAILURE) {
-//        log_error("Unable to open RTL-SDR device");
-//        return EXIT_FAILURE;
-//    }
+    log_debug("Init network circbuf");
+    buffer_network = circbuf_init(sizeof(uint64_t), MAIN_BUFFERS_SIZE);
+    if (buffer_network == NULL) {
+        log_error("Unable to allocate network circular buffer");
+        main_program_mode_rx_end();
+        return EXIT_FAILURE;
+    }
 
     rx_device_ready = 0;
     rx_demod_ready = 0;
     rx_lpf_ready = 0;
     rx_resample_ready = 0;
+    rx_network_ready = 0;
 
     log_debug("Initializing mutex");
     result = pthread_mutex_init(&rx_ready_mutex, NULL);
     if (result != 0) {
         log_error("Error initializing mutex: %d", result);
+        main_program_mode_rx_end();
         return EXIT_FAILURE;
     }
 
@@ -204,6 +226,7 @@ int main_program_mode_rx() {
     result = pthread_cond_init(&rx_ready_cond, NULL);
     if (result != 0) {
         log_error("Error initializing condition: %d", result);
+        main_program_mode_rx_end();
         return EXIT_FAILURE;
     }
 
@@ -223,8 +246,8 @@ int main_program_mode_rx() {
     log_debug("Starting RX resample thread");
     pthread_create(&rx_resample_thread, &attr, thread_rx_resample, NULL);
 
-//    log_debug("Starting RX network thread");
-//    pthread_create(&rx_network_thread, &attr, thread_rx_network, NULL);
+    log_debug("Starting RX network thread");
+    pthread_create(&rx_network_thread, &attr, thread_rx_network, NULL);
 
     sleep_req.tv_sec = 2;
     sleep_req.tv_nsec = 0;
@@ -240,26 +263,40 @@ int main_program_mode_rx() {
     pthread_join(rx_demod_thread, NULL);
     pthread_join(rx_lpf_thread, NULL);
     pthread_join(rx_resample_thread, NULL);
-//    pthread_join(rx_network_thread, NULL);
+    pthread_join(rx_network_thread, NULL);
+
+    main_program_mode_rx_end();
+
+    return EXIT_SUCCESS;
+}
+
+void main_program_mode_rx_end() {
+    int i;
+
+    log_debug("Freeing frames");
+    if (frames != NULL) {
+        for (i = 0; i < MAIN_BUFFERS_SIZE; i++)
+            if (frames[i] != NULL)
+                frame_free(frames[i]);
+
+        free(frames);
+    }
 
     log_debug("Freeing buffers");
-    circbuf_free(buffer_samples);
-    circbuf_free(buffer_demod);
-    circbuf_free(buffer_filtered);
-
-    log_debug("Freeing frames buffers");
-    for (i = 0; i < MAIN_BUFFERS_SIZE; i++)
-        frame_free(frames[i]);
-
-    free(frames);
+    if (buffer_samples != NULL)
+        circbuf_free(buffer_samples);
+    if (buffer_demod != NULL)
+        circbuf_free(buffer_demod);
+    if (buffer_filtered != NULL)
+        circbuf_free(buffer_filtered);
+    if (buffer_network != NULL)
+        circbuf_free(buffer_network);
 
     log_debug("Destroying mutex");
     pthread_mutex_destroy(&rx_ready_mutex);
 
     log_debug("Destroying cond");
     pthread_cond_destroy(&rx_ready_cond);
-
-    return EXIT_SUCCESS;
 }
 
 int main_program_mode_info() {
@@ -444,7 +481,7 @@ void *thread_rx_lpf(void *data) {
     log_info("Thread start");
 
     log_debug("Initializing FIR low-pass filter context");
-    lpf_ctx = fir_init_lpf1();
+    lpf_ctx = fir_init_lpf(conf->demod_lowpass_filter);
     if (lpf_ctx == NULL) {
         log_error("Unable to allocate FIR low-pass filter context");
         main_stop();
@@ -495,14 +532,14 @@ void *thread_rx_resample(void *data) {
     frame *fr;
 
     size_t audio_num;
-    double complex *fft_buffer;
+//    double complex *fft_buffer;
     resample_ctx *res_ctx;
     int result;
 
     log_info("Thread start");
 
     log_debug("Initializing resample context");
-    res_ctx = resample_init();
+    res_ctx = resample_init(conf->rtlsdr_device_sample_rate, conf->audio_sample_rate);
     if (res_ctx == NULL) {
         log_error("Unable to allocate resample context");
         main_stop();
@@ -512,15 +549,12 @@ void *thread_rx_resample(void *data) {
     audio_num = resample_compute_output_size(res_ctx, conf->rtlsdr_samples);
     log_debug("Audio buffer size is %zu", audio_num);
 
-    fft_buffer = (double complex *) calloc(conf->rtlsdr_samples, sizeof(double complex));
-    if (fft_buffer == NULL) {
-        log_error("Unable to allocate input buffer");
-        main_stop();
-        return (void *) EXIT_FAILURE;
-    }
-
-    log_debug("Creating resample context");
-    res_ctx = resample_init(conf->rtlsdr_device_sample_rate, conf->audio_sample_rate);
+//    fft_buffer = (double complex *) calloc(conf->rtlsdr_samples, sizeof(double complex));
+//    if (fft_buffer == NULL) {
+//        log_error("Unable to allocate input buffer");
+//        main_stop();
+//        return (void *) EXIT_FAILURE;
+//    }
 
     log_debug("Waiting for other threads to init");
     rx_resample_ready = 1;
@@ -545,6 +579,12 @@ void *thread_rx_resample(void *data) {
         log_trace("Applying limiter");
         agc_limiter(fr->pcm, audio_num);
 
+//        result = circbuf_put(buffer_network, &fr->number, 1);
+//        if (result != EXIT_SUCCESS) {
+//            log_error("Unable to put data to circbuf");
+//            break;
+//        }
+
         log_trace("Output %zu bytes", audio_num);
         fwrite(fr->pcm, sizeof(int8_t), audio_num, stdout);
     }
@@ -560,41 +600,41 @@ void *thread_rx_resample(void *data) {
 }
 
 void *thread_rx_network(void *data) {
-    network_ctx *ctx;
-    int result;
-    ssize_t bytes_read;
-    int8_t buffer[2048];
+//    network_ctx *ctx;
+//    int result;
+//    ssize_t bytes_read;
+//    int8_t buffer[2048];
 
     log_info("Thread start");
 
-    log_debug("Initializing network context");
-    ctx = network_init(conf->network_server, conf->network_port);
-    if (ctx == NULL) {
-        log_error("Unable to allocate network context");
-        main_stop();
-        return (void *) EXIT_FAILURE;
-    }
-
-    result = network_socket_open(ctx);
-    if (result != EXIT_SUCCESS) {
-        log_error("Unable to open socket");
-        main_stop();
-        return (void *) EXIT_FAILURE;
-    }
-
-    while (1) {
-        result = network_socket_recv(ctx, buffer, sizeof(buffer), &bytes_read);
-        if (result != EXIT_SUCCESS) {
-            log_error("Error reading data from socket");
-            break;
-        }
-
-        log_debug("Read %zu bytes: %s", bytes_read, buffer);
-    }
+//    log_debug("Initializing network context");
+//    ctx = network_init(conf->network_server, conf->network_port);
+//    if (ctx == NULL) {
+//        log_error("Unable to allocate network context");
+//        main_stop();
+//        return (void *) EXIT_FAILURE;
+//    }
+//
+//    result = network_socket_open(ctx);
+//    if (result != EXIT_SUCCESS) {
+//        log_error("Unable to open socket");
+//        main_stop();
+//        return (void *) EXIT_FAILURE;
+//    }
+//
+//    while (1) {
+//        result = network_socket_recv(ctx, buffer, sizeof(buffer), &bytes_read);
+//        if (result != EXIT_SUCCESS) {
+//            log_error("Error reading data from socket");
+//            break;
+//        }
+//
+//        log_debug("Read %zu bytes: %s", bytes_read, buffer);
+//    }
 
     log_info("Thread end");
 
-    main_stop();
+//    main_stop();
 
     return (void *) EXIT_SUCCESS;
 }

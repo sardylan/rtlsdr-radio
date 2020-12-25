@@ -17,11 +17,12 @@
  */
 
 
+#include <stdlib.h>
 #include <malloc.h>
 #include <string.h>
-#include <stdlib.h>
 
 #include "fir.h"
+#include "fir_lpf.h"
 #include "log.h"
 
 fir_ctx *fir_init(const double *kernel, size_t kernel_size) {
@@ -95,4 +96,21 @@ int fir_convolve(fir_ctx *ctx, int8_t *output, const int8_t *input, size_t size)
     memcpy(ctx->prev, &input[size - ctx->kernel_size], (ctx->kernel_size - 1) * sizeof(int8_t));
 
     return EXIT_SUCCESS;
+}
+
+fir_ctx *fir_init_lpf(int number) {
+    switch (number) {
+        case 1:
+            return fir_init(fir_kernel_lpf1_filter_taps, FIR_KERNEL_LPF1_TAP_NUM);
+        case 2:
+            return fir_init(fir_kernel_lpf2_filter_taps, FIR_KERNEL_LPF2_TAP_NUM);
+        case 3:
+            return fir_init(fir_kernel_lpf3_filter_taps, FIR_KERNEL_LPF3_TAP_NUM);
+        case 4:
+            return fir_init(fir_kernel_lpf4_filter_taps, FIR_KERNEL_LPF4_TAP_NUM);
+        case 5:
+            return fir_init(fir_kernel_lpf5_filter_taps, FIR_KERNEL_LPF5_TAP_NUM);
+        default:
+            return NULL;
+    }
 }

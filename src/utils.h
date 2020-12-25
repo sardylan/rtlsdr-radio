@@ -17,29 +17,21 @@
  */
 
 
-#ifndef __RTLSDR_RADIO__RESAMPLE__H
-#define __RTLSDR_RADIO__RESAMPLE__H
+#ifndef __RTLSDR_RADIO__UTILS__H
+#define __RTLSDR_RADIO__UTILS__H
 
 #include <stdint.h>
-#include <stddef.h>
 
-#include "fir.h"
+void utils_uint16_to_be(uint8_t *, uint16_t);
 
-struct resample_ctx_t {
-    uint32_t src_rate;
-    uint32_t dst_rate;
+void utils_uint32_to_be(uint8_t *, uint32_t);
 
-    uint32_t ratio;
-};
+void utils_uint64_to_be(uint8_t *, uint64_t);
 
-typedef struct resample_ctx_t resample_ctx;
+void utils_int16_to_be(uint8_t *, int16_t);
 
-resample_ctx *resample_init(uint32_t, uint32_t);
+void utils_int32_to_be(uint8_t *, int32_t);
 
-void resample_free(resample_ctx *);
-
-size_t resample_compute_output_size(resample_ctx *, size_t);
-
-int resample_do(resample_ctx *ctx, const int8_t *, size_t, int8_t *, size_t);
+void utils_int64_to_be(uint8_t *, int64_t);
 
 #endif

@@ -17,29 +17,47 @@
  */
 
 
-#ifndef __RTLSDR_RADIO__RESAMPLE__H
-#define __RTLSDR_RADIO__RESAMPLE__H
+#ifndef __RTLSDR_RADIO__PAYLOAD__H
+#define __RTLSDR_RADIO__PAYLOAD__H
+
+/*
+
+# 0         1         2         3         4         5         6
+# 0123456789012345678901234567890123456789012345678901234567890123456789
+# GFPrrNNNNNNNNttttttttCCCCffffDDDD
+
+ */
 
 #include <stdint.h>
 #include <stddef.h>
+#include <time.h>
 
-#include "fir.h"
+#define PAYLOAD_HEADER "GFP"
+#define PAYLOAD_HEADER_SIZE 3
 
-struct resample_ctx_t {
-    uint32_t src_rate;
-    uint32_t dst_rate;
+struct payload_t {
+    uint16_t receiver;
+    uint64_t number;
 
-    uint32_t ratio;
+    uint64_t timestamp;
+
+    uint32_t channel;
+    uint32_t frequency;
+
+    uint32_t data_size;
+    uint8_t *data;
 };
 
-typedef struct resample_ctx_t resample_ctx;
+typedef struct payload_t payload;
 
-resample_ctx *resample_init(uint32_t, uint32_t);
+payload *payload_init();
 
-void resample_free(resample_ctx *);
+void payload_free(payload *);
 
-size_t resample_compute_output_size(resample_ctx *, size_t);
+int payload_set_data(payload *, uint8_t *, uint32_t);
 
-int resample_do(resample_ctx *ctx, const int8_t *, size_t, int8_t *, size_t);
+size_t payload_get_size(payload *);
+
+int payload_serialize(payload *, uint8_t *, size_t, size_t *);
 
 #endif

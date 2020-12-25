@@ -22,11 +22,8 @@
 #include "resample.h"
 #include "log.h"
 #include "cfg.h"
-#include "fir_lpf.h"
 
-extern cfg *conf;
-
-resample_ctx *resample_init() {
+resample_ctx *resample_init(uint32_t src_rate, uint32_t dst_rate) {
     resample_ctx *ctx;
     log_info("Initializing resample context");
 
@@ -38,8 +35,8 @@ resample_ctx *resample_init() {
     }
 
     log_debug("Setting src and dest sample rate");
-    ctx->src_rate = conf->rtlsdr_device_sample_rate;
-    ctx->dst_rate = conf->audio_sample_rate;
+    ctx->src_rate = src_rate;
+    ctx->dst_rate = dst_rate;
 
     log_debug("Computing resample ratio");
     ctx->ratio = ctx->src_rate / ctx->dst_rate;

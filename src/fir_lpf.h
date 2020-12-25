@@ -142,8 +142,6 @@ static double fir_kernel_lpf1_filter_taps[FIR_KERNEL_LPF1_TAP_NUM] = {
         -0.051298747163170705
 };
 
-#define fir_init_lpf1() fir_init(fir_kernel_lpf1_filter_taps, FIR_KERNEL_LPF1_TAP_NUM)
-
 
 /*
 
@@ -600,7 +598,6 @@ static double fir_kernel_lpf2_filter_taps[FIR_KERNEL_LPF2_TAP_NUM] = {
         -0.00006206339989040454
 };
 
-#define fir_init_lpf2() fir_init(fir_kernel_lpf2_filter_taps, FIR_KERNEL_LPF2_TAP_NUM)
 
 /*
 
@@ -905,7 +902,6 @@ static double fir_kernel_lpf3_filter_taps[FIR_KERNEL_LPF3_TAP_NUM] = {
         -0.00481168660374754
 };
 
-#define fir_init_lpf3() fir_init(fir_kernel_lpf3_filter_taps, FIR_KERNEL_LPF3_TAP_NUM)
 
 /*
  * Custom filter
@@ -948,7 +944,6 @@ static double fir_kernel_lpf4_filter_taps[FIR_KERNEL_LPF4_TAP_NUM] = {
         0.0078125
 };
 
-#define fir_init_lpf4() fir_init(fir_kernel_lpf4_filter_taps, FIR_KERNEL_LPF4_TAP_NUM)
 
 /*
  * Bypass filter
@@ -959,7 +954,5 @@ static double fir_kernel_lpf4_filter_taps[FIR_KERNEL_LPF4_TAP_NUM] = {
 static double fir_kernel_lpf5_filter_taps[FIR_KERNEL_LPF5_TAP_NUM] = {
         1, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
-
-#define fir_init_lpf5() fir_init(fir_kernel_lpf5_filter_taps, FIR_KERNEL_LPF5_TAP_NUM)
 
 #endif

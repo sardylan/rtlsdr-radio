@@ -36,4 +36,6 @@ void fir_free(fir_ctx *);
 
 int fir_convolve(fir_ctx *ctx, int8_t *output, const int8_t *input, size_t size);
 
+fir_ctx *fir_init_lpf(int);
+
 #endif

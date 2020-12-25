@@ -55,6 +55,8 @@ void cfg_init() {
 
     conf->modulation = CONFIG_MODULATION_DEFAULT;
 
+    conf->demod_lowpass_filter = CONFIG_DEMOD_LOWPASS_FILTER;
+
     conf->audio_sample_rate = CONFIG_AUDIO_SAMPLE_RATE_DEFAULT;
 
     ln = strlen(CONFIG_NETWORK_SERVER_DEFAULT) + 1;
@@ -86,6 +88,7 @@ void cfg_print() {
     fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_device_agc_mode:        %u\n", conf->rtlsdr_device_agc_mode);
     fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_samples:                %zu\n", conf->rtlsdr_samples);
     fprintf(UI_MESSAGES_OUTPUT, "modulation:                    %s\n", log_modulation_to_char(conf->modulation));
+    fprintf(UI_MESSAGES_OUTPUT, "demod_lowpass_filter:          %d\n", conf->demod_lowpass_filter);
     fprintf(UI_MESSAGES_OUTPUT, "audio_sample_rate:             %u\n", conf->audio_sample_rate);
     fprintf(UI_MESSAGES_OUTPUT, "\n");
 }

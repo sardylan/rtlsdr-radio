@@ -17,29 +17,29 @@
  */
 
 
-#ifndef __RTLSDR_RADIO__RESAMPLE__H
-#define __RTLSDR_RADIO__RESAMPLE__H
+#ifndef __RTLSDR_RADIO__AUDIOCODEC__H
+#define __RTLSDR_RADIO__AUDIOCODEC__H
 
-#include <stdint.h>
-#include <stddef.h>
+#include <opus.h>
 
-#include "fir.h"
+// Frame duration 20ms, at 8000Hz we have 160 samples
+#define AUDIOCODEC_FRAME_SIZE 160
 
-struct resample_ctx_t {
-    uint32_t src_rate;
-    uint32_t dst_rate;
+struct audiocodec_ctx_t {
+    opus_int32 sample_rate;
+    opus_int32 bitrate;
 
-    uint32_t ratio;
+    OpusEncoder *encoder;
+
+    opus_int16 *input;
 };
 
-typedef struct resample_ctx_t resample_ctx;
+typedef struct audiocodec_ctx_t audiocodec_ctx;
 
-resample_ctx *resample_init(uint32_t, uint32_t);
+audiocodec_ctx *audiocodec_init(int32_t, int32_t);
 
-void resample_free(resample_ctx *);
+void audiocodec_free(audiocodec_ctx *);
 
-size_t resample_compute_output_size(resample_ctx *, size_t);
-
-int resample_do(resample_ctx *ctx, const int8_t *, size_t, int8_t *, size_t);
+int audiocodec_encode(audiocodec_ctx *, const int8_t *, uint8_t *, size_t, size_t *);
 
 #endif

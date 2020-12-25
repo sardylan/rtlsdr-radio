@@ -26,6 +26,8 @@ int main_program();
 
 int main_program_mode_rx();
 
+void main_program_mode_rx_end();
+
 int main_program_mode_info();
 
 void main_stop();

@@ -59,6 +59,8 @@ struct cfg_t {
 
     modulation_type modulation;
 
+    int demod_lowpass_filter;
+
     uint32_t audio_sample_rate;
 
     char *network_server;
