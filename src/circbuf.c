@@ -93,7 +93,7 @@ void circbuf_free(circbuf_ctx *ctx) {
 }
 
 int circbuf_put_data(circbuf_ctx *ctx, void *data, size_t data_size) {
-    void *begin;
+    uint8_t *begin;
     size_t len;
     size_t front_avail;
     size_t ln;
@@ -118,7 +118,7 @@ int circbuf_put_data(circbuf_ctx *ctx, void *data, size_t data_size) {
     } else {
         ln = len - front_avail;
         memcpy(begin, data, front_avail);
-        memcpy(ctx->pointer, data + front_avail, ln);
+        memcpy(ctx->pointer, (uint8_t *) data + front_avail, ln);
         ctx->head = ln;
     }
 
@@ -129,7 +129,7 @@ int circbuf_put_data(circbuf_ctx *ctx, void *data, size_t data_size) {
 
 int circbuf_get_data(circbuf_ctx *ctx, void *data, size_t data_size) {
     size_t used;
-    void *begin;
+    uint8_t *begin;
     size_t front_avail;
     size_t ln;
     size_t len;
@@ -159,7 +159,7 @@ int circbuf_get_data(circbuf_ctx *ctx, void *data, size_t data_size) {
     } else {
         ln = len - front_avail;
         memcpy(data, begin, front_avail);
-        memcpy(data + front_avail, ctx->pointer, ln);
+        memcpy((uint8_t *) data + front_avail, ctx->pointer, ln);
         ctx->tail = ln;
     }
 

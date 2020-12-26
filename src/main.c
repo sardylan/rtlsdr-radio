@@ -325,7 +325,7 @@ void main_program_mode_rx_wait_init() {
     pthread_cond_broadcast(&rx_ready_cond);
 }
 
-void *thread_rx_device_read(void *data) {
+void *thread_rx_device_read() {
     size_t frame_pos;
     frame *fr;
 
@@ -387,7 +387,7 @@ void *thread_rx_device_read(void *data) {
     return (void *) EXIT_SUCCESS;
 }
 
-void *thread_rx_demod(void *data) {
+void *thread_rx_demod() {
     uint64_t fr_number;
     size_t fr_pos;
     frame *fr;
@@ -399,7 +399,7 @@ void *thread_rx_demod(void *data) {
     double prod_fm;
     double prod_am;
     int8_t elem;
-    int j;
+    size_t j;
     int result;
 
     log_info("Thread start");
@@ -470,7 +470,7 @@ void *thread_rx_demod(void *data) {
     return (void *) EXIT_SUCCESS;
 }
 
-void *thread_rx_lpf(void *data) {
+void *thread_rx_lpf() {
     uint64_t fr_number;
     size_t fr_pos;
     frame *fr;
@@ -480,12 +480,14 @@ void *thread_rx_lpf(void *data) {
 
     log_info("Thread start");
 
-    log_debug("Initializing FIR low-pass filter context");
-    lpf_ctx = fir_init_lpf(conf->demod_lowpass_filter);
-    if (lpf_ctx == NULL) {
-        log_error("Unable to allocate FIR low-pass filter context");
-        main_stop();
-        return (void *) EXIT_FAILURE;
+    if (conf->demod_lowpass_filter > 0) {
+        log_debug("Initializing FIR low-pass filter context");
+        lpf_ctx = fir_init_lpf(conf->demod_lowpass_filter);
+        if (lpf_ctx == NULL) {
+            log_error("Unable to allocate FIR low-pass filter context");
+            main_stop();
+            return (void *) EXIT_FAILURE;
+        }
     }
 
     log_debug("Waiting for other threads to init");
@@ -506,8 +508,10 @@ void *thread_rx_lpf(void *data) {
         fr = frames[fr_pos];
 
         log_trace("Filtering");
-        fir_convolve(lpf_ctx, fr->filtered, fr->demod, conf->rtlsdr_samples);
-//        memcpy(fr->filtered, fr->demod, conf->rtlsdr_samples);
+        if (conf->demod_lowpass_filter > 0)
+            fir_convolve(lpf_ctx, fr->filtered, fr->demod, conf->rtlsdr_samples);
+        else
+            memcpy(fr->filtered, fr->demod, conf->rtlsdr_samples);
 
         result = circbuf_put(buffer_filtered, &fr->number, 1);
         if (result != EXIT_SUCCESS) {
@@ -516,8 +520,10 @@ void *thread_rx_lpf(void *data) {
         }
     }
 
-    log_debug("Freeing resample context");
-    fir_free(lpf_ctx);
+    if (conf->demod_lowpass_filter > 0) {
+        log_debug("Freeing resample context");
+        fir_free(lpf_ctx);
+    }
 
     log_info("Thread end");
 
@@ -526,7 +532,7 @@ void *thread_rx_lpf(void *data) {
     return (void *) EXIT_SUCCESS;
 }
 
-void *thread_rx_resample(void *data) {
+void *thread_rx_resample() {
     uint64_t fr_number;
     size_t fr_pos;
     frame *fr;
@@ -579,14 +585,14 @@ void *thread_rx_resample(void *data) {
         log_trace("Applying limiter");
         agc_limiter(fr->pcm, audio_num);
 
-//        result = circbuf_put(buffer_network, &fr->number, 1);
-//        if (result != EXIT_SUCCESS) {
-//            log_error("Unable to put data to circbuf");
-//            break;
-//        }
+        result = circbuf_put(buffer_network, &fr->number, 1);
+        if (result != EXIT_SUCCESS) {
+            log_error("Unable to put data to circbuf");
+            break;
+        }
 
-        log_trace("Output %zu bytes", audio_num);
-        fwrite(fr->pcm, sizeof(int8_t), audio_num, stdout);
+//        log_trace("Output %zu bytes", audio_num);
+//        fwrite(fr->pcm, sizeof(int8_t), audio_num, stdout);
     }
 
     log_debug("Freeing resample context");
@@ -599,7 +605,7 @@ void *thread_rx_resample(void *data) {
     return (void *) EXIT_SUCCESS;
 }
 
-void *thread_rx_network(void *data) {
+void *thread_rx_network() {
 //    network_ctx *ctx;
 //    int result;
 //    ssize_t bytes_read;

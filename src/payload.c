@@ -91,7 +91,7 @@ size_t payload_get_size(payload *p) {
 
     ln += sizeof(PAYLOAD_HEADER);
 
-    ln += sizeof(uint16_t);
+    ln += sizeof(uint64_t);
     ln += sizeof(uint64_t);
 
     ln += sizeof(uint64_t);
@@ -119,8 +119,8 @@ int payload_serialize(payload *p, uint8_t *buffer, size_t buffer_size, size_t *b
     ln = 0;
 
     log_debug("Adds header");
-    memcpy(buffer + ln, PAYLOAD_HEADER, sizeof(PAYLOAD_HEADER));
-    ln += sizeof(PAYLOAD_HEADER);
+    strcpy((char *) buffer + ln, PAYLOAD_HEADER);
+    ln += strlen(PAYLOAD_HEADER);
 
     log_debug("Adds receiver number");
     utils_uint16_to_be(buffer + ln, p->receiver);

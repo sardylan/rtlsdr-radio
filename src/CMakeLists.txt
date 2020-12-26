@@ -35,4 +35,4 @@ target_link_libraries(rtlsdr_radio
 
 target_compile_options(rtlsdr_radio
         PRIVATE
-        -Wall)
+        -Wall -Wextra -Wpedantic)

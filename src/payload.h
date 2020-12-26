@@ -24,19 +24,19 @@
 
 # 0         1         2         3         4         5         6
 # 0123456789012345678901234567890123456789012345678901234567890123456789
-# GFPrrNNNNNNNNttttttttCCCCffffDDDD
+# GFPrrrrrrrrNNNNNNNNttttttttCCCCffffDDDD...
 
  */
 
 #include <stdint.h>
 #include <stddef.h>
 #include <time.h>
+#include <string.h>
 
 #define PAYLOAD_HEADER "GFP"
-#define PAYLOAD_HEADER_SIZE 3
 
 struct payload_t {
-    uint16_t receiver;
+    uint64_t receiver;
     uint64_t number;
 
     uint64_t timestamp;

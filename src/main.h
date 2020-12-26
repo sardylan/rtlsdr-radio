@@ -34,14 +34,14 @@ void main_stop();
 
 void main_program_mode_rx_wait_init();
 
-void *thread_rx_device_read(void *);
+void *thread_rx_device_read();
 
-void *thread_rx_demod(void *);
+void *thread_rx_demod();
 
-void *thread_rx_lpf(void *);
+void *thread_rx_lpf();
 
-void *thread_rx_resample(void *);
+void *thread_rx_resample();
 
-void *thread_rx_network(void *);
+void *thread_rx_network();
 
 #endif

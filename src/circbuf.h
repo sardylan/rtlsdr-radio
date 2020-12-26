@@ -25,7 +25,7 @@
 #include <time.h>
 
 struct circbuf_ctx_t {
-    void *pointer;
+    uint8_t *pointer;
 
     size_t item_size;
 
