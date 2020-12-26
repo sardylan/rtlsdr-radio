@@ -20,14 +20,14 @@
 #include <stdlib.h>
 #include <malloc.h>
 
-#include "audiocodec.h"
+#include "codec.h"
 #include "log.h"
 
-#define AUDIOCODEC_CHANNELS 1
-#define AUDIOCODEC_APPLICATION OPUS_APPLICATION_AUDIO
+#define CODEC_CHANNELS 1
+#define CODEC_APPLICATION OPUS_APPLICATION_VOIP
 
-audiocodec_ctx *audiocodec_init(int32_t sample_rate, int32_t bitrate) {
-    audiocodec_ctx *ctx;
+codec_ctx *codec_init(int32_t sample_rate, int32_t bitrate) {
+    codec_ctx *ctx;
     int result;
 
     int channels;
@@ -35,11 +35,11 @@ audiocodec_ctx *audiocodec_init(int32_t sample_rate, int32_t bitrate) {
 
     log_info("Initializing context");
 
-    channels = AUDIOCODEC_CHANNELS;
-    application = AUDIOCODEC_APPLICATION;
+    channels = CODEC_CHANNELS;
+    application = CODEC_APPLICATION;
 
     log_debug("Allocating context");
-    ctx = (audiocodec_ctx *) malloc(sizeof(audiocodec_ctx));
+    ctx = (codec_ctx *) malloc(sizeof(codec_ctx));
     if (ctx == NULL) {
         log_error("Unable to allocate context");
         return NULL;
@@ -54,8 +54,26 @@ audiocodec_ctx *audiocodec_init(int32_t sample_rate, int32_t bitrate) {
         log_error("Unable to create encoder: %s", opus_strerror(result));
 
         ctx->encoder = NULL;
-        audiocodec_free(ctx);
+        codec_free(ctx);
 
+        return NULL;
+    }
+
+    log_debug("Setting encoder bandwidth");
+    ctx->bitrate = bitrate;
+    result = opus_encoder_ctl(ctx->encoder, OPUS_SET_BANDWIDTH(OPUS_BANDWIDTH_WIDEBAND));
+    if (result < 0) {
+        log_error("Unable to set encoder bandwidth: %s", opus_strerror(result));
+        codec_free(ctx);
+        return NULL;
+    }
+
+    log_debug("Setting encoder bandwidth");
+    ctx->bitrate = bitrate;
+    result = opus_encoder_ctl(ctx->encoder, OPUS_SET_SIGNAL(OPUS_SIGNAL_VOICE));
+    if (result < 0) {
+        log_error("Unable to set encoder signal: %s", opus_strerror(result));
+        codec_free(ctx);
         return NULL;
     }
 
@@ -63,23 +81,23 @@ audiocodec_ctx *audiocodec_init(int32_t sample_rate, int32_t bitrate) {
     ctx->bitrate = bitrate;
     result = opus_encoder_ctl(ctx->encoder, OPUS_SET_BITRATE(ctx->bitrate));
     if (result < 0) {
-        log_error("Unable to set bitrate encoder: %s", opus_strerror(result));
-        audiocodec_free(ctx);
+        log_error("Unable to set encoder bitrate: %s", opus_strerror(result));
+        codec_free(ctx);
         return NULL;
     }
 
     log_debug("Allocation input buffer");
-    ctx->input = (opus_int16 *) calloc(AUDIOCODEC_FRAME_SIZE, sizeof(opus_int16));
+    ctx->input = (opus_int16 *) calloc(CODEC_FRAME_SIZE, sizeof(opus_int16));
     if (ctx->input == NULL) {
         log_error("Unable to allocate input buffer");
-        audiocodec_free(ctx);
+        codec_free(ctx);
         return NULL;
     }
 
     return ctx;
 }
 
-void audiocodec_free(audiocodec_ctx *ctx) {
+void codec_free(codec_ctx *ctx) {
     log_info("Freeing context");
 
     if (ctx->encoder != NULL)
@@ -91,21 +109,21 @@ void audiocodec_free(audiocodec_ctx *ctx) {
     free(ctx);
 }
 
-int audiocodec_encode(audiocodec_ctx *ctx,
-                      const int8_t *pcm,
-                      uint8_t *output, size_t output_size,
-                      size_t *bytes_written) {
+int codec_encode(codec_ctx *ctx,
+                 const int8_t *pcm,
+                 uint8_t *output, size_t output_size,
+                 size_t *bytes_written) {
     opus_int32 result;
     int i;
 
     log_info("Encoding");
 
-    for (i = 0; i < AUDIOCODEC_FRAME_SIZE; i++)
+    for (i = 0; i < CODEC_FRAME_SIZE; i++)
         ctx->input[i] = pcm[i] << 8;
 
-    result = opus_encode(ctx->encoder, ctx->input, AUDIOCODEC_FRAME_SIZE, output, output_size);
-    if (result != OPUS_OK) {
-        log_error("Unable to encode data: %s", opus_strerror(result));
+    result = opus_encode(ctx->encoder, ctx->input, CODEC_FRAME_SIZE, output, output_size);
+    if (result < OPUS_OK) {
+        log_error("Unable to encode data (error %d): %s", result, opus_strerror(result));
         *bytes_written = 0;
         return EXIT_FAILURE;
     }

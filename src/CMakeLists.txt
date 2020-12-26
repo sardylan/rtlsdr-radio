@@ -9,7 +9,7 @@ pkg_check_modules(rtlsdr REQUIRED IMPORTED_TARGET librtlsdr)
 
 add_executable(rtlsdr_radio
         agc.c agc.h
-        audiocodec.c audiocodec.h
+        codec.c codec.h
         cfg.c cfg.h
         circbuf.c circbuf.h
         default.h

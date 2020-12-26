@@ -63,6 +63,8 @@ struct cfg_t {
 
     uint32_t audio_sample_rate;
 
+    uint32_t codec_opus_bitrate;
+
     char *network_server;
     uint16_t network_port;
 };

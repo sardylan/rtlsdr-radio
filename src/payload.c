@@ -123,8 +123,8 @@ int payload_serialize(payload *p, uint8_t *buffer, size_t buffer_size, size_t *b
     ln += strlen(PAYLOAD_HEADER);
 
     log_debug("Adds receiver number");
-    utils_uint16_to_be(buffer + ln, p->receiver);
-    ln += sizeof(uint16_t);
+    utils_uint64_to_be(buffer + ln, p->receiver);
+    ln += sizeof(uint64_t);
 
     log_debug("Adds payload number");
     utils_uint64_to_be(buffer + ln, p->number);

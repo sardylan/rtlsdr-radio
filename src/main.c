@@ -17,7 +17,6 @@
  */
 
 
-#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -37,9 +36,9 @@
 #include "dsp.h"
 #include "agc.h"
 #include "frame.h"
+#include "codec.h"
 #include "network.h"
-
-#define MAIN_BUFFERS_SIZE 8192
+#include "payload.h"
 
 static volatile int keep_running = 1;
 
@@ -51,13 +50,13 @@ uint64_t frame_number = 0;
 circbuf_ctx *buffer_samples;
 circbuf_ctx *buffer_demod;
 circbuf_ctx *buffer_filtered;
-circbuf_ctx *buffer_network;
+circbuf_ctx *buffer_codec;
 
 pthread_t rx_device_thread;
 pthread_t rx_demod_thread;
 pthread_t rx_lpf_thread;
 pthread_t rx_resample_thread;
-pthread_t rx_network_thread;
+pthread_t rx_codec_thread;
 
 pthread_mutex_t rx_ready_mutex;
 pthread_cond_t rx_ready_cond;
@@ -66,7 +65,7 @@ int rx_device_ready;
 int rx_demod_ready;
 int rx_lpf_ready;
 int rx_resample_ready;
-int rx_network_ready;
+int rx_codec_ready;
 
 extern cfg *conf;
 extern rtlsdr_dev_t *device;
@@ -149,17 +148,17 @@ int main_program_mode_rx() {
     buffer_samples = NULL;
     buffer_demod = NULL;
     buffer_filtered = NULL;
-    buffer_network = NULL;
+    buffer_codec = NULL;
 
     log_debug("Allocating frames buffer");
-    frames = (frame **) calloc(MAIN_BUFFERS_SIZE, sizeof(frame *));
+    frames = (frame **) calloc(BUFFER_FRAMES, sizeof(frame *));
     if (frames == NULL) {
         log_error("Unable to allocate frames buffer");
         main_program_mode_rx_end();
         return EXIT_FAILURE;
     }
 
-    for (i = 0; i < MAIN_BUFFERS_SIZE; i++)
+    for (i = 0; i < BUFFER_FRAMES; i++)
         frames[i] = NULL;
 
     log_debug("Preparing frames buffer");
@@ -167,7 +166,7 @@ int main_program_mode_rx() {
     size_sample = conf->rtlsdr_samples;
     size_pcm = (size_t) ((double) conf->rtlsdr_device_sample_rate / (double) conf->audio_sample_rate);
 
-    for (i = 0; i < MAIN_BUFFERS_SIZE; i++) {
+    for (i = 0; i < BUFFER_FRAMES; i++) {
         frames[i] = frame_init(size_iq, size_sample, size_pcm);
         if (frames[i] == NULL) {
             log_error("Unable to initialize frames");
@@ -176,8 +175,8 @@ int main_program_mode_rx() {
         }
     }
 
-    log_debug("Init IQ circbuf");
-    buffer_samples = circbuf_init(sizeof(uint64_t), MAIN_BUFFERS_SIZE);
+    log_debug("Init samples circbuf");
+    buffer_samples = circbuf_init(sizeof(uint64_t), BUFFER_SAMPLES);
     if (buffer_samples == NULL) {
         log_error("Unable to init IQ circular buffer");
         main_program_mode_rx_end();
@@ -185,7 +184,7 @@ int main_program_mode_rx() {
     }
 
     log_debug("Init demod circbuf");
-    buffer_demod = circbuf_init(sizeof(uint64_t), MAIN_BUFFERS_SIZE);
+    buffer_demod = circbuf_init(sizeof(uint64_t), BUFFER_DEMOD);
     if (buffer_demod == NULL) {
         log_error("Unable to init demod circular buffer");
         main_program_mode_rx_end();
@@ -193,16 +192,16 @@ int main_program_mode_rx() {
     }
 
     log_debug("Init filtered circbuf");
-    buffer_filtered = circbuf_init(sizeof(uint64_t), MAIN_BUFFERS_SIZE);
+    buffer_filtered = circbuf_init(sizeof(uint64_t), BUFFER_FILTERED);
     if (buffer_filtered == NULL) {
         log_error("Unable to allocate lpf circular buffer");
         main_program_mode_rx_end();
         return EXIT_FAILURE;
     }
 
-    log_debug("Init network circbuf");
-    buffer_network = circbuf_init(sizeof(uint64_t), MAIN_BUFFERS_SIZE);
-    if (buffer_network == NULL) {
+    log_debug("Init codec circbuf");
+    buffer_codec = circbuf_init(sizeof(uint64_t), BUFFER_CODEC);
+    if (buffer_codec == NULL) {
         log_error("Unable to allocate network circular buffer");
         main_program_mode_rx_end();
         return EXIT_FAILURE;
@@ -212,7 +211,7 @@ int main_program_mode_rx() {
     rx_demod_ready = 0;
     rx_lpf_ready = 0;
     rx_resample_ready = 0;
-    rx_network_ready = 0;
+    rx_codec_ready = 0;
 
     log_debug("Initializing mutex");
     result = pthread_mutex_init(&rx_ready_mutex, NULL);
@@ -246,8 +245,8 @@ int main_program_mode_rx() {
     log_debug("Starting RX resample thread");
     pthread_create(&rx_resample_thread, &attr, thread_rx_resample, NULL);
 
-    log_debug("Starting RX network thread");
-    pthread_create(&rx_network_thread, &attr, thread_rx_network, NULL);
+    log_debug("Starting RX codec thread");
+    pthread_create(&rx_codec_thread, &attr, thread_rx_codec, NULL);
 
     sleep_req.tv_sec = 2;
     sleep_req.tv_nsec = 0;
@@ -263,7 +262,7 @@ int main_program_mode_rx() {
     pthread_join(rx_demod_thread, NULL);
     pthread_join(rx_lpf_thread, NULL);
     pthread_join(rx_resample_thread, NULL);
-    pthread_join(rx_network_thread, NULL);
+    pthread_join(rx_codec_thread, NULL);
 
     main_program_mode_rx_end();
 
@@ -275,7 +274,7 @@ void main_program_mode_rx_end() {
 
     log_debug("Freeing frames");
     if (frames != NULL) {
-        for (i = 0; i < MAIN_BUFFERS_SIZE; i++)
+        for (i = 0; i < BUFFER_FRAMES; i++)
             if (frames[i] != NULL)
                 frame_free(frames[i]);
 
@@ -289,8 +288,8 @@ void main_program_mode_rx_end() {
         circbuf_free(buffer_demod);
     if (buffer_filtered != NULL)
         circbuf_free(buffer_filtered);
-    if (buffer_network != NULL)
-        circbuf_free(buffer_network);
+    if (buffer_codec != NULL)
+        circbuf_free(buffer_codec);
 
     log_debug("Destroying mutex");
     pthread_mutex_destroy(&rx_ready_mutex);
@@ -315,8 +314,9 @@ void main_program_mode_rx_wait_init() {
 
     if (rx_device_ready == 0
         || rx_demod_ready == 0
+        || rx_lpf_ready == 0
         || rx_resample_ready == 0
-        || rx_lpf_ready == 0)
+        || rx_codec_ready == 0)
         pthread_cond_wait(&rx_ready_cond, &rx_ready_mutex);
 
     log_debug("Unlocking mutex");
@@ -351,7 +351,7 @@ void *thread_rx_device_read() {
 
     log_debug("Starting read loop");
     while (keep_running) {
-        frame_pos = frame_number % MAIN_BUFFERS_SIZE;
+        frame_pos = frame_number % BUFFER_FRAMES;
         log_trace("Using frame %zu");
         fr = frames[frame_pos];
 
@@ -422,7 +422,7 @@ void *thread_rx_demod() {
             break;
         }
 
-        fr_pos = fr_number % MAIN_BUFFERS_SIZE;
+        fr_pos = fr_number % BUFFER_FRAMES;
         log_trace("Frame number: %zu - Pos: %zu", fr_number, fr_pos);
         fr = frames[fr_pos];
 
@@ -503,7 +503,7 @@ void *thread_rx_lpf() {
             break;
         }
 
-        fr_pos = fr_number % MAIN_BUFFERS_SIZE;
+        fr_pos = fr_number % BUFFER_FRAMES;
         log_trace("Frame number: %zu - Pos: %zu", fr_number, fr_pos);
         fr = frames[fr_pos];
 
@@ -575,7 +575,7 @@ void *thread_rx_resample() {
             break;
         }
 
-        fr_pos = fr_number % MAIN_BUFFERS_SIZE;
+        fr_pos = fr_number % BUFFER_FRAMES;
         log_trace("Frame number: %zu - Pos: %zu", fr_number, fr_pos);
         fr = frames[fr_pos];
 
@@ -585,7 +585,7 @@ void *thread_rx_resample() {
         log_trace("Applying limiter");
         agc_limiter(fr->pcm, audio_num);
 
-        result = circbuf_put(buffer_network, &fr->number, 1);
+        result = circbuf_put(buffer_codec, &fr->number, 1);
         if (result != EXIT_SUCCESS) {
             log_error("Unable to put data to circbuf");
             break;
@@ -605,42 +605,102 @@ void *thread_rx_resample() {
     return (void *) EXIT_SUCCESS;
 }
 
-void *thread_rx_network() {
-//    network_ctx *ctx;
-//    int result;
-//    ssize_t bytes_read;
-//    int8_t buffer[2048];
+void *thread_rx_codec() {
+    codec_ctx *ctx;
+
+    uint64_t fr_number;
+    size_t fr_pos;
+    frame *fr;
+
+    int result;
+
+    int8_t *pcm_buffer;
+    size_t pcm_size;
+
+    uint64_t payload_number;
+    payload p;
+
+    uint8_t codec_buffer[8192];
+    size_t codec_bytes;
+
+    uint8_t network_buffer[8192];
+    size_t network_bytes;
 
     log_info("Thread start");
 
-//    log_debug("Initializing network context");
-//    ctx = network_init(conf->network_server, conf->network_port);
-//    if (ctx == NULL) {
-//        log_error("Unable to allocate network context");
-//        main_stop();
-//        return (void *) EXIT_FAILURE;
-//    }
-//
-//    result = network_socket_open(ctx);
-//    if (result != EXIT_SUCCESS) {
-//        log_error("Unable to open socket");
-//        main_stop();
-//        return (void *) EXIT_FAILURE;
-//    }
-//
-//    while (1) {
-//        result = network_socket_recv(ctx, buffer, sizeof(buffer), &bytes_read);
-//        if (result != EXIT_SUCCESS) {
-//            log_error("Error reading data from socket");
-//            break;
-//        }
-//
-//        log_debug("Read %zu bytes: %s", bytes_read, buffer);
-//    }
+    payload_number = 0;
+
+    log_debug("Initializing codec context");
+    ctx = codec_init(conf->audio_sample_rate, conf->codec_opus_bitrate);
+    if (ctx == NULL) {
+        log_error("Unable to allocate network context");
+        main_stop();
+        return (void *) EXIT_FAILURE;
+    }
+
+    log_debug("Preparing PCM buffer");
+    pcm_buffer = (int8_t *) calloc(CODEC_FRAME_SIZE, sizeof(int8_t));
+    if (pcm_buffer == NULL) {
+        log_error("Unable to allocate PCM buffer");
+        main_stop();
+        return (void *) EXIT_FAILURE;
+    }
+
+    log_debug("Waiting for other threads to init");
+    rx_codec_ready = 1;
+    main_program_mode_rx_wait_init();
+
+    pcm_size = 0;
+
+    log_debug("Starting codec loop");
+    while (keep_running) {
+        log_trace("Reading frame number");
+        result = circbuf_get(buffer_codec, &fr_number, 1);
+        if (result != EXIT_SUCCESS) {
+            log_error("Unable to get data from circbuf");
+            break;
+        }
+
+        fr_pos = fr_number % BUFFER_FRAMES;
+        log_trace("Frame number: %zu - Pos: %zu", fr_number, fr_pos);
+        fr = frames[fr_pos];
+
+        memcpy(pcm_buffer + pcm_size, fr->pcm, fr->size_pcm);
+        pcm_size += fr->size_pcm;
+
+        if (pcm_size >= CODEC_FRAME_SIZE) {
+            codec_encode(ctx, pcm_buffer, codec_buffer, sizeof(codec_buffer), &codec_bytes);
+
+            p.receiver = 0;
+
+            p.number = payload_number;
+            payload_number++;
+
+            p.timestamp = fr->ts.tv_sec * 1000 + fr->ts.tv_nsec / 1000000;
+
+            p.channel = 0;
+            p.frequency = conf->rtlsdr_device_center_freq;
+
+            payload_set_data(&p, codec_buffer, codec_bytes);
+            payload_serialize(&p, network_buffer, sizeof(network_buffer), &network_bytes);
+
+            ui_message("Bytes %zu\n", network_bytes);
+            fwrite(network_buffer, sizeof(int8_t), network_bytes, stdout);
+
+            pcm_size = 0;
+        }
+    }
+
+    log_debug("Freeing codec context");
+    codec_free(ctx);
+
+    log_debug("Freeing PCM buffer");
+    free(pcm_buffer);
 
     log_info("Thread end");
 
-//    main_stop();
+    main_stop();
 
     return (void *) EXIT_SUCCESS;
+
 }

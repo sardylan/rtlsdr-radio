@@ -59,6 +59,8 @@ void cfg_init() {
 
     conf->audio_sample_rate = CONFIG_AUDIO_SAMPLE_RATE_DEFAULT;
 
+    conf->codec_opus_bitrate = CONFIG_CODEC_OPUS_BITRATE_DEFAULT;
+
     ln = strlen(CONFIG_NETWORK_SERVER_DEFAULT) + 1;
     conf->network_server = (char *) calloc(sizeof(char), ln);
     strcpy(conf->network_server, CONFIG_NETWORK_SERVER_DEFAULT);
@@ -80,16 +82,17 @@ void cfg_print() {
     fprintf(UI_MESSAGES_OUTPUT, "mode:                          %s\n", log_mode_to_char(conf->mode));
     fprintf(UI_MESSAGES_OUTPUT, "debug:                         %s\n", log_bool_to_char(conf->debug));
     fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_device_id:              %u\n", conf->rtlsdr_device_id);
-    fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_device_sample_rate:     %u\n", conf->rtlsdr_device_sample_rate);
-    fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_device_center_freq:     %u\n", conf->rtlsdr_device_center_freq);
-    fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_device_freq_correction: %u\n", conf->rtlsdr_device_freq_correction);
+    fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_device_sample_rate:     %u (Hz)\n", conf->rtlsdr_device_sample_rate);
+    fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_device_center_freq:     %u (Hz)\n", conf->rtlsdr_device_center_freq);
+    fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_device_freq_correction: %u (ppm)\n", conf->rtlsdr_device_freq_correction);
     fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_device_tuner_gain_mode: %u\n", conf->rtlsdr_device_tuner_gain_mode);
-    fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_device_tuner_gain:      %u\n", conf->rtlsdr_device_tuner_gain);
+    fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_device_tuner_gain:      %u (10e-1 dB)\n", conf->rtlsdr_device_tuner_gain);
     fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_device_agc_mode:        %u\n", conf->rtlsdr_device_agc_mode);
     fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_samples:                %zu\n", conf->rtlsdr_samples);
     fprintf(UI_MESSAGES_OUTPUT, "modulation:                    %s\n", log_modulation_to_char(conf->modulation));
     fprintf(UI_MESSAGES_OUTPUT, "demod_lowpass_filter:          %d\n", conf->demod_lowpass_filter);
-    fprintf(UI_MESSAGES_OUTPUT, "audio_sample_rate:             %u\n", conf->audio_sample_rate);
+    fprintf(UI_MESSAGES_OUTPUT, "audio_sample_rate:             %u (Hz)\n", conf->audio_sample_rate);
+    fprintf(UI_MESSAGES_OUTPUT, "codec_opus_bitrate:            %u (b/s)\n", conf->codec_opus_bitrate);
     fprintf(UI_MESSAGES_OUTPUT, "\n");
 }
 
