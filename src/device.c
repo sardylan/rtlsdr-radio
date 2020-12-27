@@ -29,11 +29,7 @@
 
 #define DEVICE_STRINGS_SIZE 257
 
-rtlsdr_dev_t *device;
-
-extern cfg *conf;
-
-void device_list() {
+void device_list(int debug) {
     uint32_t device_count;
     uint32_t i;
     const char *device_name;
@@ -42,7 +38,7 @@ void device_list() {
     char *serial;
     enum rtlsdr_tuner tuner;
     int result;
-    rtlsdr_dev_t *info_device;
+    rtlsdr_dev_t *device;
     int gains[128];
     int it;
 
@@ -65,19 +61,19 @@ void device_list() {
 
         ui_message_out("%zu - %s (%s %s - %s)\n", i, device_name, manufact, product, serial);
 
-        if (!conf->debug)
+        if (!debug)
             continue;
 
-        result = rtlsdr_open(&info_device, i);
+        result = rtlsdr_open(&device, i);
         if (result < 0) {
             log_error("Unable to open RTL-SDR device: %d", result);
             continue;
         }
 
-        tuner = rtlsdr_get_tuner_type(info_device);
+        tuner = rtlsdr_get_tuner_type(device);
         ui_message_out("    > Tuner: %s\n", device_tuner_to_char(tuner));
 
-        result = rtlsdr_get_tuner_gains(info_device, &gains[0]);
+        result = rtlsdr_get_tuner_gains(device, &gains[0]);
         if (result < 0) {
             log_error("Failed to get list of gains: %d", result);
             continue;
@@ -97,53 +93,28 @@ void device_list() {
     free(serial);
 }
 
-int device_open() {
+int device_open(rtlsdr_dev_t *device, uint32_t device_id) {
     int result;
 
-    result = rtlsdr_open(&device, conf->rtlsdr_device_id);
+    result = rtlsdr_open(&device, device_id);
     if (result < 0) {
         log_error("Unable to open RTL-SDR device: %d", result);
-        return -1;
+        return EXIT_FAILURE;
     }
-
-    result = rtlsdr_set_sample_rate(device, conf->rtlsdr_device_sample_rate);
-    if (result < 0)
-        log_error("Failed to set sample rate: %d", result);
-
-    result = rtlsdr_set_center_freq(device, conf->rtlsdr_device_center_freq);
-    if (result < 0)
-        log_error("Failed to set center frequency: %d", result);
-
-    result = rtlsdr_set_freq_correction(device, conf->rtlsdr_device_freq_correction);
-    if (result < 0 && result != -2)
-        log_error("Failed to set freq correction: %d", result);
-
-    result = rtlsdr_set_tuner_gain_mode(device, conf->rtlsdr_device_tuner_gain_mode);
-    if (result < 0) {
-        log_error("Failed to set gain mode: %d", result);
-        return -1;
-    }
-
-    result = rtlsdr_set_tuner_gain(device, conf->rtlsdr_device_tuner_gain);
-    if (result < 0) {
-        log_error("Failed to set tuner gain: %d", result);
-        return -1;
-    }
-
-    result = rtlsdr_set_agc_mode(device, conf->rtlsdr_device_agc_mode);
-    if (result < 0)
-        log_error("Failed to disable AGC: %d", result);
 
     rtlsdr_reset_buffer(device);
 
     return EXIT_SUCCESS;
 }
 
-void device_close() {
-    rtlsdr_close(device);
+void device_close(rtlsdr_dev_t *device) {
+    if (device != NULL)
+        rtlsdr_close(device);
+
+    device = NULL;
 }
 
-void device_info() {
+void device_info(rtlsdr_dev_t *device) {
     uint32_t sample_rate;
     uint32_t center_freq;
     int freq_correction;
@@ -156,6 +127,61 @@ void device_info() {
 
     log_info("Sample rate: %zu - Center freq: %zu - Freq correction: %d - Tuner gain: %d",
              sample_rate, center_freq, freq_correction, tuner_gain);
+}
+
+int device_set_params(
+        rtlsdr_dev_t *device,
+        uint32_t sample_rate,
+        int freq_correction,
+        int tuner_gain_mode,
+        int tuner_gain,
+        int agc_mode
+) {
+    int result;
+
+    result = rtlsdr_set_sample_rate(device, sample_rate);
+    if (result < 0) {
+        log_error("Failed to set sample rate: %d", result);
+        return EXIT_FAILURE;
+    }
+
+    result = rtlsdr_set_freq_correction(device, freq_correction);
+    if (result < 0 && result != -2) {
+        log_error("Failed to set freq correction: %d", result);
+        return EXIT_FAILURE;
+    }
+
+    result = rtlsdr_set_tuner_gain_mode(device, tuner_gain_mode);
+    if (result < 0) {
+        log_error("Failed to set gain mode: %d", result);
+        return EXIT_FAILURE;
+    }
+
+    result = rtlsdr_set_tuner_gain(device, tuner_gain);
+    if (result < 0) {
+        log_error("Failed to set tuner gain: %d", result);
+        return EXIT_FAILURE;
+    }
+
+    result = rtlsdr_set_agc_mode(device, agc_mode);
+    if (result < 0) {
+        log_error("Failed to disable AGC: %d", result);
+        return EXIT_FAILURE;
+    }
+
+    return EXIT_SUCCESS;
+}
+
+int device_set_frequency(rtlsdr_dev_t *device, uint32_t frequency) {
+    int result;
+
+    result = rtlsdr_set_center_freq(device, frequency);
+    if (result < 0) {
+        log_error("Failed to set center frequency: %d", result);
+        return EXIT_FAILURE;
+    }
+
+    return EXIT_SUCCESS;
 }
 
 int device_buffer_to_samples(const uint8_t *buffer, double complex *samples, size_t buffer_size) {

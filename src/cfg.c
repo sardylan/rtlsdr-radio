@@ -27,7 +27,7 @@
 #include "ui.h"
 #include "log.h"
 
-cfg *conf;
+extern cfg *conf;
 
 void cfg_init() {
     size_t ln;

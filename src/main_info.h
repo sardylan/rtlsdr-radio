@@ -17,11 +17,9 @@
  */
 
 
-#ifndef __RTLSDR_RADIO__RTLSDR_RADIO__H
-#define __RTLSDR_RADIO__RTLSDR_RADIO__H
+#ifndef __RTLSDR_RADIO__MAIN_INFO__H
+#define __RTLSDR_RADIO__MAIN_INFO__H
 
-void signal_handler(int signum);
-
-void main_stop();
+int main_info();
 
 #endif

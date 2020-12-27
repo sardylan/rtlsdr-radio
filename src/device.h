@@ -21,14 +21,19 @@
 #define __RTLSDR_RADIO__DEVICE__H
 
 #include <complex.h>
+#include <rtl-sdr.h>
 
-void device_list();
+void device_list(int);
 
-int device_open();
+int device_open(rtlsdr_dev_t *, uint32_t);
 
-void device_close();
+void device_close(rtlsdr_dev_t *);
 
-void device_info();
+void device_info(rtlsdr_dev_t *);
+
+int device_set_params(rtlsdr_dev_t *, uint32_t, int, int, int, int);
+
+int device_set_frequency(rtlsdr_dev_t *, uint32_t);
 
 int device_buffer_to_samples(const uint8_t *, double complex *, size_t);
 

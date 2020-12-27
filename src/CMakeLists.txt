@@ -20,6 +20,8 @@ add_executable(rtlsdr_radio
         frame.c frame.h
         log.c log.h
         main.c main.h
+        main_info.c main_info.h
+        main_rx.c main_rx.h
         network.h network.c
         payload.c payload.h
         resample.c resample.h

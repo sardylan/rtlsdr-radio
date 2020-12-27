@@ -17,11 +17,32 @@
  */
 
 
-#ifndef __RTLSDR_RADIO__RTLSDR_RADIO__H
-#define __RTLSDR_RADIO__RTLSDR_RADIO__H
+#ifndef __RTLSDR_RADIO__MAIN_RX__H
+#define __RTLSDR_RADIO__MAIN_RX__H
 
-void signal_handler(int signum);
+#define BUFFER_FRAMES 8192
 
-void main_stop();
+#define BUFFER_SAMPLES 8192
+#define BUFFER_DEMOD 8192
+#define BUFFER_FILTERED 8192
+#define BUFFER_CODEC 8192
+
+int main_rx();
+
+void main_rx_end();
+
+void main_rx_wait_init();
+
+void *thread_rx_device_read();
+
+void *thread_rx_demod();
+
+void *thread_rx_lpf();
+
+void *thread_rx_resample();
+
+void *thread_rx_codec();
+
+void *thread_rx_network();
 
 #endif

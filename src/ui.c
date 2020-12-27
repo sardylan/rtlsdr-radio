@@ -26,8 +26,7 @@
 #include "default.h"
 #include "log.h"
 
-const char *ui_program_name;
-
+extern const char *program_name;
 extern cfg *conf;
 
 void ui_message(const char *format, ...) {
@@ -52,7 +51,7 @@ void ui_header() {
 
 void ui_usage() {
     ui_message("Usage:\n");
-    ui_message("    %s [<option> <value> ...]\n", ui_program_name);
+    ui_message("    %s [<option> <value> ...]\n", program_name);
 }
 
 void ui_help() {

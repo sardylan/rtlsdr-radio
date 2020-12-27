@@ -17,11 +17,16 @@
  */
 
 
-#ifndef __RTLSDR_RADIO__RTLSDR_RADIO__H
-#define __RTLSDR_RADIO__RTLSDR_RADIO__H
+#include <stdlib.h>
 
-void signal_handler(int signum);
+#include "main_info.h"
+#include "device.h"
+#include "cfg.h"
 
-void main_stop();
+extern cfg *conf;
 
-#endif
+int main_info() {
+    device_list(conf->debug);
+
+    return EXIT_SUCCESS;
+}
