@@ -432,8 +432,6 @@ void *thread_rx_demod() {
         log_trace("Computing RMS");
         fr->rms = dsp_complex_rms(fr->samples, conf->rtlsdr_samples);
 
-        ui_message("RMS: %.02f\n", fr->rms);
-
         log_trace("Demodulating");
         for (j = 0; j < conf->rtlsdr_samples; j++) {
             switch (conf->modulation) {
