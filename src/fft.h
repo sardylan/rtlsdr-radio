@@ -24,21 +24,38 @@
 #include <complex.h>
 #include <fftw3.h>
 
+enum fft_data_type_t {
+    FFT_DATA_TYPE_COMPLEX = 'C',
+    FFT_DATA_TYPE_REAL = 'R'
+};
+
+typedef enum fft_data_type_t fft_data_type;
+
 struct fft_ctx_t {
     size_t size;
+    fft_data_type data_type;
 
-    fftw_complex *input;
-    fftw_complex *output;
+    double *real_input;
+    double *real_output;
+
+    fftw_complex *complex_input;
+    fftw_complex *complex_output;
 
     fftw_plan plan;
 };
 
 typedef struct fft_ctx_t fft_ctx;
 
-fft_ctx *fft_init(size_t);
+fft_ctx *fft_init(size_t, int, fft_data_type);
 
 void fft_free(fft_ctx *);
 
-void fft_compute(fft_ctx *, double complex *, double complex *);
+int fft_complex_compute(fft_ctx *, double complex *, double complex *);
+
+void fft_real_manual_compute(fft_ctx *);
+
+int fft_real_compute(fft_ctx *, double *, double *);
+
+int fft_real_compute_int8(fft_ctx *, const int8_t *, int8_t *);
 
 #endif

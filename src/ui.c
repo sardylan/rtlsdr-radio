@@ -89,7 +89,7 @@ void ui_help() {
     ui_message("                                          - 0 Disabled\n");
     ui_message("                                          - 1 Enabled\n");
     ui_message("\n");
-    ui_message("    -m | --mode              Working mode (%s)\n", log_mode_to_char(CONFIG_MODE_DEFAULT));
+    ui_message("    -m | --mode              Working mode (%s)\n", cfg_tochar_work_mode(CONFIG_MODE_DEFAULT));
     ui_message("                             - rx (Receiver)\n");
     ui_message("                             - info (Devices info)\n");
     ui_message("\n");

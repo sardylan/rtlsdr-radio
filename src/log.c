@@ -65,7 +65,7 @@ void log_message(const int level, const char *element, char *filename, const int
     sprintf(prefix, "%s (%lx) [%s] {%s} (%s:%d) ",
             datetime,
             pthread_self(),
-            log_level_to_char(level),
+            cfg_tochar_log_level(level),
             element,
             basename(filename),
             row);
@@ -90,56 +90,4 @@ void log_start() {
 
 void log_stop() {
     ui_message("-------- END --------\n");
-}
-
-char *log_level_to_char(int level) {
-    switch (level) {
-        case LOG_LEVEL_OFF:
-            return " OFF ";
-        case LOG_LEVEL_ERROR:
-            return "ERROR";
-        case LOG_LEVEL_WARNING:
-            return "WARN ";
-        case LOG_LEVEL_INFO:
-            return "INFO ";
-        case LOG_LEVEL_DEBUG:
-            return "DEBUG";
-        case LOG_LEVEL_TRACE:
-            return "TRACE";
-        default:
-            return "     ";
-    }
-}
-
-char *log_mode_to_char(work_mode mode) {
-    switch (mode) {
-        case MODE_VERSION:
-            return "VERSION";
-        case MODE_HELP:
-            return "HELP";
-        case MODE_RX:
-            return "RX";
-        case MODE_INFO:
-            return "INFO";
-        default:
-            return "";
-    }
-}
-
-char *log_bool_to_char(int value) {
-    if (value == 0)
-        return "NO";
-    else
-        return "YES";
-}
-
-char *log_modulation_to_char(modulation_type value) {
-    switch (value) {
-        case MOD_TYPE_AM:
-            return "AM";
-        case MOD_TYPE_FM:
-            return "FM";
-        default:
-            return "";
-    }
 }

@@ -32,6 +32,8 @@
 #include "device.h"
 #include "log.h"
 #include "circbuf.h"
+#include "fir.h"
+#include "fft.h"
 #include "resample.h"
 #include "dsp.h"
 #include "agc.h"
@@ -260,6 +262,9 @@ int main_rx() {
 
     log_debug("Starting RX network thread");
     pthread_create(&rx_network_thread, &attr, thread_rx_network, NULL);
+
+    log_debug("Waiting for other threads to startup");
+    main_rx_wait_init();
 
     sleep_req.tv_sec = 2;
     sleep_req.tv_nsec = 0;
@@ -496,15 +501,51 @@ void *thread_rx_lpf() {
     frame *fr;
 
     fir_ctx *lpf_ctx;
+
+    fft_ctx *fwd_fft_ctx;
+    fft_ctx *bck_fft_ctx;
+    double *freq_domain_coeffs;
+
     int result;
+    size_t i;
+    size_t half;
 
     log_info("Thread start");
 
-    if (conf->demod_lowpass_filter > 0) {
+    if (conf->filter == FILTER_MODE_FIR_SW) {
         log_debug("Initializing FIR low-pass filter context");
-        lpf_ctx = fir_init_lpf(conf->demod_lowpass_filter);
+        lpf_ctx = fir_init_lpf(conf->filter_fir);
         if (lpf_ctx == NULL) {
             log_error("Unable to allocate FIR low-pass filter context");
+            main_stop();
+            return (void *) EXIT_FAILURE;
+        }
+    }
+
+    if (conf->filter == FILTER_MODE_FFT_SW) {
+        log_debug("Initializing FFT forward context");
+        fwd_fft_ctx = fft_init(conf->rtlsdr_samples, FFTW_R2HC, FFT_DATA_TYPE_REAL);
+        if (fwd_fft_ctx == NULL) {
+            log_error("Unable to allocate FFT forward context");
+            main_stop();
+            return (void *) EXIT_FAILURE;
+        }
+
+        log_debug("Initializing FFT backward context");
+        bck_fft_ctx = fft_init(conf->rtlsdr_samples, FFTW_HC2R, FFT_DATA_TYPE_REAL);
+        if (bck_fft_ctx == NULL) {
+            log_error("Unable to allocate FFT backward context");
+            fft_free(fwd_fft_ctx);
+            main_stop();
+            return (void *) EXIT_FAILURE;
+        }
+
+        log_debug("Allocating Frequency Domain coefficients buffer");
+        freq_domain_coeffs = (double *) calloc(conf->rtlsdr_samples, sizeof(double));
+        if (freq_domain_coeffs == NULL) {
+            log_error("Unable to allocate Frequency Domain coefficients buffer");
+            fft_free(fwd_fft_ctx);
+            fft_free(bck_fft_ctx);
             main_stop();
             return (void *) EXIT_FAILURE;
         }
@@ -514,7 +555,10 @@ void *thread_rx_lpf() {
     rx_lpf_ready = 1;
     main_rx_wait_init();
 
-    log_debug("Starting FIR low-pass filter loop");
+    log_debug("Starting filter loop");
+
+    half = conf->rtlsdr_samples / 2;
+
     while (keep_running) {
         log_trace("Reading %zu bytes", conf->rtlsdr_samples);
         result = circbuf_get(buffer_demod, &fr_number, 1);
@@ -527,11 +571,53 @@ void *thread_rx_lpf() {
         log_trace("Frame number: %zu - Pos: %zu", fr_number, fr_pos);
         fr = frames[fr_pos];
 
-        log_trace("Filtering");
-        if (conf->demod_lowpass_filter > 0)
-            fir_convolve(lpf_ctx, fr->filtered, fr->demod, conf->rtlsdr_samples);
-        else
-            memcpy(fr->filtered, fr->demod, conf->rtlsdr_samples);
+        switch (conf->filter) {
+
+            case FILTER_MODE_NONE:
+                log_trace("Copying data");
+                memcpy(fr->filtered, fr->demod, conf->rtlsdr_samples);
+                break;
+
+            case FILTER_MODE_FIR_SW:
+                log_trace("Filtering with FIR");
+                fir_convolve(lpf_ctx, fr->filtered, fr->demod, conf->rtlsdr_samples);
+                break;
+
+            case FILTER_MODE_FFT_SW:
+                log_debug("Copying input values for forward FFT");
+                for (i = 0; i < conf->rtlsdr_samples; i++)
+                    fwd_fft_ctx->real_input[i] = (double) fr->demod[i];
+
+                log_trace("Computing forward FFT");
+                fft_real_manual_compute(fwd_fft_ctx);
+
+                log_debug("Copying output values from forward FFT output");
+                for (i = 0; i < conf->rtlsdr_samples; i++)
+                    freq_domain_coeffs[i] = fwd_fft_ctx->real_output[i];
+
+                log_trace("Adjusting coeffs");
+                for (i = 64; i < half; i++) {
+                    freq_domain_coeffs[i] = 0;
+                    freq_domain_coeffs[conf->rtlsdr_samples - i] = 0;
+                }
+
+                log_debug("Copying input values for backward FFT");
+                for (i = 0; i < conf->rtlsdr_samples; i++)
+                    bck_fft_ctx->real_input[i] = freq_domain_coeffs[i];
+
+                log_trace("Computing backward FFT");
+                fft_real_manual_compute(bck_fft_ctx);
+
+                log_debug("Copying output values from backward FFT output");
+                for (i = 0; i < conf->rtlsdr_samples; i++)
+                    fr->filtered[i] = bck_fft_ctx->real_output[i] / conf->rtlsdr_samples;
+
+                break;
+
+            default:
+                log_error("Not implemented");
+                break;
+        }
 
         result = circbuf_put(buffer_filtered, &fr->number, 1);
         if (result != EXIT_SUCCESS) {
@@ -540,9 +626,20 @@ void *thread_rx_lpf() {
         }
     }
 
-    if (conf->demod_lowpass_filter > 0) {
+    if (conf->filter == FILTER_MODE_FIR_SW) {
         log_debug("Freeing resample context");
         fir_free(lpf_ctx);
+    }
+
+    if (conf->filter == FILTER_MODE_FFT_SW) {
+        log_debug("Freeing FFT forward context");
+        fft_free(fwd_fft_ctx);
+
+        log_debug("Freeing FFT backward context");
+        fft_free(bck_fft_ctx);
+
+        log_debug("Freeing Frequency Domain coefficients buffer");
+        free(freq_domain_coeffs);
     }
 
     log_info("Thread end");
@@ -558,7 +655,6 @@ void *thread_rx_resample() {
     frame *fr;
 
     size_t audio_num;
-//    double complex *fft_buffer;
     resample_ctx *res_ctx;
     int result;
 
@@ -574,13 +670,6 @@ void *thread_rx_resample() {
 
     audio_num = resample_compute_output_size(res_ctx, conf->rtlsdr_samples);
     log_debug("Audio buffer size is %zu", audio_num);
-
-//    fft_buffer = (double complex *) calloc(conf->rtlsdr_samples, sizeof(double complex));
-//    if (fft_buffer == NULL) {
-//        log_error("Unable to allocate input buffer");
-//        main_stop();
-//        return (void *) EXIT_FAILURE;
-//    }
 
     log_debug("Waiting for other threads to init");
     rx_resample_ready = 1;

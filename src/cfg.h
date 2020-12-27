@@ -39,6 +39,14 @@ enum modulation_type_t {
 
 typedef enum modulation_type_t modulation_type;
 
+enum filter_mode_t {
+    FILTER_MODE_NONE = 0,
+    FILTER_MODE_FIR_SW = 1,
+    FILTER_MODE_FFT_SW = 2
+};
+
+typedef enum filter_mode_t filter_mode;
+
 struct cfg_t {
     int ui_log_level;
     int file_log_level;
@@ -59,7 +67,9 @@ struct cfg_t {
 
     modulation_type modulation;
 
-    int demod_lowpass_filter;
+    filter_mode filter;
+
+    int filter_fir;
 
     uint32_t audio_sample_rate;
 
@@ -80,5 +90,15 @@ void cfg_print();
 int cfg_parse(int, char **);
 
 int cfg_parse_flag(int);
+
+const char *cfg_tochar_bool(int);
+
+const char *cfg_tochar_log_level(int);
+
+const char *cfg_tochar_work_mode(work_mode);
+
+const char *cfg_tochar_modulation(modulation_type);
+
+const char *cfg_tochar_filter_mode(filter_mode);
 
 #endif

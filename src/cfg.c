@@ -55,7 +55,8 @@ void cfg_init() {
 
     conf->modulation = CONFIG_MODULATION_DEFAULT;
 
-    conf->demod_lowpass_filter = CONFIG_DEMOD_LOWPASS_FILTER;
+    conf->filter = CONFIG_FILTER_DEFAULT;
+    conf->filter_fir = CONFIG_FILTER_FIR_DEFAULT;
 
     conf->audio_sample_rate = CONFIG_AUDIO_SAMPLE_RATE_DEFAULT;
 
@@ -76,11 +77,11 @@ void cfg_free() {
 }
 
 void cfg_print() {
-    fprintf(UI_MESSAGES_OUTPUT, "ui_log_level:                  %s\n", log_level_to_char(conf->ui_log_level));
-    fprintf(UI_MESSAGES_OUTPUT, "file_log_level:                %s\n", log_level_to_char(conf->file_log_level));
+    fprintf(UI_MESSAGES_OUTPUT, "ui_log_level:                  %s\n", cfg_tochar_log_level(conf->ui_log_level));
+    fprintf(UI_MESSAGES_OUTPUT, "file_log_level:                %s\n", cfg_tochar_log_level(conf->file_log_level));
     fprintf(UI_MESSAGES_OUTPUT, "file_log_name:                 %s\n", conf->file_log_name);
-    fprintf(UI_MESSAGES_OUTPUT, "mode:                          %s\n", log_mode_to_char(conf->mode));
-    fprintf(UI_MESSAGES_OUTPUT, "debug:                         %s\n", log_bool_to_char(conf->debug));
+    fprintf(UI_MESSAGES_OUTPUT, "mode:                          %s\n", cfg_tochar_work_mode(conf->mode));
+    fprintf(UI_MESSAGES_OUTPUT, "debug:                         %s\n", cfg_tochar_bool(conf->debug));
     fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_device_id:              %u\n", conf->rtlsdr_device_id);
     fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_device_sample_rate:     %u (Hz)\n", conf->rtlsdr_device_sample_rate);
     fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_device_center_freq:     %u (Hz)\n", conf->rtlsdr_device_center_freq);
@@ -89,8 +90,9 @@ void cfg_print() {
     fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_device_tuner_gain:      %u (10e-1 dB)\n", conf->rtlsdr_device_tuner_gain);
     fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_device_agc_mode:        %u\n", conf->rtlsdr_device_agc_mode);
     fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_samples:                %zu\n", conf->rtlsdr_samples);
-    fprintf(UI_MESSAGES_OUTPUT, "modulation:                    %s\n", log_modulation_to_char(conf->modulation));
-    fprintf(UI_MESSAGES_OUTPUT, "demod_lowpass_filter:          %d\n", conf->demod_lowpass_filter);
+    fprintf(UI_MESSAGES_OUTPUT, "modulation:                    %s\n", cfg_tochar_modulation(conf->modulation));
+    fprintf(UI_MESSAGES_OUTPUT, "filter:                        %s\n", cfg_tochar_filter_mode(conf->filter));
+    fprintf(UI_MESSAGES_OUTPUT, "filter_fir:                    %d\n", conf->filter_fir);
     fprintf(UI_MESSAGES_OUTPUT, "audio_sample_rate:             %u (Hz)\n", conf->audio_sample_rate);
     fprintf(UI_MESSAGES_OUTPUT, "codec_opus_bitrate:            %u (b/s)\n", conf->codec_opus_bitrate);
     fprintf(UI_MESSAGES_OUTPUT, "\n");
@@ -263,4 +265,69 @@ int cfg_parse_flag(int flag) {
         return 1;
     else
         return 0;
+}
+
+const char *cfg_tochar_bool(int value) {
+    if (value == 0)
+        return "NO";
+    else
+        return "YES";
+}
+
+const char *cfg_tochar_log_level(int value) {
+    switch (value) {
+        case LOG_LEVEL_OFF:
+            return " OFF ";
+        case LOG_LEVEL_ERROR:
+            return "ERROR";
+        case LOG_LEVEL_WARNING:
+            return "WARN ";
+        case LOG_LEVEL_INFO:
+            return "INFO ";
+        case LOG_LEVEL_DEBUG:
+            return "DEBUG";
+        case LOG_LEVEL_TRACE:
+            return "TRACE";
+        default:
+            return "     ";
+    }
+}
+
+const char *cfg_tochar_work_mode(work_mode value) {
+    switch (value) {
+        case MODE_VERSION:
+            return "VERSION";
+        case MODE_HELP:
+            return "HELP";
+        case MODE_RX:
+            return "RX";
+        case MODE_INFO:
+            return "INFO";
+        default:
+            return "";
+    }
+}
+
+const char *cfg_tochar_modulation(modulation_type value) {
+    switch (value) {
+        case MOD_TYPE_AM:
+            return "AM";
+        case MOD_TYPE_FM:
+            return "FM";
+        default:
+            return "";
+    }
+}
+
+const char *cfg_tochar_filter_mode(filter_mode value) {
+    switch (value) {
+        case FILTER_MODE_NONE:
+            return "None (bypass)";
+        case FILTER_MODE_FIR_SW:
+            return "FIR Software (Finite Impulse Response with no optimizations)";
+        case FILTER_MODE_FFT_SW:
+            return "Fast Fourier Transform (based on libfftw3)";
+        default:
+            return "";
+    }
 }
