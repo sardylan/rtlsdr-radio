@@ -23,6 +23,7 @@
 #include <stddef.h>
 
 #include "cfg.h"
+#include "buildflags.h"
 
 #define LOG_LEVEL_OFF 0
 #define LOG_LEVEL_ERROR 1
@@ -33,11 +34,35 @@
 
 #define LOG_BUFFER 131072
 
+#ifdef RTLSDR_RADIO_LOG_ERROR_ENABLED
 #define log_error(message, ...) log_message(LOG_LEVEL_ERROR, __func__, __FILENAME__, __LINE__, message, ##__VA_ARGS__)
+#else
+#define log_error(message, ...)
+#endif
+
+#ifdef RTLSDR_RADIO_LOG_WARN_ENABLED
 #define log_warn(message, ...) log_message(LOG_LEVEL_WARNING, __func__, __FILENAME__, __LINE__, message, ##__VA_ARGS__)
+#else
+#define log_warn(message, ...)
+#endif
+
+#ifdef RTLSDR_RADIO_LOG_INFO_ENABLED
 #define log_info(message, ...) log_message(LOG_LEVEL_INFO, __func__, __FILENAME__, __LINE__, message, ##__VA_ARGS__)
+#else
+#define log_info(message, ...)
+#endif
+
+#ifdef RTLSDR_RADIO_LOG_DEBUG_ENABLED
 #define log_debug(message, ...) log_message(LOG_LEVEL_DEBUG, __func__, __FILENAME__, __LINE__, message, ##__VA_ARGS__)
+#else
+#define log_debug(message, ...)
+#endif
+
+#ifdef RTLSDR_RADIO_LOG_TRACE_ENABLED
 #define log_trace(message, ...) log_message(LOG_LEVEL_TRACE, __func__, __FILENAME__, __LINE__, message, ##__VA_ARGS__)
+#else
+#define log_trace(message, ...)
+#endif
 
 void log_init();
 

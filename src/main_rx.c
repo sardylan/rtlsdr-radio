@@ -607,6 +607,7 @@ void *thread_rx_codec() {
     pcm_size = 0;
 
     log_debug("Starting codec loop");
+
     while (keep_running) {
         log_trace("Reading frame number");
         result = circbuf_get(buffer_codec, &fr_number, 1);

@@ -17,37 +17,13 @@
  */
 
 
-#ifndef __RTLSDR_RADIO__NETWORK__H
-#define __RTLSDR_RADIO__NETWORK__H
+#ifndef __RTLSDR_RADIO__BUILDFLAGS__H
+#define __RTLSDR_RADIO__BUILDFLAGS__H
 
-#include <stddef.h>
-#include <stdint.h>
-#include <pthread.h>
-#include <time.h>
-#include <netdb.h>
-#include <sys/socket.h>
-
-
-struct network_ctx_t {
-    char *address;
-    uint16_t port;
-
-    int sck;
-
-    struct sockaddr sockaddr;
-    socklen_t sockaddr_len;
-};
-
-typedef struct network_ctx_t network_ctx;
-
-network_ctx *network_init(const char *, uint16_t);
-
-void network_free(network_ctx *);
-
-int network_socket_open(network_ctx *ctx);
-
-void network_socket_close(network_ctx *ctx);
-
-int network_socket_send(network_ctx *ctx, uint8_t *, size_t);
+#cmakedefine RTLSDR_RADIO_LOG_ERROR_ENABLED
+#cmakedefine RTLSDR_RADIO_LOG_WARN_ENABLED
+#cmakedefine RTLSDR_RADIO_LOG_INFO_ENABLED
+#cmakedefine RTLSDR_RADIO_LOG_DEBUG_ENABLED
+#cmakedefine RTLSDR_RADIO_LOG_TRACE_ENABLED
 
 #endif

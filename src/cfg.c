@@ -101,11 +101,12 @@ int cfg_parse(int argc, char **argv) {
     int option_index = 0;
     int c;
     size_t ln;
-    int conf_file = 0;
+    int conf_file;
     char *config_file;
     char *endptr;
 
     ret = EXIT_SUCCESS;
+    conf_file = 0;
 
     static struct option long_options[] = {
             {"config",                        required_argument, 0, 'c'},
@@ -247,8 +248,10 @@ int cfg_parse(int argc, char **argv) {
         }
     }
 
-//    if (conf_file == 1)
+    if (conf_file == 1) {
+        log_info("Config file enabled");
 //        ret = cfg_file_parse(config_file);
+    }
 
     free(config_file);
 

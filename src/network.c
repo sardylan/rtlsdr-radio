@@ -21,8 +21,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <malloc.h>
-#include <netdb.h>
-#include <sys/socket.h>
 #include <unistd.h>
 
 #include "network.h"
@@ -30,7 +28,6 @@
 
 network_ctx *network_init(const char *address, uint16_t port) {
     network_ctx *ctx;
-    int result;
     size_t ln;
 
     log_info("Initializing context");
@@ -39,14 +36,6 @@ network_ctx *network_init(const char *address, uint16_t port) {
     ctx = (network_ctx *) malloc(sizeof(network_ctx));
     if (ctx == NULL) {
         log_error("Unable to allocate context");
-        return NULL;
-    }
-
-    log_debug("Initializing mutex");
-    result = pthread_mutex_init(&ctx->mutex, NULL);
-    if (result != 0) {
-        log_error("Error initializing mutex: %d", result);
-        free(ctx);
         return NULL;
     }
 
@@ -71,9 +60,6 @@ void network_free(network_ctx *ctx) {
     if (ctx->address != NULL)
         free(ctx->address);
 
-    log_debug("Destroying mutex");
-    pthread_mutex_destroy(&ctx->mutex);
-
     log_debug("Deallocating context");
     if (ctx != NULL)
         free(ctx);
@@ -91,7 +77,7 @@ int network_socket_open(network_ctx *ctx) {
     log_debug("Preparing socket hints");
     memset(&hints, '\0', sizeof(hints));
     hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_socktype = SOCK_DGRAM;
 
     log_debug("Resolving address");
     sprintf(port, "%u", ctx->port);
@@ -109,12 +95,8 @@ int network_socket_open(network_ctx *ctx) {
             continue;
         }
 
-        log_debug("Connecting socket");
-        result = connect(ctx->sck, address->ai_addr, address->ai_addrlen);
-        if (result == -1) {
-            log_error("Unable to connect");
-            continue;
-        }
+        memcpy(&ctx->sockaddr, address->ai_addr, sizeof(struct sockaddr));
+        ctx->sockaddr_len = address->ai_addrlen;
 
         break;
     }
@@ -137,16 +119,15 @@ void network_socket_close(network_ctx *ctx) {
     }
 }
 
-int network_socket_send(network_ctx *ctx, int8_t *data, size_t data_size) {
+int network_socket_send(network_ctx *ctx, uint8_t *data, size_t data_size) {
+    ssize_t sent_bytes;
 
-    return EXIT_SUCCESS;
-}
+    sent_bytes = sendto(ctx->sck, (void *) data, data_size, 0, &ctx->sockaddr, ctx->sockaddr_len);
 
-int network_socket_recv(network_ctx *ctx, int8_t *data, size_t data_size, ssize_t *bytes_read) {
-    *bytes_read = read(ctx->sck, data, data_size);
-
-    if (*bytes_read == -1)
+    if (sent_bytes != (ssize_t) data_size) {
+        log_error("Unable to sent all data to server");
         return EXIT_FAILURE;
+    }
 
     return EXIT_SUCCESS;
 }

@@ -1,4 +1,5 @@
 configure_file(version.h.in version.h @ONLY)
+configure_file(buildflags.h.in buildflags.h @ONLY)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 find_package(Threads REQUIRED)
