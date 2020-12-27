@@ -12,7 +12,7 @@ set(APPLICATION_VERSION_PATCH "0")
 set(APPLICATION_VERSION "${APPLICATION_VERSION_MAJOR}.${APPLICATION_VERSION_MINOR}.${APPLICATION_VERSION_PATCH}")
 
 add_compile_options(-Wall -Wextra -pedantic -Werror)
-add_compile_options("-D__FILENAME__=\"$(subst ${CMAKE_SOURCE_DIR}/src,,$(abspath $<))\"")
+add_compile_options("-D__FILENAME__=__FILE__")
 
 find_package(PkgConfig REQUIRED)
 
