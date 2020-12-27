@@ -33,7 +33,7 @@ circbuf_ctx *circbuf_init(const char *name, size_t item_size, size_t initial_siz
 
     log_info("Circular buffer init");
 
-    log_debug("Allocating circbuf context", initial_size);
+    log_debug("Allocating circbuf context");
     ctx = (circbuf_ctx *) malloc(sizeof(circbuf_ctx));
     if (ctx == NULL) {
         log_error("Unable to allocate circbuf context");
@@ -217,5 +217,8 @@ int circbuf_get(circbuf_ctx *ctx, void *data, size_t data_size) {
 }
 
 void circbuf_status(circbuf_ctx *ctx) {
-    ui_message("%s - %zu\n", ctx->name, ctx->free);
+    int dimension;
+
+    dimension = (int) ((float) (ctx->free) * 100 / ctx->size);
+    ui_message("%s: %d% (%zu/%zu)\n", ctx->name, dimension, ctx->free, ctx->size);
 }

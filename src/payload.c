@@ -43,6 +43,8 @@ payload *payload_init() {
 
     p->timestamp = 0;
 
+    p->rms = 0;
+
     p->channel = 0;
     p->frequency = 0;
 
@@ -80,6 +82,14 @@ int payload_set_timestamp(payload *p, struct timespec *ts) {
     timestamp = ts->tv_sec * 1000;
     timestamp += ts->tv_nsec / 1000000;
     p->timestamp = timestamp;
+
+    return EXIT_SUCCESS;
+}
+
+int payload_set_rms(payload *p, double rms) {
+    log_info("Setting RMS");
+
+    p->rms = abs((int) (rms * 10));
 
     return EXIT_SUCCESS;
 }
@@ -126,6 +136,8 @@ size_t payload_get_size(payload *p) {
 
     ln += sizeof(uint64_t);
 
+    ln += sizeof(uint8_t);
+
     ln += sizeof(uint32_t);
     ln += sizeof(uint32_t);
 
@@ -163,6 +175,10 @@ int payload_serialize(payload *p, uint8_t *buffer, size_t buffer_size, size_t *b
     log_debug("Adds timestamp");
     utils_uint64_to_be(buffer + ln, p->timestamp);
     ln += sizeof(uint64_t);
+
+    log_debug("Adds rms");
+    memcpy(buffer + ln, &p->rms, sizeof(uint8_t));
+    ln += sizeof(uint8_t);
 
     log_debug("Adds channel");
     utils_uint32_to_be(buffer + ln, p->channel);

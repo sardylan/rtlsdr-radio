@@ -24,7 +24,7 @@
 
 # 0         1         2         3         4         5         6
 # 0123456789012345678901234567890123456789012345678901234567890123456789
-# GFPrrrrNNNNNNNNttttttttCCCCffffDDDD...
+# GFPrrrrNNNNNNNNttttttttRccccFFFFdddd...
 
  */
 
@@ -40,6 +40,8 @@ struct payload_t {
     uint64_t number;
 
     uint64_t timestamp;
+
+    uint8_t rms;
 
     uint32_t channel;
     uint32_t frequency;
@@ -57,6 +59,8 @@ void payload_free(payload *);
 int payload_set_numbers(payload *, uint32_t, uint64_t);
 
 int payload_set_timestamp(payload *, struct timespec *);
+
+int payload_set_rms(payload *, double);
 
 int payload_set_channel_frequency(payload *, uint32_t, uint32_t);
 

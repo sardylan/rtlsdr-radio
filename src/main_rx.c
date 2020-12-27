@@ -84,6 +84,10 @@ int main_rx() {
     size_t size_pcm;
     size_t i;
 
+    char datetime[27];
+    struct tm *timeinfo;
+    struct timespec ts;
+
     log_info("Main program RX mode");
 
     frames = NULL;
@@ -262,6 +266,14 @@ int main_rx() {
 
     log_debug("Printing device infos");
     while (keep_running) {
+        timespec_get(&ts, TIME_UTC);
+        timeinfo = localtime(&ts.tv_sec);
+        strftime(datetime, 20, "%Y-%m-%d %H:%M:%S", timeinfo);
+        sprintf(datetime + 19, ".%06lu", ts.tv_nsec / 1000);
+
+        ui_message("---\n");
+        ui_message("UTC: %s\n", datetime);
+
         device_info(device);
 
         circbuf_status(buffer_samples);
@@ -598,9 +610,6 @@ void *thread_rx_resample() {
             log_error("Unable to put data to circbuf");
             break;
         }
-
-//        log_trace("Output %zu bytes", audio_num);
-//        fwrite(fr->pcm, sizeof(int8_t), audio_num, stdout);
     }
 
     log_debug("Freeing resample context");
@@ -683,6 +692,7 @@ void *thread_rx_codec() {
 
             payload_set_numbers(p, 0, payload_number);
             payload_set_timestamp(p, &fr->ts);
+            payload_set_rms(p, fr->rms);
             payload_set_channel_frequency(p, 0, conf->rtlsdr_device_center_freq);
             payload_set_data(p, codec_buffer, codec_bytes);
 
@@ -757,8 +767,10 @@ void *thread_rx_network() {
         p = payloads[p_pos];
         log_trace("Payload number: %zu - Pos: %zu", p_number, p_pos);
 
-        payload_serialize(p, network_buffer, sizeof(network_buffer), &network_bytes);
-        network_socket_send(ctx, network_buffer, network_bytes);
+        if (p->rms > 10) {
+            payload_serialize(p, network_buffer, sizeof(network_buffer), &network_bytes);
+            network_socket_send(ctx, network_buffer, network_bytes);
+        }
     }
 
     log_debug("Closing network socket");
