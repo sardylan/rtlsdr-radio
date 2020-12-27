@@ -60,7 +60,7 @@ void log_message(const int level, const char *element, char *filename, const int
 
     timeinfo = localtime(&ts.tv_sec);
     strftime(datetime, 20, "%Y-%m-%d %H:%M:%S", timeinfo);
-    sprintf(datetime + 19, ".%06zu", ts.tv_nsec / 1000);
+    sprintf(datetime + 19, ".%06lu", ts.tv_nsec / 1000);
 
     sprintf(prefix, "%s (%lx) [%s] {%s} (%s:%d) ",
             datetime,
