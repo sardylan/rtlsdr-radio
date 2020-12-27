@@ -25,7 +25,7 @@
 
 void device_list(int);
 
-int device_open(rtlsdr_dev_t *, uint32_t);
+int device_open(rtlsdr_dev_t **, uint32_t);
 
 void device_close(rtlsdr_dev_t *);
 

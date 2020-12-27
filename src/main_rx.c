@@ -182,7 +182,7 @@ int main_rx() {
     }
 
     log_debug("Opening RTL-SDR device");
-    result = device_open(device, conf->rtlsdr_device_id);
+    result = device_open(&device, conf->rtlsdr_device_id);
     if (result == EXIT_FAILURE) {
         log_error("Unable to open RTL-SDR device");
         main_rx_end();
@@ -728,6 +728,14 @@ void *thread_rx_network() {
         return (void *) EXIT_FAILURE;
     }
 
+    log_debug("Opening socket");
+    result = network_socket_open(ctx);
+    if (result != EXIT_SUCCESS) {
+        log_error("Unable to open network socket");
+        main_stop();
+        return (void *) EXIT_FAILURE;
+    }
+
     log_debug("Waiting for other threads to init");
     rx_network_ready = 1;
     main_rx_wait_init();
@@ -747,6 +755,9 @@ void *thread_rx_network() {
         payload_serialize(p, network_buffer, sizeof(network_buffer), &network_bytes);
         network_socket_send(ctx, network_buffer, network_bytes);
     }
+
+    log_debug("Closing network socket");
+    network_socket_close(ctx);
 
     log_debug("Freeing codec context");
     network_free(ctx);

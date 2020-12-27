@@ -93,16 +93,16 @@ void device_list(int debug) {
     free(serial);
 }
 
-int device_open(rtlsdr_dev_t *device, uint32_t device_id) {
+int device_open(rtlsdr_dev_t **device, uint32_t device_id) {
     int result;
 
-    result = rtlsdr_open(&device, device_id);
+    result = rtlsdr_open(device, device_id);
     if (result < 0) {
         log_error("Unable to open RTL-SDR device: %d", result);
         return EXIT_FAILURE;
     }
 
-    rtlsdr_reset_buffer(device);
+    rtlsdr_reset_buffer(*device);
 
     return EXIT_SUCCESS;
 }
