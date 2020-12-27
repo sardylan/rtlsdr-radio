@@ -23,11 +23,13 @@
 
 #include "circbuf.h"
 #include "log.h"
+#include "ui.h"
 
-circbuf_ctx *circbuf_init(size_t item_size, size_t initial_size) {
+circbuf_ctx *circbuf_init(const char *name, size_t item_size, size_t initial_size) {
     circbuf_ctx *ctx;
     int result;
     size_t alloc_size;
+    size_t ln;
 
     log_info("Circular buffer init");
 
@@ -37,6 +39,17 @@ circbuf_ctx *circbuf_init(size_t item_size, size_t initial_size) {
         log_error("Unable to allocate circbuf context");
         return NULL;
     }
+
+    log_debug("Setting circbuf name");
+    ln = strlen(name);
+    ctx->name = calloc(ln + 1, sizeof(char));
+    if (ctx->name == NULL) {
+        log_error("Error allocating name buffer");
+        free(ctx);
+        return NULL;
+    }
+
+    strcpy(ctx->name, name);
 
     log_debug("Allocating %zu bytes for data", initial_size);
     alloc_size = item_size * initial_size;
@@ -201,4 +214,8 @@ int circbuf_get(circbuf_ctx *ctx, void *data, size_t data_size) {
     pthread_mutex_unlock(&ctx->mutex);
 
     return result;
+}
+
+void circbuf_status(circbuf_ctx *ctx) {
+    ui_message("%s - %zu\n", ctx->name, ctx->free);
 }

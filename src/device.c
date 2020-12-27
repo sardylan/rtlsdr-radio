@@ -125,7 +125,7 @@ void device_info(rtlsdr_dev_t *device) {
     freq_correction = rtlsdr_get_freq_correction(device);
     tuner_gain = rtlsdr_get_tuner_gain(device);
 
-    log_info("Sample rate: %zu - Center freq: %zu - Freq correction: %d - Tuner gain: %d",
+    ui_message("Sample rate: %zu - Center freq: %zu - Freq correction: %d - Tuner gain: %d\n",
              sample_rate, center_freq, freq_correction, tuner_gain);
 }
 

@@ -142,7 +142,7 @@ int main_rx() {
     }
 
     log_debug("Init samples circbuf");
-    buffer_samples = circbuf_init(sizeof(uint64_t), BUFFER_SAMPLES);
+    buffer_samples = circbuf_init("samples", sizeof(uint64_t), BUFFER_SAMPLES);
     if (buffer_samples == NULL) {
         log_error("Unable to init IQ circular buffer");
         main_rx_end();
@@ -150,7 +150,7 @@ int main_rx() {
     }
 
     log_debug("Init demod circbuf");
-    buffer_demod = circbuf_init(sizeof(uint64_t), BUFFER_DEMOD);
+    buffer_demod = circbuf_init("demod", sizeof(uint64_t), BUFFER_DEMOD);
     if (buffer_demod == NULL) {
         log_error("Unable to init demod circular buffer");
         main_rx_end();
@@ -158,7 +158,7 @@ int main_rx() {
     }
 
     log_debug("Init filtered circbuf");
-    buffer_filtered = circbuf_init(sizeof(uint64_t), BUFFER_FILTERED);
+    buffer_filtered = circbuf_init("filtered", sizeof(uint64_t), BUFFER_FILTERED);
     if (buffer_filtered == NULL) {
         log_error("Unable to allocate lpf circular buffer");
         main_rx_end();
@@ -166,7 +166,7 @@ int main_rx() {
     }
 
     log_debug("Init codec circbuf");
-    buffer_codec = circbuf_init(sizeof(uint64_t), BUFFER_CODEC);
+    buffer_codec = circbuf_init("codec", sizeof(uint64_t), BUFFER_CODEC);
     if (buffer_codec == NULL) {
         log_error("Unable to allocate codec circular buffer");
         main_rx_end();
@@ -174,7 +174,7 @@ int main_rx() {
     }
 
     log_debug("Init network circbuf");
-    buffer_network = circbuf_init(sizeof(uint64_t), BUFFER_NETWORK);
+    buffer_network = circbuf_init("network", sizeof(uint64_t), BUFFER_NETWORK);
     if (buffer_network == NULL) {
         log_error("Unable to allocate network circular buffer");
         main_rx_end();
@@ -262,7 +262,14 @@ int main_rx() {
 
     log_debug("Printing device infos");
     while (keep_running) {
-//        device_info(device);
+        device_info(device);
+
+        circbuf_status(buffer_samples);
+        circbuf_status(buffer_demod);
+        circbuf_status(buffer_filtered);
+        circbuf_status(buffer_codec);
+        circbuf_status(buffer_network);
+
         nanosleep(&sleep_req, &sleep_rem);
     }
 

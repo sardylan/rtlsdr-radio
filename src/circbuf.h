@@ -25,6 +25,8 @@
 #include <time.h>
 
 struct circbuf_ctx_t {
+    char *name;
+
     uint8_t *pointer;
 
     size_t item_size;
@@ -41,7 +43,7 @@ struct circbuf_ctx_t {
 
 typedef struct circbuf_ctx_t circbuf_ctx;
 
-circbuf_ctx * circbuf_init(size_t, size_t);
+circbuf_ctx *circbuf_init(const char *, size_t, size_t);
 
 void circbuf_free(circbuf_ctx *);
 
@@ -52,5 +54,7 @@ int circbuf_get_data(circbuf_ctx *, void *, size_t);
 int circbuf_put(circbuf_ctx *, void *, size_t);
 
 int circbuf_get(circbuf_ctx *, void *, size_t);
+
+void circbuf_status(circbuf_ctx *);
 
 #endif
