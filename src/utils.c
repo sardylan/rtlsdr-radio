@@ -20,26 +20,26 @@
 #include "utils.h"
 
 void utils_uint16_to_be(uint8_t *buffer, uint16_t number) {
-    buffer[0] = (number >> 8) & 0xff;
-    buffer[1] = (number >> 0) & 0xff;
+    buffer[2] = number >> 8 * 1;
+    buffer[3] = number >> 8 * 0;
 }
 
 void utils_uint32_to_be(uint8_t *buffer, uint32_t number) {
-    buffer[0] = (number >> 24) & 0xff;
-    buffer[1] = (number >> 16) & 0xff;
-    buffer[2] = (number >> 8) & 0xff;
-    buffer[3] = (number >> 0) & 0xff;
+    buffer[0] = number >> 8 * 3;
+    buffer[1] = number >> 8 * 2;
+    buffer[2] = number >> 8 * 1;
+    buffer[3] = number >> 8 * 0;
 }
 
 void utils_uint64_to_be(uint8_t *buffer, uint64_t number) {
-    buffer[0] = (number >> 56) & 0xff;
-    buffer[1] = (number >> 48) & 0xff;
-    buffer[2] = (number >> 40) & 0xff;
-    buffer[3] = (number >> 32) & 0xff;
-    buffer[4] = (number >> 24) & 0xff;
-    buffer[5] = (number >> 16) & 0xff;
-    buffer[6] = (number >> 8) & 0xff;
-    buffer[7] = (number >> 0) & 0xff;
+    buffer[0] = number >> 8 * 7;
+    buffer[1] = number >> 8 * 6;
+    buffer[2] = number >> 8 * 5;
+    buffer[3] = number >> 8 * 4;
+    buffer[4] = number >> 8 * 3;
+    buffer[5] = number >> 8 * 2;
+    buffer[6] = number >> 8 * 1;
+    buffer[7] = number >> 8 * 0;
 }
 
 void utils_int16_to_be(uint8_t *buffer, int16_t number) {
