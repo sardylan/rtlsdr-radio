@@ -117,6 +117,8 @@ void network_socket_close(network_ctx *ctx) {
         log_debug("Closing socket");
         close(ctx->sck);
     }
+
+    ctx->sck = -1;
 }
 
 int network_socket_send(network_ctx *ctx, uint8_t *data, size_t data_size) {

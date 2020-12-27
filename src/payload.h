@@ -24,7 +24,7 @@
 
 # 0         1         2         3         4         5         6
 # 0123456789012345678901234567890123456789012345678901234567890123456789
-# GFPrrrrrrrrNNNNNNNNttttttttCCCCffffDDDD...
+# GFPrrrrNNNNNNNNttttttttCCCCffffDDDD...
 
  */
 
@@ -36,7 +36,7 @@
 #define PAYLOAD_HEADER "GFP"
 
 struct payload_t {
-    uint64_t receiver;
+    uint32_t receiver;
     uint64_t number;
 
     uint64_t timestamp;
@@ -53,6 +53,12 @@ typedef struct payload_t payload;
 payload *payload_init();
 
 void payload_free(payload *);
+
+int payload_set_numbers(payload *, uint32_t, uint64_t);
+
+int payload_set_timestamp(payload *, struct timespec *);
+
+int payload_set_channel_frequency(payload *, uint32_t, uint32_t);
 
 int payload_set_data(payload *, uint8_t *, uint32_t);
 

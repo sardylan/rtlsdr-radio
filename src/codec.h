@@ -25,6 +25,8 @@
 // Frame duration 20ms, at 8000Hz we have 160 samples
 #define CODEC_FRAME_SIZE 160
 
+#define CODEC_FRAME_BUFFER 8192
+
 struct codec_ctx_t {
     opus_int32 sample_rate;
     opus_int32 bitrate;

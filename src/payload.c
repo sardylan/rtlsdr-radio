@@ -63,6 +63,36 @@ void payload_free(payload *p) {
     free(p);
 }
 
+int payload_set_numbers(payload *p, uint32_t receiver, uint64_t number) {
+    log_info("Setting numbers");
+
+    p->receiver = receiver;
+    p->number = number;
+
+    return EXIT_SUCCESS;
+}
+
+int payload_set_timestamp(payload *p, struct timespec *ts) {
+    uint64_t timestamp;
+
+    log_info("Setting timestamp");
+
+    timestamp = ts->tv_sec * 1000;
+    timestamp += ts->tv_nsec / 1000000;
+    p->timestamp = timestamp;
+
+    return EXIT_SUCCESS;
+}
+
+int payload_set_channel_frequency(payload *p, uint32_t channel, uint32_t frequency) {
+    log_info("Setting channel and frequency");
+
+    p->channel = channel;
+    p->frequency = frequency;
+
+    return EXIT_SUCCESS;
+}
+
 int payload_set_data(payload *p, uint8_t *data, uint32_t data_size) {
     log_info("Setting data");
 
