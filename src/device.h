@@ -35,7 +35,7 @@ int device_set_params(rtlsdr_dev_t *, uint32_t, int, int, int, int);
 
 int device_set_frequency(rtlsdr_dev_t *, uint32_t);
 
-int device_buffer_to_samples(const uint8_t *, double complex *, size_t);
+int device_buffer_to_samples(const uint8_t *, FP_FLOAT complex *, size_t);
 
 char *device_tuner_to_char(enum rtlsdr_tuner);
 

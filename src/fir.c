@@ -25,7 +25,7 @@
 #include "fir_lpf.h"
 #include "log.h"
 
-fir_ctx *fir_init(const double *kernel, size_t kernel_size) {
+fir_ctx *fir_init(const FP_FLOAT *kernel, size_t kernel_size) {
     fir_ctx *ctx;
     size_t i;
 
@@ -37,7 +37,7 @@ fir_ctx *fir_init(const double *kernel, size_t kernel_size) {
 
     ctx->kernel_size = kernel_size;
 
-    ctx->kernel = (double *) calloc(ctx->kernel_size, sizeof(double));
+    ctx->kernel = (FP_FLOAT *) calloc(ctx->kernel_size, sizeof(FP_FLOAT));
     if (ctx->kernel == NULL) {
         log_error("Unable to allocate kernel buffer");
         fir_free(ctx);
@@ -54,7 +54,7 @@ fir_ctx *fir_init(const double *kernel, size_t kernel_size) {
     for (i = 0; i < ctx->kernel_size; i++)
         ctx->prev[i] = 0;
 
-    memcpy(ctx->kernel, kernel, ctx->kernel_size * sizeof(double));
+    memcpy(ctx->kernel, kernel, ctx->kernel_size * sizeof(FP_FLOAT));
 
     return ctx;
 }
@@ -74,7 +74,7 @@ int fir_convolve(fir_ctx *ctx, int8_t *output, const int8_t *input, size_t size)
     size_t j;
     ssize_t input_pos;
     int8_t *item;
-    double sum;
+    FP_FLOAT sum;
 
     for (i = 0; i < size; i++) {
         sum = 0;

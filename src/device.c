@@ -184,7 +184,7 @@ int device_set_frequency(rtlsdr_dev_t *device, uint32_t frequency) {
     return EXIT_SUCCESS;
 }
 
-int device_buffer_to_samples(const uint8_t *buffer, double complex *samples, size_t buffer_size) {
+int device_buffer_to_samples(const uint8_t *buffer, FP_FLOAT complex *samples, size_t buffer_size) {
     int8_t i;
     int8_t q;
     size_t j;

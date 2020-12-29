@@ -21,9 +21,9 @@
 
 #include "dsp.h"
 
-double dsp_complex_rms(double complex *data, size_t data_size) {
+FP_FLOAT dsp_complex_rms(FP_FLOAT complex *data, size_t data_size) {
     size_t i;
-    double sum;
+    FP_FLOAT sum;
 
     sum = 0;
     for (i = 0; i < data_size; i++)
@@ -34,9 +34,9 @@ double dsp_complex_rms(double complex *data, size_t data_size) {
     return sqrt(sum);
 }
 
-double dsp_rms(int8_t *data, size_t data_size) {
+FP_FLOAT dsp_rms(int8_t *data, size_t data_size) {
     size_t i;
-    double sum;
+    FP_FLOAT sum;
 
     sum = 0;
     for (i = 0; i < data_size; i++)
@@ -49,7 +49,7 @@ double dsp_rms(int8_t *data, size_t data_size) {
 
 void dsp_remove_dc_offset(int8_t *buffer, size_t buffer_size) {
     size_t i;
-    double sum;
+    FP_FLOAT sum;
     int8_t offset;
 
     sum = 0;

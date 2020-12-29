@@ -28,8 +28,8 @@ int agc_limiter(int8_t *data, size_t data_size) {
     size_t i;
     int8_t abs_value;
     int8_t max;
-    double rms;
-    double gain;
+    FP_FLOAT rms;
+    FP_FLOAT gain;
 
     log_info("Applying limiter");
 

@@ -219,6 +219,6 @@ int circbuf_get(circbuf_ctx *ctx, void *data, size_t data_size) {
 void circbuf_status(circbuf_ctx *ctx) {
     int dimension;
 
-    dimension = (int) ((float) (ctx->free) * 100 / ctx->size);
+    dimension = (int) ((FP_FLOAT) (ctx->free) * 100 / ctx->size);
     ui_message("%s: %d% (%zu/%zu)\n", ctx->name, dimension, ctx->free, ctx->size);
 }

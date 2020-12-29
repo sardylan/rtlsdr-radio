@@ -22,6 +22,9 @@
 
 #include <stdint.h>
 
+#define _CONCAT(x,y) x##y
+#define CONCAT(x,y) _CONCAT(x,y)
+
 void utils_uint16_to_be(uint8_t *, uint16_t);
 
 void utils_uint32_to_be(uint8_t *, uint32_t);

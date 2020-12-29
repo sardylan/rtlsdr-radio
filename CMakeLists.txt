@@ -14,6 +14,8 @@ set(APPLICATION_VERSION "${APPLICATION_VERSION_MAJOR}.${APPLICATION_VERSION_MINO
 add_compile_options(-Wall -Wextra -pedantic -Werror)
 add_compile_options("-D__FILENAME__=__FILE__")
 
+include(cmake/rpi.cmake)
+
 find_package(PkgConfig REQUIRED)
 
 set(RTLSDR_RADIO_LOG_ERROR_ENABLED TRUE CACHE BOOL "Enable ERROR level logging")
@@ -23,6 +25,7 @@ set(RTLSDR_RADIO_LOG_DEBUG_ENABLED TRUE CACHE BOOL "Enable DEBUG level logging")
 set(RTLSDR_RADIO_LOG_TRACE_ENABLED TRUE CACHE BOOL "Enable TRACE level logging")
 
 set(ENABLED_LOGS)
+
 if (RTLSDR_RADIO_LOG_ERROR_ENABLED)
     list(APPEND ENABLED_LOGS "ERROR")
 endif ()
@@ -40,5 +43,18 @@ if (RTLSDR_RADIO_LOG_TRACE_ENABLED)
 endif ()
 
 message(STATUS "Log enabled: ${ENABLED_LOGS}")
+
+if (NOT RTLSDR_RADIO_FP_PRECISION)
+    if (RPI_PLATFORM_ENABLED)
+        set(RTLSDR_RADIO_FP_PRECISION_DEFAULT float)
+    else ()
+        set(RTLSDR_RADIO_FP_PRECISION_DEFAULT double)
+    endif ()
+endif ()
+
+set(RTLSDR_RADIO_FP_PRECISION "${RTLSDR_RADIO_FP_PRECISION_DEFAULT}" CACHE STRING "Set Floating Point precision changing used data type")
+set_property(CACHE RTLSDR_RADIO_FP_PRECISION PROPERTY STRINGS double float)
+unset(RTLSDR_RADIO_FP_PRECISION_DEFAULT CACHE)
+message(STATUS "Floating Point precision: ${RTLSDR_RADIO_FP_PRECISION}")
 
 add_subdirectory(src)

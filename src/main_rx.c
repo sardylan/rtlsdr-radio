@@ -115,7 +115,7 @@ int main_rx() {
     log_debug("Preparing frames buffer");
     size_iq = conf->rtlsdr_samples * 2;
     size_sample = conf->rtlsdr_samples;
-    size_pcm = (size_t) ((double) conf->rtlsdr_device_sample_rate / (double) conf->audio_sample_rate);
+    size_pcm = (size_t) ((FP_FLOAT) conf->rtlsdr_device_sample_rate / (FP_FLOAT) conf->audio_sample_rate);
 
     for (i = 0; i < BUFFER_FRAMES; i++) {
         frames[i] = frame_init(size_iq, size_sample, size_pcm);
@@ -419,12 +419,12 @@ void *thread_rx_demod() {
     size_t fr_pos;
     frame *fr;
 
-    double complex product;
-    double complex prev_sample;
+    FP_FLOAT complex product;
+    FP_FLOAT complex prev_sample;
 
-    double value;
-    double prod_fm;
-    double prod_am;
+    FP_FLOAT value;
+    FP_FLOAT prod_fm;
+    FP_FLOAT prod_am;
     int8_t elem;
     size_t j;
     int result;
@@ -504,7 +504,7 @@ void *thread_rx_lpf() {
 
     fft_ctx *fwd_fft_ctx;
     fft_ctx *bck_fft_ctx;
-    double *freq_domain_coeffs;
+    FP_FLOAT *freq_domain_coeffs;
 
     int result;
     size_t i;
@@ -541,7 +541,7 @@ void *thread_rx_lpf() {
         }
 
         log_debug("Allocating Frequency Domain coefficients buffer");
-        freq_domain_coeffs = (double *) calloc(conf->rtlsdr_samples, sizeof(double));
+        freq_domain_coeffs = (FP_FLOAT *) calloc(conf->rtlsdr_samples, sizeof(FP_FLOAT));
         if (freq_domain_coeffs == NULL) {
             log_error("Unable to allocate Frequency Domain coefficients buffer");
             fft_free(fwd_fft_ctx);
@@ -586,10 +586,10 @@ void *thread_rx_lpf() {
             case FILTER_MODE_FFT_SW:
                 log_debug("Copying input values for forward FFT");
                 for (i = 0; i < conf->rtlsdr_samples; i++)
-                    fwd_fft_ctx->real_input[i] = (double) fr->demod[i];
+                    fwd_fft_ctx->real_input[i] = (FP_FLOAT) fr->demod[i];
 
                 log_trace("Computing forward FFT");
-                fft_real_manual_compute(fwd_fft_ctx);
+                fft_compute(fwd_fft_ctx);
 
                 log_debug("Copying output values from forward FFT output");
                 for (i = 0; i < conf->rtlsdr_samples; i++)
@@ -606,7 +606,7 @@ void *thread_rx_lpf() {
                     bck_fft_ctx->real_input[i] = freq_domain_coeffs[i];
 
                 log_trace("Computing backward FFT");
-                fft_real_manual_compute(bck_fft_ctx);
+                fft_compute(bck_fft_ctx);
 
                 log_debug("Copying output values from backward FFT output");
                 for (i = 0; i < conf->rtlsdr_samples; i++)

@@ -24,13 +24,13 @@
 
 struct fir_ctx_t {
     size_t kernel_size;
-    double *kernel;
+    FP_FLOAT *kernel;
     int8_t *prev;
 };
 
 typedef struct fir_ctx_t fir_ctx;
 
-fir_ctx *fir_init(const double *, size_t);
+fir_ctx *fir_init(const FP_FLOAT *, size_t);
 
 void fir_free(fir_ctx *);
 

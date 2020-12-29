@@ -33,14 +33,14 @@ struct frame_t {
     uint8_t *iq;
 
     size_t size_sample;
-    double complex *samples;
+    FP_FLOAT complex *samples;
     int8_t *demod;
     int8_t *filtered;
 
     size_t size_pcm;
     int8_t *pcm;
 
-    double rms;
+    FP_FLOAT rms;
 };
 
 typedef struct frame_t frame;

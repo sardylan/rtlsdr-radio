@@ -60,7 +60,7 @@ int payload_set_numbers(payload *, uint32_t, uint64_t);
 
 int payload_set_timestamp(payload *, struct timespec *);
 
-int payload_set_rms(payload *, double);
+int payload_set_rms(payload *, FP_FLOAT);
 
 int payload_set_channel_frequency(payload *, uint32_t, uint32_t);
 

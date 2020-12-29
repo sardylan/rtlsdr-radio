@@ -26,4 +26,7 @@
 #cmakedefine RTLSDR_RADIO_LOG_DEBUG_ENABLED
 #cmakedefine RTLSDR_RADIO_LOG_TRACE_ENABLED
 
+#cmakedefine RTLSDR_RADIO_FP_FLOAT
+#cmakedefine RTLSDR_RADIO_FP_DOUBLE
+
 #endif

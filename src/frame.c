@@ -52,7 +52,7 @@ frame *frame_init(size_t size_iq, size_t size_sample, size_t size_pcm) {
     f->size_sample = size_sample;
 
     log_debug("Allocating Samples buffer");
-    f->samples = (double complex *) calloc(size_sample, sizeof(double complex));
+    f->samples = (FP_FLOAT complex *) calloc(size_sample, sizeof(FP_FLOAT complex));
     if (f->samples == NULL) {
         log_error("Unable to allocate Samples buffer");
         frame_free(f);

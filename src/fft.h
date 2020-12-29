@@ -24,6 +24,27 @@
 #include <complex.h>
 #include <fftw3.h>
 
+#include "buildflags.h"
+#include "utils.h"
+
+#define FFT_FLOAT FP_FLOAT
+
+#ifdef RTLSDR_RADIO_FP_FLOAT
+#define FFT_prefix fftwf
+#else
+#define FFT_prefix fftw
+#endif
+
+#define FFT_plan CONCAT(FFT_prefix, _plan)
+#define FFT_complex CONCAT(FFT_prefix, _complex)
+#define FFT_alloc_complex CONCAT(FFT_prefix, _alloc_complex)
+#define FFT_alloc_real CONCAT(FFT_prefix, _alloc_real)
+#define FFT_plan_dft_1d CONCAT(FFT_prefix, _plan_dft_1d)
+#define FFT_plan_r2r_1d CONCAT(FFT_prefix, _plan_r2r_1d)
+#define FFT_destroy_plan CONCAT(FFT_prefix, _destroy_plan)
+#define FFT_free CONCAT(FFT_prefix, _free)
+#define FFT_execute CONCAT(FFT_prefix, _execute)
+
 enum fft_data_type_t {
     FFT_DATA_TYPE_COMPLEX = 'C',
     FFT_DATA_TYPE_REAL = 'R'
@@ -35,13 +56,13 @@ struct fft_ctx_t {
     size_t size;
     fft_data_type data_type;
 
-    double *real_input;
-    double *real_output;
+    FFT_FLOAT *real_input;
+    FFT_FLOAT *real_output;
 
-    fftw_complex *complex_input;
-    fftw_complex *complex_output;
+    FFT_complex *complex_input;
+    FFT_complex *complex_output;
 
-    fftw_plan plan;
+    FFT_plan plan;
 };
 
 typedef struct fft_ctx_t fft_ctx;
@@ -50,11 +71,11 @@ fft_ctx *fft_init(size_t, int, fft_data_type);
 
 void fft_free(fft_ctx *);
 
-int fft_complex_compute(fft_ctx *, double complex *, double complex *);
+void fft_compute(fft_ctx *ctx);
 
-void fft_real_manual_compute(fft_ctx *);
+int fft_complex_compute(fft_ctx *, FFT_FLOAT complex *, FFT_FLOAT complex *);
 
-int fft_real_compute(fft_ctx *, double *, double *);
+int fft_real_compute(fft_ctx *, FFT_FLOAT *, FFT_FLOAT *);
 
 int fft_real_compute_int8(fft_ctx *, const int8_t *, int8_t *);
 

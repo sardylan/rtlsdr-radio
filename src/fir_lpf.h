@@ -42,7 +42,7 @@ sampling frequency: 256000 Hz
 
 #define FIR_KERNEL_LPF1_TAP_NUM 97
 
-static double fir_kernel_lpf1_filter_taps[FIR_KERNEL_LPF1_TAP_NUM] = {
+static FP_FLOAT fir_kernel_lpf1_filter_taps[FIR_KERNEL_LPF1_TAP_NUM] = {
         -0.051298747163170705,
         -0.004099165537033711,
         -0.004180429443577068,
@@ -164,7 +164,7 @@ sampling frequency: 256000 Hz
 
 #define FIR_KERNEL_LPF2_TAP_NUM 431
 
-static double fir_kernel_lpf2_filter_taps[FIR_KERNEL_LPF2_TAP_NUM] = {
+static FP_FLOAT fir_kernel_lpf2_filter_taps[FIR_KERNEL_LPF2_TAP_NUM] = {
         -0.00006206339989040454,
         -0.000027719794077257308,
         -0.00003376497555965666,
@@ -620,7 +620,7 @@ sampling frequency: 256000 Hz
 
 #define FIR_KERNEL_LPF3_TAP_NUM 279
 
-static double fir_kernel_lpf3_filter_taps[FIR_KERNEL_LPF3_TAP_NUM] = {
+static FP_FLOAT fir_kernel_lpf3_filter_taps[FIR_KERNEL_LPF3_TAP_NUM] = {
         -0.00481168660374754,
         0.0003879115472240537,
         0.0003952238282195715,
@@ -909,7 +909,7 @@ static double fir_kernel_lpf3_filter_taps[FIR_KERNEL_LPF3_TAP_NUM] = {
 
 #define FIR_KERNEL_LPF4_TAP_NUM 32
 
-static double fir_kernel_lpf4_filter_taps[FIR_KERNEL_LPF4_TAP_NUM] = {
+static FP_FLOAT fir_kernel_lpf4_filter_taps[FIR_KERNEL_LPF4_TAP_NUM] = {
         0.0078125,
         0.0078125,
         0.0078125,
@@ -951,7 +951,7 @@ static double fir_kernel_lpf4_filter_taps[FIR_KERNEL_LPF4_TAP_NUM] = {
 
 #define FIR_KERNEL_LPF5_TAP_NUM 10
 
-static double fir_kernel_lpf5_filter_taps[FIR_KERNEL_LPF5_TAP_NUM] = {
+static FP_FLOAT fir_kernel_lpf5_filter_taps[FIR_KERNEL_LPF5_TAP_NUM] = {
         1, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 

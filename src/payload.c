@@ -86,7 +86,7 @@ int payload_set_timestamp(payload *p, struct timespec *ts) {
     return EXIT_SUCCESS;
 }
 
-int payload_set_rms(payload *p, double rms) {
+int payload_set_rms(payload *p, FP_FLOAT rms) {
     log_info("Setting RMS");
 
     p->rms = abs((int) (rms * 10));
