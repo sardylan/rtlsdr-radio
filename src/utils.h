@@ -22,8 +22,8 @@
 
 #include <stdint.h>
 
-#define _CONCAT(x,y) x##y
-#define CONCAT(x,y) _CONCAT(x,y)
+#define _CONCAT(x, y) x##y
+#define CONCAT(x, y) _CONCAT(x,y)
 
 void utils_uint16_to_be(uint8_t *, uint16_t);
 
@@ -36,5 +36,11 @@ void utils_int16_to_be(uint8_t *, int16_t);
 void utils_int32_to_be(uint8_t *, int32_t);
 
 void utils_int64_to_be(uint8_t *, int64_t);
+
+char *utils_ltrim(char *);
+
+char *utils_rtrim(char *);
+
+char *utils_trim(char *);
 
 #endif

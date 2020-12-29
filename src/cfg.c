@@ -17,15 +17,21 @@
  */
 
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <malloc.h>
 #include <string.h>
 #include <getopt.h>
+#include <errno.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "cfg.h"
 #include "default.h"
 #include "ui.h"
 #include "log.h"
+#include "utils.h"
 
 extern cfg *conf;
 
@@ -77,25 +83,36 @@ void cfg_free() {
 }
 
 void cfg_print() {
-    fprintf(UI_MESSAGES_OUTPUT, "ui_log_level:                  %s\n", cfg_tochar_log_level(conf->ui_log_level));
-    fprintf(UI_MESSAGES_OUTPUT, "file_log_level:                %s\n", cfg_tochar_log_level(conf->file_log_level));
-    fprintf(UI_MESSAGES_OUTPUT, "file_log_name:                 %s\n", conf->file_log_name);
-    fprintf(UI_MESSAGES_OUTPUT, "mode:                          %s\n", cfg_tochar_work_mode(conf->mode));
-    fprintf(UI_MESSAGES_OUTPUT, "debug:                         %s\n", cfg_tochar_bool(conf->debug));
-    fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_device_id:              %u\n", conf->rtlsdr_device_id);
-    fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_device_sample_rate:     %u (Hz)\n", conf->rtlsdr_device_sample_rate);
-    fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_device_center_freq:     %u (Hz)\n", conf->rtlsdr_device_center_freq);
-    fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_device_freq_correction: %u (ppm)\n", conf->rtlsdr_device_freq_correction);
-    fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_device_tuner_gain_mode: %u\n", conf->rtlsdr_device_tuner_gain_mode);
-    fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_device_tuner_gain:      %u (10e-1 dB)\n", conf->rtlsdr_device_tuner_gain);
-    fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_device_agc_mode:        %u\n", conf->rtlsdr_device_agc_mode);
-    fprintf(UI_MESSAGES_OUTPUT, "rtlsdr_samples:                %zu\n", conf->rtlsdr_samples);
-    fprintf(UI_MESSAGES_OUTPUT, "modulation:                    %s\n", cfg_tochar_modulation(conf->modulation));
-    fprintf(UI_MESSAGES_OUTPUT, "filter:                        %s\n", cfg_tochar_filter_mode(conf->filter));
-    fprintf(UI_MESSAGES_OUTPUT, "filter_fir:                    %d\n", conf->filter_fir);
-    fprintf(UI_MESSAGES_OUTPUT, "audio_sample_rate:             %u (Hz)\n", conf->audio_sample_rate);
-    fprintf(UI_MESSAGES_OUTPUT, "codec_opus_bitrate:            %u (b/s)\n", conf->codec_opus_bitrate);
-    fprintf(UI_MESSAGES_OUTPUT, "\n");
+    ui_message("\n");
+    ui_message("ui_log_level:                  %s\n", cfg_tochar_log_level(conf->ui_log_level));
+    ui_message("file_log_level:                %s\n", cfg_tochar_log_level(conf->file_log_level));
+    ui_message("file_log_name:                 %s\n", conf->file_log_name);
+    ui_message("\n");
+    ui_message("debug:                         %s\n", cfg_tochar_bool(conf->debug));
+    ui_message("\n");
+    ui_message("mode:                          %s\n", cfg_tochar_work_mode(conf->mode));
+    ui_message("\n");
+    ui_message("rtlsdr_device_id:              %u\n", conf->rtlsdr_device_id);
+    ui_message("rtlsdr_device_sample_rate:     %u (Hz)\n", conf->rtlsdr_device_sample_rate);
+    ui_message("rtlsdr_device_center_freq:     %u (Hz)\n", conf->rtlsdr_device_center_freq);
+    ui_message("rtlsdr_device_freq_correction: %u (ppm)\n", conf->rtlsdr_device_freq_correction);
+    ui_message("rtlsdr_device_tuner_gain_mode: %u\n", conf->rtlsdr_device_tuner_gain_mode);
+    ui_message("rtlsdr_device_tuner_gain:      %u (10e-1 dB)\n", conf->rtlsdr_device_tuner_gain);
+    ui_message("rtlsdr_device_agc_mode:        %u\n", conf->rtlsdr_device_agc_mode);
+    ui_message("rtlsdr_samples:                %zu\n", conf->rtlsdr_samples);
+    ui_message("\n");
+    ui_message("modulation:                    %s\n", cfg_tochar_modulation(conf->modulation));
+    ui_message("\n");
+    ui_message("filter:                        %s\n", cfg_tochar_filter_mode(conf->filter));
+    ui_message("filter_fir:                    %d\n", conf->filter_fir);
+    ui_message("\n");
+    ui_message("audio_sample_rate:             %u (Hz)\n", conf->audio_sample_rate);
+    ui_message("\n");
+    ui_message("codec_opus_bitrate:            %u (b/s)\n", conf->codec_opus_bitrate);
+    ui_message("\n");
+    ui_message("network_server:                %s\n", conf->network_server);
+    ui_message("network_port:                  %u\n", conf->network_port);
+    ui_message("\n");
 }
 
 int cfg_parse(int argc, char **argv) {
@@ -103,12 +120,12 @@ int cfg_parse(int argc, char **argv) {
     int option_index = 0;
     int c;
     size_t ln;
-    int conf_file;
-    char *config_file;
+    char *config_filename;
     char *endptr;
 
+    config_filename = NULL;
+
     ret = EXIT_SUCCESS;
-    conf_file = 0;
 
     static struct option long_options[] = {
             {"config",                        required_argument, 0, 'c'},
@@ -138,8 +155,8 @@ int cfg_parse(int argc, char **argv) {
             {0, 0,                                               0, 0}
     };
 
-    config_file = (char *) malloc(sizeof(char));
-    *config_file = '\0';
+    config_filename = (char *) malloc(sizeof(char));
+    *config_filename = '\0';
 
     while (1) {
         c = getopt_long(argc, argv, "c:hVqvd:l:L:Dm:i:f:p:G:g:a:M:", long_options, &option_index);
@@ -154,11 +171,11 @@ int cfg_parse(int argc, char **argv) {
         }
 
         if (c == 'c') {
-            conf_file = 1;
-
             ln = strlen(optarg) + 1;
-            config_file = (char *) realloc(config_file, ln * sizeof(char));
-            strcpy(config_file, optarg);
+            config_filename = (char *) realloc(config_filename, ln * sizeof(char));
+            strcpy(config_filename, optarg);
+
+            ret = cfg_parse_file(config_filename);
         }
 
         if (c == 'h') {
@@ -250,14 +267,56 @@ int cfg_parse(int argc, char **argv) {
         }
     }
 
-    if (conf_file == 1) {
-        log_info("Config file enabled");
-//        ret = cfg_file_parse(config_file);
-    }
-
-    free(config_file);
+    free(config_filename);
 
     return ret;
+}
+
+int cfg_parse_file(char *config_filename) {
+    FILE *fd;
+    size_t line_size;
+    char *line;
+    char *line_trimmed;
+    char *save_ptr;
+
+    char *param;
+    char *value;
+
+    line_size = 0;
+    line = NULL;
+    line_trimmed = NULL;
+    save_ptr = NULL;
+
+    param = NULL;
+    value = NULL;
+
+    fd = fopen(config_filename, "r");
+    if (fd == NULL) {
+        ui_message("Unable to open config file \"%s\" with error %d: %s\n", config_filename, errno, strerror(errno));
+        return EXIT_FAILURE;
+    }
+
+    rewind(fd);
+
+    while (getline(&line, &line_size, fd) >= 0) {
+        line_trimmed = utils_trim(line);
+        if (line_trimmed[0] == '#')
+            continue;
+
+        param = strtok_r(line, " ", &save_ptr);
+        if (param == NULL)
+            continue;
+
+        value = utils_trim(save_ptr);
+
+        ui_message("Param: \"%s\" - Value: \"%s\"\n", param, value);
+    }
+
+    fclose(fd);
+
+    free(line);
+
+    return EXIT_SUCCESS;
 }
 
 int cfg_parse_flag(int flag) {

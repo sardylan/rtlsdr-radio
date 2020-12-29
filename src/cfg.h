@@ -68,7 +68,6 @@ struct cfg_t {
     modulation_type modulation;
 
     filter_mode filter;
-
     int filter_fir;
 
     uint32_t audio_sample_rate;
@@ -88,6 +87,8 @@ void cfg_free();
 void cfg_print();
 
 int cfg_parse(int, char **);
+
+int cfg_parse_file(char *);
 
 int cfg_parse_flag(int);
 

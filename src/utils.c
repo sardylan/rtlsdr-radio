@@ -17,6 +17,9 @@
  */
 
 
+#include <ctype.h>
+#include <string.h>
+
 #include "utils.h"
 
 void utils_uint16_to_be(uint8_t *buffer, uint16_t number) {
@@ -63,4 +66,20 @@ void utils_int64_to_be(uint8_t *buffer, int64_t number) {
     buffer[5] = (number >> 16) & 0xff;
     buffer[6] = (number >> 8) & 0xff;
     buffer[7] = (number >> 0) & 0xff;
+}
+
+char *utils_ltrim(char *s) {
+    while (isspace(*s)) s++;
+    return s;
+}
+
+char *utils_rtrim(char *s) {
+    char *back = s + strlen(s);
+    while (isspace(*--back));
+    *(back + 1) = '\0';
+    return s;
+}
+
+char *utils_trim(char *s) {
+    return utils_rtrim(utils_ltrim(s));
 }
