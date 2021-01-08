@@ -176,6 +176,7 @@ int cfg_parse(int argc, char **argv) {
             strcpy(config_filename, optarg);
 
             ret = cfg_parse_file(config_filename);
+            continue;
         }
 
         if (c == 'h') {
@@ -190,80 +191,88 @@ int cfg_parse(int argc, char **argv) {
 
         if (c == 'q') {
             conf->ui_log_level = LOG_LEVEL_OFF;
+            continue;
         }
 
         if (c == 'v') {
             conf->ui_log_level = LOG_LEVEL_DEBUG;
+            continue;
         }
 
         if (c == 'd') {
             conf->ui_log_level = (int) strtol(optarg, &endptr, 10);
+            continue;
         }
 
         if (c == 'l') {
             conf->file_log_level = (int) strtol(optarg, &endptr, 10);
+            continue;
         }
 
         if (c == 'L') {
             ln = strlen(optarg) + 1;
             conf->file_log_name = (char *) realloc((void *) conf->file_log_name, sizeof(char) * ln);
             strcpy(conf->file_log_name, optarg);
+            continue;
         }
 
         if (c == 'D') {
             conf->debug = 1;
+            continue;
         }
 
         if (c == 'm') {
-            if (strcmp(optarg, "rx") == 0)
-                conf->mode = MODE_RX;
-            else if (strcmp(optarg, "info") == 0)
-                conf->mode = MODE_INFO;
-            else {
-                log_error("Wrong mode: %s", optarg);
+            if (cfg_parse_work_mode(&conf->mode, optarg) != EXIT_SUCCESS) {
                 ret = EXIT_FAILURE;
                 break;
             }
+
+            continue;
         }
 
         if (c == 'i') {
             conf->rtlsdr_device_id = (uint32_t) strtol(optarg, &endptr, 10);
+            continue;
         }
 
         if (c == 's') {
             conf->rtlsdr_device_sample_rate = (uint32_t) strtol(optarg, &endptr, 10);
+            continue;
         }
 
         if (c == 'f') {
             conf->rtlsdr_device_center_freq = (uint32_t) strtol(optarg, &endptr, 10);
+            continue;
         }
 
         if (c == 'p') {
             conf->rtlsdr_device_freq_correction = (int) strtol(optarg, &endptr, 10);
+            continue;
         }
 
         if (c == 'G') {
             conf->rtlsdr_device_tuner_gain_mode = cfg_parse_flag((int) strtol(optarg, &endptr, 10));
+            continue;
         }
 
         if (c == 'g') {
             conf->rtlsdr_device_tuner_gain = (int) strtol(optarg, &endptr, 10);
+            continue;
         }
 
         if (c == 'a') {
             conf->rtlsdr_device_agc_mode = cfg_parse_flag((int) strtol(optarg, &endptr, 10));
+            continue;
         }
 
         if (c == 'M') {
-            if (strcmp(optarg, "am") == 0)
-                conf->modulation = MOD_TYPE_AM;
-            else if (strcmp(optarg, "fm") == 0)
-                conf->modulation = MOD_TYPE_FM;
-            else {
+            if (cfg_parse_modulation(&conf->modulation, optarg) != EXIT_SUCCESS) {
                 log_error("Wrong modulation: %s", optarg);
                 ret = EXIT_FAILURE;
                 break;
             }
+
+            continue;
         }
     }
 
@@ -273,11 +282,15 @@ int cfg_parse(int argc, char **argv) {
 }
 
 int cfg_parse_file(char *config_filename) {
+    int ret;
+
     FILE *fd;
     size_t line_size;
+    size_t line_num;
     char *line;
     char *line_trimmed;
     char *save_ptr;
+    char *endptr;
 
     char *param;
     char *value;
@@ -289,6 +302,9 @@ int cfg_parse_file(char *config_filename) {
 
     param = NULL;
     value = NULL;
+    size_t ln;
+
+    ret = EXIT_SUCCESS;
 
     fd = fopen(config_filename, "r");
     if (fd == NULL) {
@@ -297,6 +313,8 @@ int cfg_parse_file(char *config_filename) {
     }
 
     rewind(fd);
+
+    line_num = 1;
 
     while (getline(&line, &line_size, fd) >= 0) {
         line_trimmed = utils_trim(line);
@@ -309,14 +327,135 @@ int cfg_parse_file(char *config_filename) {
 
         value = utils_trim(save_ptr);
 
-        ui_message("Param: \"%s\" - Value: \"%s\"\n", param, value);
+        if (strcmp(param, "ui-log-level") == 0) {
+            conf->ui_log_level = (int) strtol(value, &endptr, 10);
+            continue;
+        }
+
+        if (strcmp(param, "file-log-level") == 0) {
+            conf->file_log_level = (int) strtol(value, &endptr, 10);
+            continue;
+        }
+
+        if (strcmp(param, "file-log-name") == 0) {
+            ln = strlen(value) + 1;
+            conf->file_log_name = (char *) realloc((void *) conf->file_log_name, sizeof(char) * ln);
+            strcpy(conf->file_log_name, value);
+            continue;
+        }
+
+        if (strcmp(param, "debug") == 0) {
+            conf->file_log_level = cfg_parse_flag((int) strtol(value, &endptr, 10));
+            continue;
+        }
+
+        if (strcmp(param, "mode") == 0) {
+            if (cfg_parse_work_mode(&conf->mode, value) != EXIT_SUCCESS) {
+                log_error("Config file error in line %zu", line_num);
+                ret = EXIT_FAILURE;
+                break;
+            }
+
+            continue;
+        }
+
+        if (strcmp(param, "rtlsdr-device-id") == 0) {
+            conf->rtlsdr_device_id = (uint32_t) strtol(value, &endptr, 10);
+            continue;
+        }
+
+        if (strcmp(param, "rtlsdr-device-sample-rate") == 0) {
+            conf->rtlsdr_device_sample_rate = (uint32_t) strtol(value, &endptr, 10);
+            continue;
+        }
+
+        if (strcmp(param, "rtlsdr-device-center-freq") == 0) {
+            conf->rtlsdr_device_center_freq = (uint32_t) strtol(value, &endptr, 10);
+            continue;
+        }
+
+        if (strcmp(param, "rtlsdr-device-freq-correction") == 0) {
+            conf->rtlsdr_device_freq_correction = (int) strtol(value, &endptr, 10);
+            continue;
+        }
+
+        if (strcmp(param, "rtlsdr-device-tuner-gain-mode") == 0) {
+            conf->rtlsdr_device_tuner_gain_mode = (int) strtol(value, &endptr, 10);
+            continue;
+        }
+
+        if (strcmp(param, "rtlsdr-device-tuner-gain") == 0) {
+            conf->rtlsdr_device_tuner_gain = (int) strtol(value, &endptr, 10);
+            continue;
+        }
+
+        if (strcmp(param, "rtlsdr-device-agc-mode") == 0) {
+            conf->rtlsdr_device_agc_mode = (int) strtol(value, &endptr, 10);
+            continue;
+        }
+
+        if (strcmp(param, "rtlsdr-samples") == 0) {
+            conf->rtlsdr_samples = (size_t) strtol(value, &endptr, 10);
+            continue;
+        }
+
+        if (strcmp(param, "modulation") == 0) {
+            if (cfg_parse_modulation(&conf->modulation, value) != EXIT_SUCCESS) {
+                log_error("Config file error in line %zu", line_num);
+                ret = EXIT_FAILURE;
+                break;
+            }
+
+            continue;
+        }
+
+        if (strcmp(param, "filter") == 0) {
+            if (cfg_parse_filter_mode(&conf->filter, value) != EXIT_SUCCESS) {
+                log_error("Config file error in line %zu", line_num);
+                ret = EXIT_FAILURE;
+                break;
+            }
+
+            continue;
+        }
+
+        if (strcmp(param, "filter-fir") == 0) {
+            conf->filter_fir = (int) strtol(value, &endptr, 10);
+            continue;
+        }
+
+        if (strcmp(param, "audio-sample-rate") == 0) {
+            conf->audio_sample_rate = (uint32_t) strtol(value, &endptr, 10);
+            continue;
+        }
+
+        if (strcmp(param, "codec-opus-bitrate") == 0) {
+            conf->codec_opus_bitrate = (uint32_t) strtol(value, &endptr, 10);
+            continue;
+        }
+
+        if (strcmp(param, "network-server") == 0) {
+            ln = strlen(value) + 1;
+            conf->network_server = (char *) realloc((void *) conf->network_server, sizeof(char) * ln);
+            strcpy(conf->network_server, value);
+            continue;
+        }
+
+        if (strcmp(param, "network-port") == 0) {
+            conf->network_port = (uint16_t) strtol(value, &endptr, 10);
+            continue;
+        }
+
+        log_debug("Line: %zu - Param: \"%s\" - Value: \"%s\"", line_num, param, value);
+
+        line_num++;
     }
 
     fclose(fd);
 
     free(line);
 
-    return EXIT_SUCCESS;
+    return ret;
 }
 
 int cfg_parse_flag(int flag) {
@@ -324,6 +463,59 @@ int cfg_parse_flag(int flag) {
         return 1;
     else
         return 0;
+}
+
+int cfg_parse_work_mode(work_mode *mode, char *value) {
+    int ret;
+
+    ret = EXIT_SUCCESS;
+
+    if (strcmp(value, "rx") == 0)
+        *mode = MODE_RX;
+    else if (strcmp(value, "info") == 0)
+        *mode = MODE_INFO;
+    else {
+        log_error("Wrong mode: %s", value);
+        ret = EXIT_FAILURE;
+    }
+
+    return ret;
+}
+
+int cfg_parse_modulation(modulation_type *mod, char *value) {
+    int ret;
+
+    ret = EXIT_SUCCESS;
+
+    if ((value[0] == 'a' || value[0] == 'A') && (value[1] == 'm' || value[1] == 'M') && value[2] == '\0')
+        *mod = MOD_TYPE_AM;
+    else if ((value[0] == 'f' || value[0] == 'F') && (value[1] == 'm' || value[1] == 'M') && value[2] == '\0')
+        *mod = MOD_TYPE_FM;
+    else {
+        log_error("Wrong mode: %s", value);
+        ret = EXIT_FAILURE;
+    }
+
+    return ret;
+}
+
+int cfg_parse_filter_mode(filter_mode *filter, char *value) {
+    int ret;
+
+    ret = EXIT_SUCCESS;
+
+    if (strcmp(value, "none") == 0)
+        *filter = FILTER_MODE_NONE;
+    else if (strcmp(value, "fir_sw") == 0)
+        *filter = FILTER_MODE_FIR_SW;
+    else if (strcmp(value, "fft_sw") == 0)
+        *filter = FILTER_MODE_FFT_SW;
+    else {
+        log_error("Wrong mode: %s", value);
+        ret = EXIT_FAILURE;
+    }
+
+    return ret;
 }
 
 const char *cfg_tochar_bool(int value) {

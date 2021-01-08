@@ -1,17 +1,12 @@
 if (RTLSDR_RADIO_FP_PRECISION STREQUAL "float")
-    set(RTLSDR_RADIO_FP_FLOAT TRUE)
-    set(RTLSDR_RADIO_FP_DOUBLE FALSE)
     pkg_check_modules(fftw3 REQUIRED IMPORTED_TARGET fftw3f)
 else ()
-    set(RTLSDR_RADIO_FP_FLOAT FALSE)
-    set(RTLSDR_RADIO_FP_DOUBLE TRUE)
     pkg_check_modules(fftw3 REQUIRED IMPORTED_TARGET fftw3)
 endif ()
 
-add_compile_definitions(FP_FLOAT=${RTLSDR_RADIO_FP_PRECISION})
-
 configure_file(version.h.in version.h @ONLY)
 configure_file(buildflags.h.in buildflags.h @ONLY)
+
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 find_package(Threads REQUIRED)

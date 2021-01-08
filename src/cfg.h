@@ -92,6 +92,12 @@ int cfg_parse_file(char *);
 
 int cfg_parse_flag(int);
 
+int cfg_parse_work_mode(work_mode *, char *);
+
+int cfg_parse_modulation(modulation_type *, char *);
+
+int cfg_parse_filter_mode(filter_mode *, char *);
+
 const char *cfg_tochar_bool(int);
 
 const char *cfg_tochar_log_level(int);

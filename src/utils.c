@@ -83,3 +83,30 @@ char *utils_rtrim(char *s) {
 char *utils_trim(char *s) {
     return utils_rtrim(utils_ltrim(s));
 }
+
+int utils_stricmp(const char *a, const char *b) {
+    if (a == NULL && b == NULL)
+        return 0;
+
+    if (a == NULL)
+        return -1;
+    if (b == NULL)
+        return 1;
+
+    while (*a != '\0') {
+        if (*a >= 0x41 && *a <= 0x5A) {
+            if (*a != *b && *a != (*b - 0x20))
+                break;
+        } else if (*a >= 0x61 && *a <= 0x7A) {
+            if (*a != *b && *a != (*b + 0x20))
+                break;
+        } else if (*a != *b) {
+            break;
+        }
+
+        a++;
+        b++;
+    }
+
+    return *(const unsigned char *) a - *(const unsigned char *) b;
+}

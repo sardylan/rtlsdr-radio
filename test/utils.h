@@ -17,32 +17,11 @@
  */
 
 
-#ifndef __RTLSDR_RADIO__UTILS__H
-#define __RTLSDR_RADIO__UTILS__H
+#ifndef __RTLSDR_RADIO__UTILS__H__TEST
+#define __RTLSDR_RADIO__UTILS__H__TEST
 
-#include <stdint.h>
+#include "../src/utils.h"
 
-#define _CONCAT(x, y) x##y
-#define CONCAT(x, y) _CONCAT(x,y)
-
-void utils_uint16_to_be(uint8_t *, uint16_t);
-
-void utils_uint32_to_be(uint8_t *, uint32_t);
-
-void utils_uint64_to_be(uint8_t *, uint64_t);
-
-void utils_int16_to_be(uint8_t *, int16_t);
-
-void utils_int32_to_be(uint8_t *, int32_t);
-
-void utils_int64_to_be(uint8_t *, int64_t);
-
-char *utils_ltrim(char *);
-
-char *utils_rtrim(char *);
-
-char *utils_trim(char *);
-
-int utils_stricmp(const char *, const char *);
+static void test_stricmp(void **);
 
 #endif

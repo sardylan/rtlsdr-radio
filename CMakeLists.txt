@@ -57,4 +57,17 @@ set_property(CACHE RTLSDR_RADIO_FP_PRECISION PROPERTY STRINGS double float)
 unset(RTLSDR_RADIO_FP_PRECISION_DEFAULT CACHE)
 message(STATUS "Floating Point precision: ${RTLSDR_RADIO_FP_PRECISION}")
 
+if (RTLSDR_RADIO_FP_PRECISION STREQUAL "float")
+    set(RTLSDR_RADIO_FP_FLOAT TRUE)
+    set(RTLSDR_RADIO_FP_DOUBLE FALSE)
+else ()
+    set(RTLSDR_RADIO_FP_FLOAT FALSE)
+    set(RTLSDR_RADIO_FP_DOUBLE TRUE)
+endif ()
+
+add_compile_definitions(FP_FLOAT=${RTLSDR_RADIO_FP_PRECISION})
+
+enable_testing()
+
 add_subdirectory(src)
+add_subdirectory(test)
