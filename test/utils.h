@@ -22,6 +22,12 @@
 
 #include "../src/utils.h"
 
-static void test_stricmp(void **);
+void test_stricmp(void **);
+
+void test_utils_ltrim(void **);
+
+void test_utils_rtrim(void **);
+
+void test_utils_trim(void **);
 
 #endif

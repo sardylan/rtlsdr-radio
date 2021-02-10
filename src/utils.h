@@ -37,11 +37,11 @@ void utils_int32_to_be(uint8_t *, int32_t);
 
 void utils_int64_to_be(uint8_t *, int64_t);
 
-char *utils_ltrim(char *);
+int utils_ltrim(char *, char *, size_t);
 
-char *utils_rtrim(char *);
+int utils_rtrim(char *, char *, size_t);
 
-char *utils_trim(char *);
+int utils_trim(char *, char *, size_t);
 
 int utils_stricmp(const char *, const char *);
 

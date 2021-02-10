@@ -314,10 +314,17 @@ int cfg_parse_file(char *config_filename) {
 
     rewind(fd);
 
-    line_num = 1;
+    line_num = 0;
 
     while (getline(&line, &line_size, fd) >= 0) {
-        line_trimmed = utils_trim(line);
+        line_num++;
+
+        line_trimmed = (char *) realloc(line_trimmed, sizeof(char) * (line_size + 1));
+        if (utils_trim(line_trimmed, line, line_size + 1) != EXIT_SUCCESS) {
+            ui_message("Unable to read line %zu\n", line_num);
+            continue;
+        }
+
         if (line_trimmed[0] == '#')
             continue;
 
@@ -325,7 +332,11 @@ int cfg_parse_file(char *config_filename) {
         if (param == NULL)
             continue;
 
-        value = utils_trim(save_ptr);
+        value = (char *) realloc(value, sizeof(char) * (strlen(save_ptr) + 1));
+        if (utils_trim(value, save_ptr, strlen(save_ptr) + 1) != EXIT_SUCCESS) {
+            ui_message("Unable to read value on line %zu\n", line_num);
+            continue;
+        }
 
         if (strcmp(param, "ui-log-level") == 0) {
             conf->ui_log_level = (int) strtol(value, &endptr, 10);
@@ -447,13 +458,12 @@ int cfg_parse_file(char *config_filename) {
         }
 
         log_debug("Line: %zu - Param: \"%s\" - Value: \"%s\"", line_num, param, value);
-
-        line_num++;
     }
 
     fclose(fd);
 
     free(line);
+    free(line_trimmed);
 
     return ret;
 }

@@ -21,18 +21,25 @@
 #include <stddef.h>
 #include <setjmp.h>
 #include <cmocka.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "utils.h"
 
+#define BUFFER_SIZE 16
+
 const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_stricmp),
+        cmocka_unit_test(test_utils_ltrim),
+        cmocka_unit_test(test_utils_rtrim),
+        cmocka_unit_test(test_utils_trim),
 };
 
 int main() {
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
 
-static void test_stricmp(void **state) {
+void test_stricmp(void **state) {
     (void) state;
 
     assert_true(utils_stricmp(NULL, NULL) == 0);
@@ -84,4 +91,277 @@ static void test_stricmp(void **state) {
 
     assert_true(utils_stricmp("test", "tes") > 0);
     assert_true(utils_stricmp("tes", "test") < 0);
+}
+
+void test_utils_ltrim(void **state) {
+    (void) state;
+
+    char input[BUFFER_SIZE];
+    char expected[BUFFER_SIZE];
+    char actual[BUFFER_SIZE];
+
+    bzero(input, BUFFER_SIZE);
+    bzero(expected, BUFFER_SIZE);
+    bzero(actual, BUFFER_SIZE);
+
+    assert_int_equal(EXIT_FAILURE, utils_ltrim(NULL, NULL, 0));
+    assert_int_equal(EXIT_FAILURE, utils_ltrim(NULL, input, 0));
+    assert_int_equal(EXIT_FAILURE, utils_ltrim(actual, NULL, 0));
+    assert_int_equal(EXIT_FAILURE, utils_ltrim(actual, input, 0));
+
+    assert_int_equal(EXIT_FAILURE, utils_ltrim(NULL, NULL, BUFFER_SIZE));
+    assert_int_equal(EXIT_FAILURE, utils_ltrim(NULL, input, BUFFER_SIZE));
+    assert_int_equal(EXIT_FAILURE, utils_ltrim(actual, NULL, BUFFER_SIZE));
+
+    strcpy(input, "");
+    strcpy(expected, "");
+    assert_int_equal(EXIT_SUCCESS, utils_ltrim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, " ");
+    strcpy(expected, "");
+    assert_int_equal(EXIT_SUCCESS, utils_ltrim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, "a");
+    strcpy(expected, "a");
+    assert_int_equal(EXIT_SUCCESS, utils_ltrim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, "a ");
+    strcpy(expected, "a ");
+    assert_int_equal(EXIT_SUCCESS, utils_ltrim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, " a");
+    strcpy(expected, "a");
+    assert_int_equal(EXIT_SUCCESS, utils_ltrim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, " a ");
+    strcpy(expected, "a ");
+    assert_int_equal(EXIT_SUCCESS, utils_ltrim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, "ab");
+    strcpy(expected, "ab");
+    assert_int_equal(EXIT_SUCCESS, utils_ltrim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, "ab ");
+    strcpy(expected, "ab ");
+    assert_int_equal(EXIT_SUCCESS, utils_ltrim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, " ab");
+    strcpy(expected, "ab");
+    assert_int_equal(EXIT_SUCCESS, utils_ltrim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, " ab ");
+    strcpy(expected, "ab ");
+    assert_int_equal(EXIT_SUCCESS, utils_ltrim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, "a b");
+    strcpy(expected, "a b");
+    assert_int_equal(EXIT_SUCCESS, utils_ltrim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, "a b ");
+    strcpy(expected, "a b ");
+    assert_int_equal(EXIT_SUCCESS, utils_ltrim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, " a b");
+    strcpy(expected, "a b");
+    assert_int_equal(EXIT_SUCCESS, utils_ltrim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, " a b ");
+    strcpy(expected, "a b ");
+    assert_int_equal(EXIT_SUCCESS, utils_ltrim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+}
+
+void test_utils_rtrim(void **state) {
+    (void) state;
+
+    char input[BUFFER_SIZE];
+    char expected[BUFFER_SIZE];
+    char actual[BUFFER_SIZE];
+
+    bzero(input, BUFFER_SIZE);
+    bzero(expected, BUFFER_SIZE);
+    bzero(actual, BUFFER_SIZE);
+
+    assert_int_equal(EXIT_FAILURE, utils_rtrim(NULL, NULL, 0));
+    assert_int_equal(EXIT_FAILURE, utils_rtrim(NULL, input, 0));
+    assert_int_equal(EXIT_FAILURE, utils_rtrim(actual, NULL, 0));
+    assert_int_equal(EXIT_FAILURE, utils_rtrim(actual, input, 0));
+
+    assert_int_equal(EXIT_FAILURE, utils_rtrim(NULL, NULL, BUFFER_SIZE));
+    assert_int_equal(EXIT_FAILURE, utils_rtrim(NULL, input, BUFFER_SIZE));
+    assert_int_equal(EXIT_FAILURE, utils_rtrim(actual, NULL, BUFFER_SIZE));
+
+    strcpy(input, "");
+    strcpy(expected, "");
+    assert_int_equal(EXIT_SUCCESS, utils_rtrim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, " ");
+    strcpy(expected, "");
+    assert_int_equal(EXIT_SUCCESS, utils_rtrim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, "a");
+    strcpy(expected, "a");
+    assert_int_equal(EXIT_SUCCESS, utils_rtrim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, "a ");
+    strcpy(expected, "a");
+    assert_int_equal(EXIT_SUCCESS, utils_rtrim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, " a");
+    strcpy(expected, " a");
+    assert_int_equal(EXIT_SUCCESS, utils_rtrim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, " a ");
+    strcpy(expected, " a");
+    assert_int_equal(EXIT_SUCCESS, utils_rtrim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, "ab");
+    strcpy(expected, "ab");
+    assert_int_equal(EXIT_SUCCESS, utils_rtrim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, "ab ");
+    strcpy(expected, "ab");
+    assert_int_equal(EXIT_SUCCESS, utils_rtrim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, " ab");
+    strcpy(expected, " ab");
+    assert_int_equal(EXIT_SUCCESS, utils_rtrim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, " ab ");
+    strcpy(expected, " ab");
+    assert_int_equal(EXIT_SUCCESS, utils_rtrim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, "a b");
+    strcpy(expected, "a b");
+    assert_int_equal(EXIT_SUCCESS, utils_rtrim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, "a b ");
+    strcpy(expected, "a b");
+    assert_int_equal(EXIT_SUCCESS, utils_rtrim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, " a b");
+    strcpy(expected, " a b");
+    assert_int_equal(EXIT_SUCCESS, utils_rtrim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, " a b ");
+    strcpy(expected, " a b");
+    assert_int_equal(EXIT_SUCCESS, utils_rtrim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+}
+
+void test_utils_trim(void **state) {
+    (void) state;
+
+    char input[BUFFER_SIZE];
+    char expected[BUFFER_SIZE];
+    char actual[BUFFER_SIZE];
+
+    bzero(input, BUFFER_SIZE);
+    bzero(expected, BUFFER_SIZE);
+    bzero(actual, BUFFER_SIZE);
+
+    assert_int_equal(EXIT_FAILURE, utils_trim(NULL, NULL, 0));
+    assert_int_equal(EXIT_FAILURE, utils_trim(NULL, input, 0));
+    assert_int_equal(EXIT_FAILURE, utils_trim(actual, NULL, 0));
+    assert_int_equal(EXIT_FAILURE, utils_trim(actual, input, 0));
+
+    assert_int_equal(EXIT_FAILURE, utils_trim(NULL, NULL, BUFFER_SIZE));
+    assert_int_equal(EXIT_FAILURE, utils_trim(NULL, input, BUFFER_SIZE));
+    assert_int_equal(EXIT_FAILURE, utils_trim(actual, NULL, BUFFER_SIZE));
+
+    strcpy(input, "");
+    strcpy(expected, "");
+    assert_int_equal(EXIT_SUCCESS, utils_trim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, " ");
+    strcpy(expected, "");
+    assert_int_equal(EXIT_SUCCESS, utils_trim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, "a");
+    strcpy(expected, "a");
+    assert_int_equal(EXIT_SUCCESS, utils_trim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, "a ");
+    strcpy(expected, "a");
+    assert_int_equal(EXIT_SUCCESS, utils_trim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, " a");
+    strcpy(expected, "a");
+    assert_int_equal(EXIT_SUCCESS, utils_trim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, " a ");
+    strcpy(expected, "a");
+    assert_int_equal(EXIT_SUCCESS, utils_trim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, "ab");
+    strcpy(expected, "ab");
+    assert_int_equal(EXIT_SUCCESS, utils_trim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, "ab ");
+    strcpy(expected, "ab");
+    assert_int_equal(EXIT_SUCCESS, utils_trim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, " ab");
+    strcpy(expected, "ab");
+    assert_int_equal(EXIT_SUCCESS, utils_trim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, " ab ");
+    strcpy(expected, "ab");
+    assert_int_equal(EXIT_SUCCESS, utils_trim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, "a b");
+    strcpy(expected, "a b");
+    assert_int_equal(EXIT_SUCCESS, utils_trim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, "a b ");
+    strcpy(expected, "a b");
+    assert_int_equal(EXIT_SUCCESS, utils_trim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, " a b");
+    strcpy(expected, "a b");
+    assert_int_equal(EXIT_SUCCESS, utils_trim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
+
+    strcpy(input, " a b ");
+    strcpy(expected, "a b");
+    assert_int_equal(EXIT_SUCCESS, utils_trim(actual, input, BUFFER_SIZE));
+    assert_string_equal(expected, actual);
 }

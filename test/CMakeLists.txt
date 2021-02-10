@@ -10,3 +10,7 @@ target_link_libraries(test_utils
 target_compile_options(test_utils
         PRIVATE
         -Wall -Wextra -Wpedantic)
+
+add_test(TestUtils test_utils)
+
+set_tests_properties(TestUtils PROPERTIES ENVIRONMENT CMOCKA_MESSAGE_OUTPUT=xml)

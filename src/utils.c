@@ -19,6 +19,7 @@
 
 #include <ctype.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "utils.h"
 
@@ -68,20 +69,56 @@ void utils_int64_to_be(uint8_t *buffer, int64_t number) {
     buffer[7] = (number >> 0) & 0xff;
 }
 
-char *utils_ltrim(char *s) {
-    while (isspace(*s)) s++;
-    return s;
+int utils_ltrim(char *dst, char *src, size_t size) {
+    char *s;
+
+    if (dst == NULL || src == NULL || size == 0)
+        return EXIT_FAILURE;
+
+    bzero(dst, size);
+
+    s = src;
+    while (s != NULL && isspace(*s)) s++;
+    strncpy(dst, s, size);
+    return EXIT_SUCCESS;
 }
 
-char *utils_rtrim(char *s) {
-    char *back = s + strlen(s);
-    while (isspace(*--back));
-    *(back + 1) = '\0';
-    return s;
+int utils_rtrim(char *dst, char *src, size_t size) {
+    char *s;
+
+    if (dst == NULL || src == NULL || size == 0)
+        return EXIT_FAILURE;
+
+    strncpy(dst, src, size);
+
+    s = dst;
+    while (*s != '\0') s++;
+    s--;
+
+    while (s != src && isspace(*s)) s--;
+    s++;
+    *s = '\0';
+
+    return EXIT_SUCCESS;
 }
 
-char *utils_trim(char *s) {
-    return utils_rtrim(utils_ltrim(s));
+int utils_trim(char *dst, char *src, size_t size) {
+    char *temp;
+
+    if (dst == NULL || src == NULL || size == 0)
+        return EXIT_FAILURE;
+
+    temp = (char *) calloc(size, sizeof(char));
+
+    if (utils_ltrim(temp, src, size) != EXIT_SUCCESS)
+        return EXIT_FAILURE;
+
+    if (utils_rtrim(dst, temp, size) != EXIT_SUCCESS)
+        return EXIT_FAILURE;
+
+    free(temp);
+
+    return EXIT_SUCCESS;
 }
 
 int utils_stricmp(const char *a, const char *b) {
