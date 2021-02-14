@@ -32,27 +32,65 @@
 const char *program_name;
 
 volatile int keep_running;
+volatile int main_running;
+
 cfg *conf;
 
 int main(int argc, char **argv) {
     int result;
 
     program_name = argv[0];
-    keep_running = 1;
 
     signal(SIGINT, signal_handler);
+    signal(SIGTERM, signal_handler);
+    signal(SIGQUIT, signal_handler);
+    signal(SIGHUP, signal_handler);
 
     setbuf(stdout, NULL);
     setbuf(stderr, NULL);
 
+    main_running = 1;
+
+    while (main_running)
+        result = main_program(argc, argv);
+
+    return result;
+}
+
+void signal_handler(int signum) {
+    ui_message("Signal %d received: %s\n", signum, strsignal(signum));
+    log_info("Signal %d received: %s", signum, strsignal(signum));
+
+    switch (signum) {
+        case SIGINT:
+        case SIGTERM:
+        case SIGQUIT:
+            main_running = 0;
+            main_stop();
+            break;
+
+        case SIGHUP:
+            main_stop();
+
+        default:
+            break;
+    }
+}
+
+int main_program(int argc, char **argv) {
+    int result;
+
+    keep_running = 1;
+
     ui_header();
 
     log_init();
-    log_start();
 
     cfg_init();
 
     result = cfg_parse(argc, argv);
+
+    log_start();
 
     if (conf->debug)
         cfg_print();
@@ -90,11 +128,6 @@ int main(int argc, char **argv) {
     log_free();
 
     return result;
-}
-
-void signal_handler(int signum) {
-    if (signum == SIGINT)
-        main_stop();
 }
 
 void main_stop() {

@@ -26,9 +26,9 @@
 frame *frame_init(size_t size_iq, size_t size_sample, size_t size_pcm) {
     frame *f;
 
-    log_init("Initializing frame");
+    log_debug("Initializing frame");
 
-    log_debug("Allocating frame");
+    log_trace("Allocating frame");
     f = (frame *) malloc(sizeof(frame));
     if (f == NULL) {
         log_error("Unable to allocate frame");
@@ -37,10 +37,10 @@ frame *frame_init(size_t size_iq, size_t size_sample, size_t size_pcm) {
 
     f->number = 0;
 
-    log_debug("Setting IQ buffer size");
+    log_trace("Setting IQ buffer size");
     f->size_iq = size_iq;
 
-    log_debug("Allocating IQ buffer");
+    log_trace("Allocating IQ buffer");
     f->iq = (uint8_t *) calloc(size_iq, sizeof(uint8_t));
     if (f->iq == NULL) {
         log_error("Unable to allocate IQ buffer");
@@ -48,10 +48,10 @@ frame *frame_init(size_t size_iq, size_t size_sample, size_t size_pcm) {
         return NULL;
     }
 
-    log_debug("Setting Samples buffer size");
+    log_trace("Setting Samples buffer size");
     f->size_sample = size_sample;
 
-    log_debug("Allocating Samples buffer");
+    log_trace("Allocating Samples buffer");
     f->samples = (FP_FLOAT complex *) calloc(size_sample, sizeof(FP_FLOAT complex));
     if (f->samples == NULL) {
         log_error("Unable to allocate Samples buffer");
@@ -59,7 +59,7 @@ frame *frame_init(size_t size_iq, size_t size_sample, size_t size_pcm) {
         return NULL;
     }
 
-    log_debug("Allocating Demod buffer");
+    log_trace("Allocating Demod buffer");
     f->demod = (int8_t *) calloc(size_sample, sizeof(int8_t));
     if (f->demod == NULL) {
         log_error("Unable to allocate Demod buffer");
@@ -67,7 +67,7 @@ frame *frame_init(size_t size_iq, size_t size_sample, size_t size_pcm) {
         return NULL;
     }
 
-    log_debug("Allocating Filtered buffer");
+    log_trace("Allocating Filtered buffer");
     f->filtered = (int8_t *) calloc(size_sample, sizeof(int8_t));
     if (f->filtered == NULL) {
         log_error("Unable to allocate Filtered buffer");
@@ -75,10 +75,10 @@ frame *frame_init(size_t size_iq, size_t size_sample, size_t size_pcm) {
         return NULL;
     }
 
-    log_debug("Setting PCM buffer size");
+    log_trace("Setting PCM buffer size");
     f->size_pcm = size_pcm;
 
-    log_debug("Allocating PCM buffer");
+    log_trace("Allocating PCM buffer");
     f->pcm = (int8_t *) calloc(size_pcm, sizeof(int8_t));
     if (f->pcm == NULL) {
         log_error("Unable to allocate PCM buffer");
@@ -94,56 +94,56 @@ frame *frame_init(size_t size_iq, size_t size_sample, size_t size_pcm) {
 void frame_clear(frame *f, uint64_t number) {
     size_t i;
 
-    log_info("Cleaning frame");
+    log_debug("Cleaning frame");
 
-    log_debug("Clearing number");
+    log_trace("Clearing number");
     f->number = number;
 
-    log_debug("Setting timestamp");
+    log_trace("Setting timestamp");
     timespec_get(&f->ts, TIME_UTC);
 
-    log_debug("Zeroing IQ buffer");
+    log_trace("Zeroing IQ buffer");
     for (i = 0; i < f->size_iq; i++)
         f->iq[i] = 0;
 
-    log_debug("Zeroing Samples, Demod and Filtered buffers");
+    log_trace("Zeroing Samples, Demod and Filtered buffers");
     for (i = 0; i < f->size_sample; i++) {
         f->samples[i] = 0 + 0 * I;
         f->demod[i] = 0;
         f->filtered[i] = 0;
     }
 
-    log_debug("Zeroing PCM buffer");
+    log_trace("Zeroing PCM buffer");
     for (i = 0; i < f->size_pcm; i++)
         f->pcm[i] = 0;
 
-    log_debug("Zeroing RMS");
+    log_trace("Zeroing RMS");
     f->rms = 0;
 }
 
 void frame_free(frame *f) {
-    log_init("Freeing frame");
+    log_trace("Freeing frame");
 
-    log_debug("Freeing RMS");
+    log_trace("Freeing RMS");
     if (f->pcm != NULL)
         free(f->pcm);
 
-    log_debug("Freeing Filtered buffer");
+    log_trace("Freeing Filtered buffer");
     if (f->filtered != NULL)
         free(f->filtered);
 
-    log_debug("Freeing Demod buffer");
+    log_trace("Freeing Demod buffer");
     if (f->demod != NULL)
         free(f->demod);
 
-    log_debug("Freeing Samples buffer");
+    log_trace("Freeing Samples buffer");
     if (f->samples != NULL)
         free(f->samples);
 
-    log_debug("Freeing IQ buffers");
+    log_trace("Freeing IQ buffers");
     if (f->iq != NULL)
         free(f->iq);
 
-    log_debug("Freeing frame");
+    log_trace("Freeing frame");
     free(f);
 }

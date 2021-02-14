@@ -22,6 +22,8 @@
 
 void signal_handler(int signum);
 
+int main_program(int, char **);
+
 void main_stop();
 
 #endif

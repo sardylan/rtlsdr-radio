@@ -27,16 +27,16 @@
 payload *payload_init() {
     payload *p;
 
-    log_info("Initializing payload");
+    log_debug("Initializing payload");
 
-    log_debug("Allocating payload");
+    log_trace("Allocating payload");
     p = (payload *) malloc(sizeof(payload));
     if (p == NULL) {
         log_error("Unable to allocate payload");
         return NULL;
     }
 
-    log_debug("Setting initial values");
+    log_trace("Setting initial values");
 
     p->receiver = 0;
     p->number = 0;
@@ -55,13 +55,13 @@ payload *payload_init() {
 }
 
 void payload_free(payload *p) {
-    log_info("Freeing payload");
+    log_debug("Freeing payload");
 
-    log_debug("Freeing data buffer");
+    log_trace("Freeing data buffer");
     if (p->data != NULL)
         free(p->data);
 
-    log_debug("Freeing payload");
+    log_trace("Freeing payload");
     free(p);
 }
 

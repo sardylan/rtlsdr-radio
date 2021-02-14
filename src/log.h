@@ -74,4 +74,8 @@ void log_start();
 
 void log_stop();
 
+void log_start_file();
+
+void log_stop_file();
+
 #endif

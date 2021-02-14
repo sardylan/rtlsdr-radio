@@ -23,6 +23,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/syscall.h>
 #include <libgen.h>
@@ -32,11 +33,14 @@
 #include "ui.h"
 
 pthread_mutex_t log_lock;
+FILE *log_fp;
 
 extern cfg *conf;
 
 void log_init() {
     pthread_mutex_init(&log_lock, NULL);
+
+    log_fp = NULL;
 }
 
 void log_free() {
@@ -70,8 +74,6 @@ void log_message(const int level, const char *element, char *filename, const int
             basename(filename),
             row);
 
-    fprintf(UI_MESSAGES_OUTPUT, "%s", prefix);
-
     memset(content, '\0', sizeof(content));
 
     va_start(args, message);
@@ -79,15 +81,70 @@ void log_message(const int level, const char *element, char *filename, const int
     va_end(args);
 
     if (level <= conf->ui_log_level)
-        ui_message("%s\n", content);
+        ui_message("%s%s\n", prefix, content);
+
+    if (log_fp != NULL && level <= conf->file_log_level)
+        fprintf(log_fp, "%s%s\n", prefix, content);
 
     pthread_mutex_unlock(&log_lock);
 }
 
 void log_start() {
+    pthread_mutex_lock(&log_lock);
+
     ui_message("------- START -------\n");
+
+    log_start_file();
+
+    pthread_mutex_unlock(&log_lock);
 }
 
 void log_stop() {
+    pthread_mutex_lock(&log_lock);
+
+    log_stop_file();
+
     ui_message("-------- END --------\n");
+
+    pthread_mutex_unlock(&log_lock);
+}
+
+void log_start_file() {
+    char *dir_name;
+    struct stat dir_stat;
+    int dir_res;
+
+    if (conf->file_log_name == NULL || strlen(conf->file_log_name) <= 0) {
+        ui_message("Invalid log file name!\n");
+        return;
+    }
+
+    dir_name = dirname(conf->file_log_name);
+    stat(dir_name, &dir_stat);
+
+    if (S_ISDIR(dir_stat.st_mode) == 0) {
+        ui_message("Invalid log directory!\n");
+        return;
+    }
+
+    dir_res = access(dir_name, R_OK | W_OK | X_OK);
+    if (dir_res != 0) {
+        ui_message("Invalid permissions on log directory!\n");
+        return;
+    }
+
+    log_fp = fopen(conf->file_log_name, "a");
+    if (log_fp == NULL) {
+        ui_message("Unable to open log file!\n");
+        return;
+    }
+
+    fprintf(log_fp, "\n------- START -------\n");
+}
+
+void log_stop_file() {
+    if (log_fp != NULL) {
+        fprintf(log_fp, "-------- END --------\n");
+        fclose(log_fp);
+    }
 }
