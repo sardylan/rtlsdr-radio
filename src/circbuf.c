@@ -51,6 +51,9 @@ circbuf_ctx *circbuf_init(const char *name, size_t item_size, size_t initial_siz
 
     strcpy(ctx->name, name);
 
+    log_debug("Setting keep running variable");
+    ctx->keep_running = 1;
+
     log_debug("Allocating %zu bytes for data", initial_size);
     alloc_size = item_size * initial_size;
     ctx->pointer = (void *) calloc(alloc_size, sizeof(uint8_t));
@@ -153,7 +156,13 @@ int circbuf_get_data(circbuf_ctx *ctx, void *data, size_t data_size) {
     while ((used = ctx->size - ctx->free) < len) {
         log_trace("Data not available yet, waiting");
         pthread_cond_wait(&ctx->cond, &ctx->mutex);
+
+        if (!ctx->keep_running)
+            break;
     }
+
+    if (!ctx->keep_running)
+        return EXIT_FAILURE;
 
     if (len > used)
         return EXIT_FAILURE;
@@ -214,6 +223,14 @@ int circbuf_get(circbuf_ctx *ctx, void *data, size_t data_size) {
     pthread_mutex_unlock(&ctx->mutex);
 
     return result;
+}
+
+void circbuf_stop(circbuf_ctx *ctx) {
+    log_debug("Setting keep running variable");
+    ctx->keep_running = 0;
+
+    log_debug("Signaling condition");
+    pthread_cond_signal(&ctx->cond);
 }
 
 void circbuf_status(circbuf_ctx *ctx) {

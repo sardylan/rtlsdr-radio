@@ -72,6 +72,9 @@ struct cfg_t {
 
     uint32_t audio_sample_rate;
 
+    int audio_monitor_enabled;
+    char *audio_monitor_device;
+
     uint32_t codec_opus_bitrate;
 
     char *network_server;

@@ -13,9 +13,11 @@ find_package(Threads REQUIRED)
 
 pkg_check_modules(opus REQUIRED IMPORTED_TARGET opus)
 pkg_check_modules(rtlsdr REQUIRED IMPORTED_TARGET librtlsdr)
+pkg_check_modules(asound2 REQUIRED IMPORTED_TARGET alsa)
 
 add_executable(rtlsdr_radio
         agc.c agc.h
+        audio.c audio.h
         codec.c codec.h
         cfg.c cfg.h
         circbuf.c circbuf.h
@@ -40,6 +42,7 @@ target_link_libraries(rtlsdr_radio
         m
         PkgConfig::fftw3
         PkgConfig::opus
+        PkgConfig::asound2
         PkgConfig::rtlsdr)
 
 target_compile_options(rtlsdr_radio

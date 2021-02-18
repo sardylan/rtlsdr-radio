@@ -139,7 +139,7 @@ void log_start_file() {
         return;
     }
 
-    fprintf(log_fp, "\n------- START -------\n");
+    fprintf(log_fp, "\n\n------- START -------\n");
 }
 
 void log_stop_file() {

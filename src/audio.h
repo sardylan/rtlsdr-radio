@@ -17,37 +17,28 @@
  */
 
 
-#ifndef __RTLSDR_RADIO__MAIN_RX__H
-#define __RTLSDR_RADIO__MAIN_RX__H
+#ifndef __RTLSDR_RADIO__AUDIO__H
+#define __RTLSDR_RADIO__AUDIO__H
 
-#define BUFFER_FRAMES 8192
-#define BUFFER_PAYLOADS 8192
+#include <stddef.h>
+#include <stdint.h>
+#include <alsa/asoundlib.h>
 
-#define BUFFER_SAMPLES 8192
-#define BUFFER_DEMOD 8192
-#define BUFFER_FILTERED 8192
-#define BUFFER_CODEC 8192
-#define BUFFER_MONITOR 8192
-#define BUFFER_NETWORK 8192
+struct audio_ctx_t {
+    char *device_name;
+    unsigned int rate;
+    unsigned int channels;
 
-int main_rx();
+    snd_pcm_t *pcm;
+    snd_pcm_uframes_t frames_per_period;
+};
 
-void main_rx_end();
+typedef struct audio_ctx_t audio_ctx;
 
-void main_rx_wait_init();
+audio_ctx *audio_init(const char *, unsigned int, unsigned int);
 
-void *thread_rx_device_read();
+void audio_free(audio_ctx *);
 
-void *thread_rx_demod();
-
-void *thread_rx_lpf();
-
-void *thread_rx_resample();
-
-void *thread_rx_codec();
-
-void *thread_rx_monitor();
-
-void *thread_rx_network();
+int audio_play(audio_ctx *, uint8_t *, size_t);
 
 #endif

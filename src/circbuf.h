@@ -27,6 +27,8 @@
 struct circbuf_ctx_t {
     char *name;
 
+    int keep_running;
+
     uint8_t *pointer;
 
     size_t item_size;
@@ -54,6 +56,8 @@ int circbuf_get_data(circbuf_ctx *, void *, size_t);
 int circbuf_put(circbuf_ctx *, void *, size_t);
 
 int circbuf_get(circbuf_ctx *, void *, size_t);
+
+void circbuf_stop(circbuf_ctx *);
 
 void circbuf_status(circbuf_ctx *);
 

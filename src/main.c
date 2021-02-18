@@ -51,8 +51,12 @@ int main(int argc, char **argv) {
 
     main_running = 1;
 
-    while (main_running)
+    while (main_running) {
         result = main_program(argc, argv);
+
+        if (result != EXIT_SUCCESS)
+            break;
+    }
 
     return result;
 }

@@ -66,6 +66,12 @@ void cfg_init() {
 
     conf->audio_sample_rate = CONFIG_AUDIO_SAMPLE_RATE_DEFAULT;
 
+    conf->audio_monitor_enabled = CONFIG_AUDIO_MONITOR_ENABLED_DEFAULT;
+
+    ln = strlen(CONFIG_AUDIO_MONITOR_DEVICE_DEFAULT) + 1;
+    conf->audio_monitor_device = (char *) calloc(sizeof(char), ln);
+    strcpy(conf->audio_monitor_device, CONFIG_AUDIO_MONITOR_DEVICE_DEFAULT);
+
     conf->codec_opus_bitrate = CONFIG_CODEC_OPUS_BITRATE_DEFAULT;
 
     ln = strlen(CONFIG_NETWORK_SERVER_DEFAULT) + 1;
@@ -108,6 +114,9 @@ void cfg_print() {
     ui_message("\n");
     ui_message("audio_sample_rate:             %u (Hz)\n", conf->audio_sample_rate);
     ui_message("\n");
+    ui_message("audio_monitor_enabled:         %d\n", conf->audio_monitor_enabled);
+    ui_message("audio_monitor_device:          %s\n", conf->audio_monitor_device);
+    ui_message("\n");
     ui_message("codec_opus_bitrate:            %u (b/s)\n", conf->codec_opus_bitrate);
     ui_message("\n");
     ui_message("network_server:                %s\n", conf->network_server);
@@ -128,31 +137,22 @@ int cfg_parse(int argc, char **argv) {
     ret = EXIT_SUCCESS;
 
     static struct option long_options[] = {
-            {"config",                        required_argument, 0, 'c'},
+            {"config",         required_argument, 0, 'c'},
 
-            {"help",                          no_argument,       0, 'h'},
-            {"version",                       no_argument,       0, 'V'},
+            {"help",           no_argument,       0, 'h'},
+            {"version",        no_argument,       0, 'V'},
 
-            {"quiet",                         no_argument,       0, 'q'},
-            {"verbose",                       no_argument,       0, 'v'},
-            {"ui-log-level",                  required_argument, 0, 'd'},
-            {"file-log-level",                required_argument, 0, 'l'},
-            {"file-log-name",                 required_argument, 0, 'L'},
+            {"quiet",          no_argument,       0, 'q'},
+            {"verbose",        no_argument,       0, 'v'},
+            {"ui-log-level",   required_argument, 0, 'd'},
+            {"file-log-level", required_argument, 0, 'l'},
+            {"file-log-name",  required_argument, 0, 'L'},
 
-            {"debug",                         no_argument,       0, 'D'},
+            {"debug",          no_argument,       0, 'D'},
 
-            {"mode",                          required_argument, 0, 'm'},
+            {"mode",           required_argument, 0, 'm'},
 
-            {"rtlsdr-device-id",              required_argument, 0, 'i'},
-            {"rtlsdr-device-center-freq",     required_argument, 0, 'f'},
-            {"rtlsdr-device-freq-correction", required_argument, 0, 'p'},
-            {"rtlsdr-device-tuner-gain-mode", required_argument, 0, 'G'},
-            {"rtlsdr-device-tuner-gain",      required_argument, 0, 'g'},
-            {"rtlsdr-device-agc-mode",        required_argument, 0, 'a'},
-
-            {"modulation",                    required_argument, 0, 'M'},
-
-            {0, 0,                                               0, 0}
+            {0, 0,                                0, 0}
     };
 
     config_filename = (char *) malloc(sizeof(char));
@@ -229,51 +229,6 @@ int cfg_parse(int argc, char **argv) {
 
             continue;
         }
-
-        if (c == 'i') {
-            conf->rtlsdr_device_id = (uint32_t) strtol(optarg, &endptr, 10);
-            continue;
-        }
-
-        if (c == 's') {
-            conf->rtlsdr_device_sample_rate = (uint32_t) strtol(optarg, &endptr, 10);
-            continue;
-        }
-
-        if (c == 'f') {
-            conf->rtlsdr_device_center_freq = (uint32_t) strtol(optarg, &endptr, 10);
-            continue;
-        }
-
-        if (c == 'p') {
-            conf->rtlsdr_device_freq_correction = (int) strtol(optarg, &endptr, 10);
-            continue;
-        }
-
-        if (c == 'G') {
-            conf->rtlsdr_device_tuner_gain_mode = cfg_parse_flag((int) strtol(optarg, &endptr, 10));
-            continue;
-        }
-
-        if (c == 'g') {
-            conf->rtlsdr_device_tuner_gain = (int) strtol(optarg, &endptr, 10);
-            continue;
-        }
-
-        if (c == 'a') {
-            conf->rtlsdr_device_agc_mode = cfg_parse_flag((int) strtol(optarg, &endptr, 10));
-            continue;
-        }
-
-        if (c == 'M') {
-            if (cfg_parse_modulation(&conf->modulation, optarg) != EXIT_SUCCESS) {
-                log_error("Wrong modulation: %s", optarg);
-                ret = EXIT_FAILURE;
-                break;
-            }
-
-            continue;
-        }
     }
 
     free(config_filename);
@@ -338,17 +293,17 @@ int cfg_parse_file(char *config_filename) {
             continue;
         }
 
-        if (strcmp(param, "ui-log-level") == 0) {
+        if (strcmp(param, "ui_log_level") == 0) {
             conf->ui_log_level = (int) strtol(value, &endptr, 10);
             continue;
         }
 
-        if (strcmp(param, "file-log-level") == 0) {
+        if (strcmp(param, "file_log_level") == 0) {
             conf->file_log_level = (int) strtol(value, &endptr, 10);
             continue;
         }
 
-        if (strcmp(param, "file-log-name") == 0) {
+        if (strcmp(param, "file_log_name") == 0) {
             ln = strlen(value) + 1;
             conf->file_log_name = (char *) realloc((void *) conf->file_log_name, sizeof(char) * ln);
             strcpy(conf->file_log_name, value);
@@ -356,7 +311,7 @@ int cfg_parse_file(char *config_filename) {
         }
 
         if (strcmp(param, "debug") == 0) {
-            conf->file_log_level = cfg_parse_flag((int) strtol(value, &endptr, 10));
+            conf->debug = cfg_parse_flag((int) strtol(value, &endptr, 10));
             continue;
         }
 
@@ -370,42 +325,42 @@ int cfg_parse_file(char *config_filename) {
             continue;
         }
 
-        if (strcmp(param, "rtlsdr-device-id") == 0) {
+        if (strcmp(param, "rtlsdr_device_id") == 0) {
             conf->rtlsdr_device_id = (uint32_t) strtol(value, &endptr, 10);
             continue;
         }
 
-        if (strcmp(param, "rtlsdr-device-sample-rate") == 0) {
+        if (strcmp(param, "rtlsdr_device_sample_rate") == 0) {
             conf->rtlsdr_device_sample_rate = (uint32_t) strtol(value, &endptr, 10);
             continue;
         }
 
-        if (strcmp(param, "rtlsdr-device-center-freq") == 0) {
+        if (strcmp(param, "rtlsdr_device_center_freq") == 0) {
             conf->rtlsdr_device_center_freq = (uint32_t) strtol(value, &endptr, 10);
             continue;
         }
 
-        if (strcmp(param, "rtlsdr-device-freq-correction") == 0) {
+        if (strcmp(param, "rtlsdr_device_freq_correction") == 0) {
             conf->rtlsdr_device_freq_correction = (int) strtol(value, &endptr, 10);
             continue;
         }
 
-        if (strcmp(param, "rtlsdr-device-tuner-gain-mode") == 0) {
+        if (strcmp(param, "rtlsdr_device_tuner_gain_mode") == 0) {
             conf->rtlsdr_device_tuner_gain_mode = (int) strtol(value, &endptr, 10);
             continue;
         }
 
-        if (strcmp(param, "rtlsdr-device-tuner-gain") == 0) {
+        if (strcmp(param, "rtlsdr_device_tuner_gain") == 0) {
             conf->rtlsdr_device_tuner_gain = (int) strtol(value, &endptr, 10);
             continue;
         }
 
-        if (strcmp(param, "rtlsdr-device-agc-mode") == 0) {
+        if (strcmp(param, "rtlsdr_device_agc_mode") == 0) {
             conf->rtlsdr_device_agc_mode = (int) strtol(value, &endptr, 10);
             continue;
         }
 
-        if (strcmp(param, "rtlsdr-samples") == 0) {
+        if (strcmp(param, "rtlsdr_samples") == 0) {
             conf->rtlsdr_samples = (size_t) strtol(value, &endptr, 10);
             continue;
         }
@@ -430,29 +385,41 @@ int cfg_parse_file(char *config_filename) {
             continue;
         }
 
-        if (strcmp(param, "filter-fir") == 0) {
+        if (strcmp(param, "filter_fir") == 0) {
             conf->filter_fir = (int) strtol(value, &endptr, 10);
             continue;
         }
 
-        if (strcmp(param, "audio-sample-rate") == 0) {
+        if (strcmp(param, "audio_sample_rate") == 0) {
             conf->audio_sample_rate = (uint32_t) strtol(value, &endptr, 10);
             continue;
         }
 
-        if (strcmp(param, "codec-opus-bitrate") == 0) {
+        if (strcmp(param, "audio_monitor_enabled") == 0) {
+            conf->audio_monitor_enabled = cfg_parse_flag((int) strtol(value, &endptr, 10));
+            continue;
+        }
+
+        if (strcmp(param, "audio_monitor_device") == 0) {
+            ln = strlen(value) + 1;
+            conf->audio_monitor_device = (char *) realloc((void *) conf->file_log_name, sizeof(char) * ln);
+            strcpy(conf->audio_monitor_device, value);
+            continue;
+        }
+
+        if (strcmp(param, "codec_opus_bitrate") == 0) {
             conf->codec_opus_bitrate = (uint32_t) strtol(value, &endptr, 10);
             continue;
         }
 
-        if (strcmp(param, "network-server") == 0) {
+        if (strcmp(param, "network_server") == 0) {
             ln = strlen(value) + 1;
             conf->network_server = (char *) realloc((void *) conf->network_server, sizeof(char) * ln);
             strcpy(conf->network_server, value);
             continue;
         }
 
-        if (strcmp(param, "network-port") == 0) {
+        if (strcmp(param, "network_port") == 0) {
             conf->network_port = (uint16_t) strtol(value, &endptr, 10);
             continue;
         }
@@ -497,9 +464,9 @@ int cfg_parse_modulation(modulation_type *mod, char *value) {
 
     ret = EXIT_SUCCESS;
 
-    if ((value[0] == 'a' || value[0] == 'A') && (value[1] == 'm' || value[1] == 'M') && value[2] == '\0')
+    if (utils_stricmp(value, "AM") == 0)
         *mod = MOD_TYPE_AM;
-    else if ((value[0] == 'f' || value[0] == 'F') && (value[1] == 'm' || value[1] == 'M') && value[2] == '\0')
+    else if (utils_stricmp(value, "FM") == 0)
         *mod = MOD_TYPE_FM;
     else {
         log_error("Wrong mode: %s", value);
