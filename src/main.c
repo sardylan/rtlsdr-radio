@@ -24,6 +24,7 @@
 
 #include "main.h"
 #include "main_rx.h"
+#include "main_rx2.h"
 #include "main_info.h"
 #include "ui.h"
 #include "cfg.h"
@@ -32,7 +33,7 @@
 const char *program_name;
 
 volatile int keep_running;
-volatile int main_running;
+volatile int main_rerun;
 
 cfg *conf;
 
@@ -49,9 +50,11 @@ int main(int argc, char **argv) {
     setbuf(stdout, NULL);
     setbuf(stderr, NULL);
 
-    main_running = 1;
+    main_rerun = 1;
 
-    while (main_running) {
+    while (main_rerun) {
+        main_rerun = 0;
+
         result = main_program(argc, argv);
 
         if (result != EXIT_SUCCESS)
@@ -69,11 +72,11 @@ void signal_handler(int signum) {
         case SIGINT:
         case SIGTERM:
         case SIGQUIT:
-            main_running = 0;
             main_stop();
             break;
 
         case SIGHUP:
+            main_rerun = 1;
             main_stop();
 
         default:
@@ -112,6 +115,10 @@ int main_program(int argc, char **argv) {
 
             case MODE_RX:
                 result = main_rx();
+                break;
+
+            case MODE_RX2:
+                result = main_rx2();
                 break;
 
             case MODE_INFO:

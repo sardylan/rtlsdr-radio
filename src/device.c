@@ -126,7 +126,7 @@ void device_info(rtlsdr_dev_t *device) {
     tuner_gain = rtlsdr_get_tuner_gain(device);
 
     ui_message("Sample rate: %zu - Center freq: %zu - Freq correction: %d - Tuner gain: %d\n",
-             sample_rate, center_freq, freq_correction, tuner_gain);
+               sample_rate, center_freq, freq_correction, tuner_gain);
 }
 
 int device_set_params(
@@ -185,13 +185,13 @@ int device_set_frequency(rtlsdr_dev_t *device, uint32_t frequency) {
 }
 
 int device_buffer_to_samples(const uint8_t *buffer, FP_FLOAT complex *samples, size_t buffer_size) {
-    int8_t i;
-    int8_t q;
+    FP_FLOAT i;
+    FP_FLOAT q;
     size_t j;
 
     for (j = 0; j < buffer_size; j += 2) {
-        i = buffer[j] - 128;
-        q = buffer[j + 1] - 128;
+        i = (FP_FLOAT) buffer[j] - 128;
+        q = (FP_FLOAT) buffer[j + 1] - 128;
         samples[j / 2] = i + q * I;
     }
 
@@ -200,7 +200,6 @@ int device_buffer_to_samples(const uint8_t *buffer, FP_FLOAT complex *samples, s
 
 char *device_tuner_to_char(enum rtlsdr_tuner tuner) {
     switch (tuner) {
-
         case RTLSDR_TUNER_UNKNOWN:
             return "UNKNOWN";
         case RTLSDR_TUNER_E4000:

@@ -27,6 +27,7 @@ enum work_mode_t {
     MODE_VERSION = 'v',
     MODE_HELP = 'h',
     MODE_RX = 'r',
+    MODE_RX2 = 'R',
     MODE_INFO = 'i'
 };
 

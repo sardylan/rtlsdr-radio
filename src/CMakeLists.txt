@@ -27,10 +27,12 @@ add_executable(rtlsdr_radio
         fft.c fft.h
         fir.c fir.h fir_lpf.h
         frame.c frame.h
+        greatbuf.c greatbuf.h
         log.c log.h
         main.c main.h
         main_info.c main_info.h
         main_rx.c main_rx.h
+        main_rx2.c main_rx2.h
         network.h network.c
         payload.c payload.h
         resample.c resample.h
