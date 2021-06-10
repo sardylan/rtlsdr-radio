@@ -867,10 +867,10 @@ void *thread_rx2_monitor() {
 #endif
 
 #ifdef MAIN_RX2_ENABLE_THREAD_MONITOR
-void *thread_rx2_codec() {
+
+void *thread_rx2_monitor() {
     int retval;
 
-    size_t pcm_pos;
     int16_t *pcm_buffer;
 
     log_info("Thread start");
@@ -878,15 +878,21 @@ void *thread_rx2_codec() {
     retval = EXIT_SUCCESS;
 
     log_debug("Waiting for other threads to init");
-    rx2_codec_ready = 1;
+    rx2_monitor_ready = 1;
     main_rx2_wait_init();
 
     log_debug("Starting read loop");
     while (keep_running) {
-        pcm_pos = greatbuf_pcm_tail(greatbuf);
-        pcm_buffer = greatbuf_item_pcm_get(greatbuf, pcm_pos);
+        pcm_buffer = circbuf2_tail_acquire(rx2_buf_pcm);
+        if (pcm_buffer == NULL) {
+            log_error("Error acquiring pcm buffer tail");
+            retval = EXIT_FAILURE;
+            break;
+        }
 
         log_trace("PCM Buffer: %d", sizeof(pcm_buffer));
+
+        circbuf2_tail_release(rx2_buf_pcm);
     }
 
     log_info("Thread end");
@@ -895,6 +901,7 @@ void *thread_rx2_codec() {
 
     pthread_exit(&retval);
 }
+
 #endif
 
 #ifdef MAIN_RX2_ENABLE_THREAD_NETWORK
