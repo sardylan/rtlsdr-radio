@@ -132,7 +132,7 @@ int main_rx2() {
     }
 
     log_debug("Initializing Demod Circular Buffer");
-    buf_demod = circbuf2_init("sample", sizeof(FP_FLOAT), MAIN_RX2_PAYLOAD_SIZE, MAIN_RX2_BUFFERS_SIZE);
+    buf_demod = circbuf2_init("demod", sizeof(FP_FLOAT), MAIN_RX2_PAYLOAD_SIZE, MAIN_RX2_BUFFERS_SIZE);
     if (buf_demod == NULL) {
         log_error("Unable to allocate Demod Circular Buffer");
         main_rx2_end();
@@ -140,7 +140,7 @@ int main_rx2() {
     }
 
     log_debug("Initializing Filtered Circular Buffer");
-    buf_filtered = circbuf2_init("sample", sizeof(FP_FLOAT), MAIN_RX2_PAYLOAD_SIZE, MAIN_RX2_BUFFERS_SIZE);
+    buf_filtered = circbuf2_init("filtered", sizeof(FP_FLOAT), MAIN_RX2_PAYLOAD_SIZE, MAIN_RX2_BUFFERS_SIZE);
     if (buf_filtered == NULL) {
         log_error("Unable to allocate Filtered Circular Buffer");
         main_rx2_end();
@@ -148,7 +148,7 @@ int main_rx2() {
     }
 
     log_debug("Initializing PCM Circular Buffer");
-    buf_pcm = circbuf2_init("sample", sizeof(int16_t), MAIN_RX2_PAYLOAD_SIZE, MAIN_RX2_BUFFERS_SIZE);
+    buf_pcm = circbuf2_init("pcm", sizeof(int16_t), MAIN_RX2_PAYLOAD_SIZE, MAIN_RX2_BUFFERS_SIZE);
     if (buf_pcm == NULL) {
         log_error("Unable to allocate PCM Circular Buffer");
         main_rx2_end();
@@ -313,6 +313,8 @@ int main_rx2() {
         circbuf2_status(buf_iq);
         circbuf2_status(buf_sample);
         circbuf2_status(buf_demod);
+        circbuf2_status(buf_filtered);
+        circbuf2_status(buf_pcm);
 
         nanosleep(&sleep_req, &sleep_rem);
     }
@@ -611,12 +613,8 @@ void *thread_rx2_demod() {
 #ifdef MAIN_RX2_ENABLE_THREAD_LPF
 void *thread_rx2_lpf() {
     int retval;
-    size_t ln;
 
-    size_t demod_pos;
     FP_FLOAT *demod_buffer;
-
-    size_t filtered_pos;
     FP_FLOAT *filtered_buffer;
 
     fft_ctx *fwd_fft_ctx;
@@ -628,8 +626,7 @@ void *thread_rx2_lpf() {
     log_info("Thread start");
 
     retval = EXIT_SUCCESS;
-    ln = greatbuf->demod_size;
-    half = ln / 2;
+    half = MAIN_RX2_PAYLOAD_SIZE / 2;
 
     switch (conf->filter) {
 
@@ -638,7 +635,7 @@ void *thread_rx2_lpf() {
 
         case FILTER_MODE_FFT_SW:
             log_debug("Initializing FFT forward context");
-            fwd_fft_ctx = fft_init(ln, FFTW_R2HC, FFT_DATA_TYPE_REAL);
+            fwd_fft_ctx = fft_init(MAIN_RX2_PAYLOAD_SIZE, FFTW_R2HC, FFT_DATA_TYPE_REAL);
             if (fwd_fft_ctx == NULL) {
                 log_error("Unable to allocate FFT forward context");
                 retval = EXIT_FAILURE;
@@ -646,7 +643,7 @@ void *thread_rx2_lpf() {
             }
 
             log_debug("Initializing FFT backward context");
-            bck_fft_ctx = fft_init(ln, FFTW_HC2R, FFT_DATA_TYPE_REAL);
+            bck_fft_ctx = fft_init(MAIN_RX2_PAYLOAD_SIZE, FFTW_HC2R, FFT_DATA_TYPE_REAL);
             if (bck_fft_ctx == NULL) {
                 log_error("Unable to allocate FFT backward context");
                 fft_free(fwd_fft_ctx);
@@ -668,11 +665,19 @@ void *thread_rx2_lpf() {
 
     log_debug("Starting lpf loop");
     while (keep_running) {
-        demod_pos = greatbuf_demod_tail(greatbuf);
-        demod_buffer = greatbuf_item_demod_get(greatbuf, demod_pos);
+        demod_buffer = (FP_FLOAT *) circbuf2_tail_acquire(buf_demod);
+        if (demod_buffer == NULL) {
+            log_error("Error acquiring samples buffer tail");
+            retval = EXIT_FAILURE;
+            break;
+        }
 
-        filtered_pos = greatbuf_filtered_head_start(greatbuf);
-        filtered_buffer = greatbuf_item_filtered_get(greatbuf, filtered_pos);
+        filtered_buffer = (FP_FLOAT *) circbuf2_head_acquire(buf_filtered);
+        if (filtered_buffer == NULL) {
+            log_error("Error acquiring filtered buffer head");
+            retval = EXIT_FAILURE;
+            break;
+        }
 
         log_trace("Filtering");
 
@@ -680,12 +685,12 @@ void *thread_rx2_lpf() {
 
             case FILTER_MODE_NONE:
                 log_trace("Copying data");
-                memcpy(demod_buffer, filtered_buffer, ln);
+                memcpy(demod_buffer, filtered_buffer, MAIN_RX2_PAYLOAD_SIZE);
                 break;
 
             case FILTER_MODE_FFT_SW:
                 log_debug("Copying input values for forward FFT");
-                for (i = 0; i < ln; i++)
+                for (i = 0; i < MAIN_RX2_PAYLOAD_SIZE; i++)
                     fwd_fft_ctx->real_input[i] = demod_buffer[i];
 
                 log_trace("Computing forward FFT");
@@ -706,7 +711,7 @@ void *thread_rx2_lpf() {
 
                 log_debug("Copying output values from backward FFT output");
                 for (i = 0; i < conf->rtlsdr_samples; i++)
-                    filtered_buffer[i] = bck_fft_ctx->real_output[i] / (FP_FLOAT) ln;
+                    filtered_buffer[i] = bck_fft_ctx->real_output[i] / (FP_FLOAT) MAIN_RX2_PAYLOAD_SIZE;
 
                 break;
 
@@ -716,7 +721,8 @@ void *thread_rx2_lpf() {
                 break;
         }
 
-        greatbuf_demod_head_stop(greatbuf);
+        circbuf2_tail_release(buf_demod);
+        circbuf2_head_release(buf_filtered);
     }
 
     switch (conf->filter) {

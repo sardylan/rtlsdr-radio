@@ -58,10 +58,13 @@ void log_message(const int level, const char *element, char *filename, const int
     if (level > conf->ui_log_level && level > conf->file_log_level)
         return;
 
-    if (strncmp(element, "circbuf2", 8) == 0 && level >= LOG_LEVEL_DEBUG) return;
+    if (strncmp(element, "circbuf2_", 9) == 0 && level >= LOG_LEVEL_DEBUG) return;
+    if (strncmp(element, "fft_", 4) == 0 && level >= LOG_LEVEL_DEBUG) return;
+
     if (strcmp(element, "thread_rx2_read") == 0 && level >= LOG_LEVEL_DEBUG) return;
     if (strcmp(element, "thread_rx2_sample") == 0 && level >= LOG_LEVEL_DEBUG) return;
     if (strcmp(element, "thread_rx2_demod") == 0 && level >= LOG_LEVEL_DEBUG) return;
+    if (strcmp(element, "thread_rx2_lpf") == 0 && level >= LOG_LEVEL_DEBUG) return;
 
     pthread_mutex_lock(&log_lock);
 
