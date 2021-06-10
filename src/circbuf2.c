@@ -155,8 +155,8 @@ void *circbuf2_head_acquire(circbuf2_ctx *ctx) {
         log_warn("Head busy in %s buffer", ctx->name);
     }
 
-    log_trace("Releasing lock");
     pthread_mutex_unlock(&ctx->mutex);
+    log_trace("Releasing lock");
 
     return ptr;
 }
@@ -179,8 +179,11 @@ void circbuf2_head_release(circbuf2_ctx *ctx) {
             log_warn("Buffer %s full", ctx->name);
     }
 
-    log_trace("Releasing lock");
     pthread_mutex_unlock(&ctx->mutex);
+    log_trace("Releasing lock");
+
+    log_debug("Signaling condition");
+    pthread_cond_signal(&ctx->cond);
 }
 
 void *circbuf2_tail_acquire(circbuf2_ctx *ctx) {
@@ -199,20 +202,17 @@ void *circbuf2_tail_acquire(circbuf2_ctx *ctx) {
             log_trace("Data not available yet, waiting");
             pthread_cond_wait(&ctx->cond, &ctx->mutex);
         }
-
-        if (ctx->free < ctx->size) {
+        if (ctx->keep_running == 1) {
             ctx->busy_tail = 1;
             pos = ctx->tail * ctx->shift;
             ptr = (uint8_t *) ctx->data + pos;
-        } else {
-            log_warn("No free space");
         }
     } else {
         log_warn("Head busy");
     }
 
-    log_trace("Releasing lock");
     pthread_mutex_unlock(&ctx->mutex);
+    log_trace("Releasing lock");
 
     return ptr;
 }
@@ -233,6 +233,6 @@ void circbuf2_tail_release(circbuf2_ctx *ctx) {
         ctx->free++;
     }
 
-    log_trace("Releasing lock");
     pthread_mutex_unlock(&ctx->mutex);
+    log_trace("Releasing lock");
 }
