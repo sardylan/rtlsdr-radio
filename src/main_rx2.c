@@ -124,7 +124,7 @@ int main_rx2() {
     }
 
     log_debug("Initializing Samples Circular Buffer");
-    buf_sample = circbuf2_init("sample", sizeof(complex FP_FLOAT), MAIN_RX2_PAYLOAD_SIZE, MAIN_RX2_BUFFERS_SIZE);
+    buf_sample = circbuf2_init("sample", sizeof(FP_FLOAT complex), MAIN_RX2_PAYLOAD_SIZE, MAIN_RX2_BUFFERS_SIZE);
     if (buf_sample == NULL) {
         log_error("Unable to allocate Samples Circular Buffer");
         main_rx2_end();
@@ -311,6 +311,7 @@ int main_rx2() {
         ui_message("UTC: %s\n", datetime);
 
         circbuf2_status(buf_iq);
+        circbuf2_status(buf_sample);
 
         nanosleep(&sleep_req, &sleep_rem);
     }
@@ -479,14 +480,18 @@ void *thread_rx2_read() {
 #endif
 
 #ifdef MAIN_RX2_ENABLE_THREAD_SAMPLE
+
 void *thread_rx2_sample() {
     int retval;
-    size_t iq_pos;
-    size_t samples_pos;
+
     uint8_t *iq_buffer;
     FP_FLOAT complex *samples_buffer;
+    int len;
 
     log_info("Thread start");
+
+    iq_buffer = NULL;
+    samples_buffer = NULL;
 
     retval = EXIT_SUCCESS;
 
@@ -494,22 +499,38 @@ void *thread_rx2_sample() {
     rx2_sample_ready = 1;
     main_rx2_wait_init();
 
+    len = MAIN_RX2_PAYLOAD_SIZE * 2;
+
     log_debug("Starting read loop");
     while (keep_running) {
-        iq_pos = greatbuf_iq_tail(greatbuf);
-        iq_buffer = greatbuf_item_iq_get(greatbuf, iq_pos);
+        iq_buffer = (uint8_t *) circbuf2_tail_acquire(buf_iq);
+        if (iq_buffer == NULL) {
+            log_error("Error acquiring IQ buffer tail");
+            retval = EXIT_FAILURE;
+            break;
+        }
 
-        samples_pos = greatbuf_samples_head_start(greatbuf);
-        samples_buffer = greatbuf_item_samples_get(greatbuf, samples_pos);
+        samples_buffer = (FP_FLOAT complex *) circbuf2_head_acquire(buf_sample);
+        if (samples_buffer == NULL) {
+            log_error("Error acquiring samples buffer head");
+            retval = EXIT_FAILURE;
+            break;
+        }
 
-        log_trace("Converting iq pos %zu to complex samples in pos %zu", iq_pos, samples_pos);
-        device_buffer_to_samples(iq_buffer, samples_buffer, greatbuf->iq_size);
+        log_trace("Converting IQ to complex samples");
+        device_buffer_to_samples(iq_buffer, samples_buffer, len);
 
-        greatbuf_samples_head_stop(greatbuf);
+        circbuf2_tail_release(buf_iq);
+        circbuf2_head_release(buf_sample);
     }
+
+    log_info("Thread end");
+
+    main_stop();
 
     pthread_exit(&retval);
 }
+
 #endif
 
 #ifdef MAIN_RX2_ENABLE_THREAD_DEMOD
