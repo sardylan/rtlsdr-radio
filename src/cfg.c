@@ -83,6 +83,7 @@ void cfg_init() {
 
 void cfg_free() {
     free(conf->file_log_name);
+    free(conf->audio_monitor_device);
     free(conf->network_server);
 
     free(conf);
