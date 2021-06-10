@@ -921,7 +921,7 @@ void *thread_rx_monitor() {
     retval = EXIT_SUCCESS;
 
     log_debug("Initializing audio context");
-    ctx = audio_init(conf->audio_monitor_device, conf->audio_sample_rate, 1);
+    ctx = audio_init(conf->audio_monitor_device, conf->audio_sample_rate, 1, SND_PCM_FORMAT_U8);
     if (ctx == NULL) {
         log_error("Unable to allocate codec context");
         retval = EXIT_FAILURE;
@@ -964,7 +964,7 @@ void *thread_rx_monitor() {
         pcm_size += fr->size_pcm;
 
         if (pcm_size >= ctx->frames_per_period) {
-            result = audio_play(ctx, pcm_buffer, pcm_size);
+            result = audio_play_uint8(ctx, pcm_buffer, pcm_size);
             if (result != EXIT_SUCCESS) {
                 log_error("Unable to play buffer");
                 retval = EXIT_FAILURE;

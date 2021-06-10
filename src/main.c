@@ -32,6 +32,7 @@
 
 const char *program_name;
 
+volatile int already_interrupted;
 volatile int keep_running;
 volatile int main_rerun;
 
@@ -41,6 +42,8 @@ int main(int argc, char **argv) {
     int result;
 
     program_name = argv[0];
+
+    already_interrupted = 0;
 
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
@@ -68,14 +71,22 @@ void signal_handler(int signum) {
     ui_message("Signal %d received: %s\n", signum, strsignal(signum));
     log_info("Signal %d received: %s", signum, strsignal(signum));
 
+
     switch (signum) {
         case SIGINT:
         case SIGTERM:
         case SIGQUIT:
+            if (already_interrupted > 0) {
+                ui_message("Forced exit!!!\n");
+                exit(EXIT_FAILURE);
+            }
+
+            already_interrupted++;
             main_stop();
             break;
 
         case SIGHUP:
+            already_interrupted = 0;
             main_rerun = 1;
             main_stop();
 

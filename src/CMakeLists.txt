@@ -21,6 +21,7 @@ add_executable(rtlsdr_radio
         codec.c codec.h
         cfg.c cfg.h
         circbuf.c circbuf.h
+        circbuf2.c circbuf2.h
         default.h
         device.c device.h
         dsp.c dsp.h

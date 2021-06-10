@@ -28,6 +28,7 @@ struct audio_ctx_t {
     char *device_name;
     unsigned int rate;
     unsigned int channels;
+    snd_pcm_format_t format;
 
     snd_pcm_t *pcm;
     snd_pcm_uframes_t frames_per_period;
@@ -35,10 +36,12 @@ struct audio_ctx_t {
 
 typedef struct audio_ctx_t audio_ctx;
 
-audio_ctx *audio_init(const char *, unsigned int, unsigned int);
+audio_ctx *audio_init(const char *, unsigned int, unsigned int, snd_pcm_format_t);
 
 void audio_free(audio_ctx *);
 
-int audio_play(audio_ctx *, uint8_t *, size_t);
+int audio_play_uint8(audio_ctx *ctx, uint8_t *buffer, size_t buffer_size);
+
+int audio_play_int16(audio_ctx *ctx, int16_t *buffer, size_t buffer_size);
 
 #endif

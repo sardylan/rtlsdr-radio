@@ -20,7 +20,7 @@
 #include "audio.h"
 #include "log.h"
 
-audio_ctx *audio_init(const char *device_name, unsigned int rate, unsigned int channels) {
+audio_ctx *audio_init(const char *device_name, unsigned int rate, unsigned int channels, snd_pcm_format_t format) {
     audio_ctx *ctx;
     int result;
     size_t ln;
@@ -72,7 +72,7 @@ audio_ctx *audio_init(const char *device_name, unsigned int rate, unsigned int c
         return NULL;
     }
 
-    result = snd_pcm_hw_params_set_format(ctx->pcm, params, SND_PCM_FORMAT_U8);
+    result = snd_pcm_hw_params_set_format(ctx->pcm, params, format);
     if (result != 0) {
         log_error("Error %d setting format: %s", result, snd_strerror(result));
         audio_free(ctx);
@@ -130,7 +130,20 @@ void audio_free(audio_ctx *ctx) {
     free(ctx);
 }
 
-int audio_play(audio_ctx *ctx, uint8_t *buffer, size_t buffer_size) {
+int audio_play_uint8(audio_ctx *ctx, uint8_t *buffer, size_t buffer_size) {
+    snd_pcm_sframes_t result;
+
+    snd_pcm_prepare(ctx->pcm);
+    result = snd_pcm_writei(ctx->pcm, buffer, buffer_size);
+    if (result != (snd_pcm_sframes_t) buffer_size) {
+        log_error("Error %d getting period size: %s", result, snd_strerror(result));
+        return EXIT_FAILURE;
+    }
+
+    return EXIT_SUCCESS;
+}
+
+int audio_play_int16(audio_ctx *ctx, int16_t *buffer, size_t buffer_size) {
     snd_pcm_sframes_t result;
 
     snd_pcm_prepare(ctx->pcm);

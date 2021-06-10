@@ -23,7 +23,6 @@
 #include <rtl-sdr.h>
 
 #include "device.h"
-#include "cfg.h"
 #include "log.h"
 #include "ui.h"
 

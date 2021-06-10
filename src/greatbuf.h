@@ -51,6 +51,21 @@ struct greatbuf_ctx_t {
 
     size_t pos_pcm_head;
     size_t pos_pcm_tail;
+
+    pthread_mutex_t mutex_iq;
+    pthread_cond_t cond_iq;
+
+    pthread_mutex_t mutex_samples;
+    pthread_cond_t cond_samples;
+
+    pthread_mutex_t mutex_demod;
+    pthread_cond_t cond_demod;
+
+    pthread_mutex_t mutex_filtered;
+    pthread_cond_t cond_filtered;
+
+    pthread_mutex_t mutex_pcm;
+    pthread_cond_t cond_pcm;
 };
 
 struct greatbuf_item_t {
@@ -70,23 +85,33 @@ greatbuf_ctx *greatbuf_init(size_t, size_t, size_t);
 
 void greatbuf_free(greatbuf_ctx *);
 
-size_t greatbuf_iq_head(greatbuf_ctx *);
+size_t greatbuf_iq_head_start(greatbuf_ctx *);
+
+void greatbuf_iq_head_stop(greatbuf_ctx *);
 
 size_t greatbuf_iq_tail(greatbuf_ctx *);
 
-size_t greatbuf_samples_head(greatbuf_ctx *);
+size_t greatbuf_samples_head_start(greatbuf_ctx *);
+
+void greatbuf_samples_head_stop(greatbuf_ctx *);
 
 size_t greatbuf_samples_tail(greatbuf_ctx *);
 
-size_t greatbuf_demod_head(greatbuf_ctx *);
+size_t greatbuf_demod_head_start(greatbuf_ctx *);
+
+void greatbuf_demod_head_stop(greatbuf_ctx *);
 
 size_t greatbuf_demod_tail(greatbuf_ctx *);
 
-size_t greatbuf_filtered_head(greatbuf_ctx *);
+size_t greatbuf_filtered_head_start(greatbuf_ctx *);
+
+void greatbuf_filtered_head_stop(greatbuf_ctx *);
 
 size_t greatbuf_filtered_tail(greatbuf_ctx *);
 
-size_t greatbuf_pcm_head(greatbuf_ctx *);
+size_t greatbuf_pcm_head_start(greatbuf_ctx *);
+
+void greatbuf_pcm_head_stop(greatbuf_ctx *);
 
 size_t greatbuf_pcm_tail(greatbuf_ctx *);
 

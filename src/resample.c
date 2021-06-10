@@ -71,3 +71,25 @@ int resample_do(resample_ctx *ctx, const int8_t *input, size_t input_size, int8_
 
     return EXIT_SUCCESS;
 }
+
+int resample_float_to_int16(resample_ctx *ctx,
+                            const FP_FLOAT *input, size_t input_size,
+                            int16_t *output, size_t output_size) {
+    size_t i;
+    size_t shift;
+
+    log_info("Resampling");
+
+    // TODO:
+    //  This function just skips some samples, which is not a real resampling,
+    //  but since we applied a low-pass filter before, it could works.
+
+    for (i = 0; i < output_size; i++) {
+        shift = ctx->ratio * i;
+        if (shift >= input_size)
+            break;
+        output[i] = (int16_t) (input[shift] * 0xFFFF);
+    }
+
+    return EXIT_SUCCESS;
+}

@@ -42,4 +42,6 @@ size_t resample_compute_output_size(resample_ctx *, size_t);
 
 int resample_do(resample_ctx *ctx, const int8_t *, size_t, int8_t *, size_t);
 
+int resample_float_to_int16(resample_ctx *ctx, const FP_FLOAT *, size_t, int16_t *, size_t);
+
 #endif

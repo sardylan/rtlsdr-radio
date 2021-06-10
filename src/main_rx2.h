@@ -20,24 +20,54 @@
 #ifndef __RTLSDR_RADIO__MAIN_RX2__H
 #define __RTLSDR_RADIO__MAIN_RX2__H
 
+#define MAIN_RX2_PAYLOAD_SIZE 1024
+#define MAIN_RX2_BUFFERS_SIZE 2048
+
+#define MAIN_RX2_ENABLE_THREAD_READ
+//#define MAIN_RX2_ENABLE_THREAD_SAMPLE
+//#define MAIN_RX2_ENABLE_THREAD_DEMOD
+//#define MAIN_RX2_ENABLE_THREAD_LPF
+//#define MAIN_RX2_ENABLE_THREAD_RESAMPLE
+//#define MAIN_RX2_ENABLE_THREAD_CODEC
+//#define MAIN_RX2_ENABLE_THREAD_MONITOR
+//#define MAIN_RX2_ENABLE_THREAD_NETWORK
+
 int main_rx2();
 
 void main_rx2_end();
 
 void main_rx2_wait_init();
 
+#ifdef MAIN_RX2_ENABLE_THREAD_READ
 void *thread_rx2_read();
+#endif
 
+#ifdef MAIN_RX2_ENABLE_THREAD_SAMPLE
+void *thread_rx2_sample();
+#endif
+
+#ifdef MAIN_RX2_ENABLE_THREAD_DEMOD
 void *thread_rx2_demod();
+#endif
 
+#ifdef MAIN_RX2_ENABLE_THREAD_LPF
 void *thread_rx2_lpf();
+#endif
 
+#ifdef MAIN_RX2_ENABLE_THREAD_RESAMPLE
 void *thread_rx2_resample();
+#endif
 
+#ifdef MAIN_RX2_ENABLE_THREAD_CODEC
 void *thread_rx2_codec();
+#endif
 
+#ifdef MAIN_RX2_ENABLE_THREAD_MONITOR
 void *thread_rx2_monitor();
+#endif
 
+#ifdef MAIN_RX2_ENABLE_THREAD_NETWORK
 void *thread_rx2_network();
+#endif
 
 #endif
