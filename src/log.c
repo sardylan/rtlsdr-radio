@@ -60,8 +60,8 @@ void log_message(const int level, const char *element, char *filename, const int
 
     if (strncmp(element, "circbuf2", 8) == 0 && level >= LOG_LEVEL_DEBUG) return;
     if (strcmp(element, "thread_rx2_read") == 0 && level >= LOG_LEVEL_DEBUG) return;
-
-    //    if (strcmp(element, "thread_rx2_sample") == 0) return;
+    if (strcmp(element, "thread_rx2_sample") == 0 && level >= LOG_LEVEL_DEBUG) return;
+    if (strcmp(element, "thread_rx2_demod") == 0 && level >= LOG_LEVEL_DEBUG) return;
 
     pthread_mutex_lock(&log_lock);
 

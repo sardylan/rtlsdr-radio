@@ -312,6 +312,7 @@ int main_rx2() {
 
         circbuf2_status(buf_iq);
         circbuf2_status(buf_sample);
+        circbuf2_status(buf_demod);
 
         nanosleep(&sleep_req, &sleep_rem);
     }
@@ -534,12 +535,11 @@ void *thread_rx2_sample() {
 #endif
 
 #ifdef MAIN_RX2_ENABLE_THREAD_DEMOD
+
 void *thread_rx2_demod() {
     int retval;
-    size_t samples_pos;
-    FP_FLOAT complex *samples_buffer;
 
-    size_t demod_pos;
+    FP_FLOAT complex *samples_buffer;
     FP_FLOAT *demod_buffer;
 
     FP_FLOAT complex product;
@@ -562,14 +562,22 @@ void *thread_rx2_demod() {
 
     log_debug("Starting demod loop");
     while (keep_running) {
-        samples_pos = greatbuf_samples_tail(greatbuf);
-        samples_buffer = greatbuf_item_samples_get(greatbuf, samples_pos);
+        samples_buffer = (FP_FLOAT complex *) circbuf2_tail_acquire(buf_sample);
+        if (samples_buffer == NULL) {
+            log_error("Error acquiring samples buffer tail");
+            retval = EXIT_FAILURE;
+            break;
+        }
 
-        demod_pos = greatbuf_demod_head_start(greatbuf);
-        demod_buffer = greatbuf_item_demod_get(greatbuf, demod_pos);
+        demod_buffer = (FP_FLOAT *) circbuf2_head_acquire(buf_demod);
+        if (demod_buffer == NULL) {
+            log_error("Error acquiring demod buffer head");
+            retval = EXIT_FAILURE;
+            break;
+        }
 
-        log_trace("Demodulating sample pos %zu to demod pos %zu", samples_pos, demod_pos);
-        for (j = 0; j < greatbuf->samples_size; j++) {
+        log_trace("Demodulating samples");
+        for (j = 0; j < MAIN_RX2_PAYLOAD_SIZE; j++) {
             switch (conf->modulation) {
                 case MOD_TYPE_FM:
                     product = samples_buffer[j] * conj(prev_sample);
@@ -587,13 +595,17 @@ void *thread_rx2_demod() {
             }
         }
 
-        greatbuf_demod_head_stop(greatbuf);
+        circbuf2_tail_release(buf_sample);
+        circbuf2_head_release(buf_demod);
     }
 
     log_info("Thread end");
 
+    main_stop();
+
     pthread_exit(&retval);
 }
+
 #endif
 
 #ifdef MAIN_RX2_ENABLE_THREAD_LPF
@@ -728,6 +740,8 @@ void *thread_rx2_lpf() {
 
     log_info("Thread end");
 
+    main_stop();
+
     pthread_exit(&retval);
 }
 #endif
@@ -775,6 +789,8 @@ void *thread_rx2_resample() {
     }
 
     log_info("Thread end");
+
+    main_stop();
 
     pthread_exit(&retval);
 }
@@ -825,6 +841,8 @@ void *thread_rx2_monitor() {
 
     log_info("Thread end");
 
+    main_stop();
+
     pthread_exit(&retval);
 }
 #endif
@@ -854,6 +872,8 @@ void *thread_rx2_codec() {
 
     log_info("Thread end");
 
+    main_stop();
+
     pthread_exit(&retval);
 }
 #endif
@@ -876,6 +896,8 @@ void *thread_rx2_network() {
     }
 
     log_info("Thread end");
+
+    main_stop();
 
     pthread_exit(&retval);
 }
