@@ -24,111 +24,100 @@
 #include <stddef.h>
 #include <complex.h>
 #include <time.h>
+#include <pthread.h>
 
-struct greatbuf_ctx_t {
-    size_t iq_size;
-    size_t samples_size;
-    size_t demod_size;
-    size_t filtered_size;
-    size_t pcm_size;
+#define GREATBUF_CIRCBUF_READ 0
+#define GREATBUF_CIRCBUF_SAMPLES 1
+#define GREATBUF_CIRCBUF_DEMOD 2
+#define GREATBUF_CIRCBUF_FILTER 3
+#define GREATBUF_CIRCBUF_RESAMPLE 4
+#define GREATBUF_CIRCBUF_CODEC 5
+#define GREATBUF_CIRCBUF_MONITOR 6
+#define GREATBUF_CIRCBUF_NETWORK 7
+
+struct greatbuf_circbuf_t {
+    char *name;
+
+    size_t head;
+    size_t tail;
 
     size_t size;
-    struct greatbuf_item_t *buffer;
+    size_t free;
 
-    uint64_t counter;
+    int busy_head;
+    int busy_tail;
 
-    size_t pos_iq_head;
-    size_t pos_iq_tail;
+    pthread_mutex_t mutex;
+    pthread_cond_t cond;
 
-    size_t pos_samples_head;
-    size_t pos_samples_tail;
-
-    size_t pos_demod_head;
-    size_t pos_demod_tail;
-
-    size_t pos_filtered_head;
-    size_t pos_filtered_tail;
-
-    size_t pos_pcm_head;
-    size_t pos_pcm_tail;
-
-    pthread_mutex_t mutex_iq;
-    pthread_cond_t cond_iq;
-
-    pthread_mutex_t mutex_samples;
-    pthread_cond_t cond_samples;
-
-    pthread_mutex_t mutex_demod;
-    pthread_cond_t cond_demod;
-
-    pthread_mutex_t mutex_filtered;
-    pthread_cond_t cond_filtered;
-
-    pthread_mutex_t mutex_pcm;
-    pthread_cond_t cond_pcm;
+    volatile int keep_running;
 };
 
 struct greatbuf_item_t {
+    size_t samples_size;
+    size_t pcm_size;
+
     uint64_t number;
     struct timespec ts;
+    struct timespec delay;
+
     uint8_t *iq;
     FP_FLOAT complex *samples;
+
     FP_FLOAT *demod;
     FP_FLOAT *filtered;
+
     int16_t *pcm;
+
+    FP_FLOAT rms;
 };
 
-typedef struct greatbuf_ctx_t greatbuf_ctx;
+struct greatbuf_ctx_t {
+    uint64_t number;
+
+    size_t size;
+    struct greatbuf_item_t **items;
+
+    struct greatbuf_circbuf_t *circbuf_read;
+    struct greatbuf_circbuf_t *circbuf_samples;
+    struct greatbuf_circbuf_t *circbuf_demod;
+    struct greatbuf_circbuf_t *circbuf_lpf;
+    struct greatbuf_circbuf_t *circbuf_resample;
+    struct greatbuf_circbuf_t *circbuf_codec;
+    struct greatbuf_circbuf_t *circbuf_monitor;
+    struct greatbuf_circbuf_t *circbuf_network;
+};
+
+typedef struct greatbuf_circbuf_t greatbuf_circbuf;
 typedef struct greatbuf_item_t greatbuf_item;
+typedef struct greatbuf_ctx_t greatbuf_ctx;
+
+greatbuf_circbuf *greatbuf_circbuf_init(const char *, size_t);
+
+void greatbuf_circbuf_free(greatbuf_circbuf *);
+
+greatbuf_item *greatbuf_item_init(size_t, size_t);
+
+void greatbuf_item_free(greatbuf_item *);
 
 greatbuf_ctx *greatbuf_init(size_t, size_t, size_t);
 
 void greatbuf_free(greatbuf_ctx *);
 
-size_t greatbuf_iq_head_start(greatbuf_ctx *);
+void greatbuf_stop(greatbuf_ctx *);
 
-void greatbuf_iq_head_stop(greatbuf_ctx *);
+greatbuf_circbuf *greatbuf_circbuf_get(greatbuf_ctx *, int);
 
-size_t greatbuf_iq_tail(greatbuf_ctx *);
+void greatbuf_circbuf_status(greatbuf_ctx *, int);
 
-size_t greatbuf_samples_head_start(greatbuf_ctx *);
+greatbuf_item *greatbuf_item_get(greatbuf_ctx *, size_t);
 
-void greatbuf_samples_head_stop(greatbuf_ctx *);
+ssize_t greatbuf_circbuf_head_acquire(greatbuf_ctx *, int);
 
-size_t greatbuf_samples_tail(greatbuf_ctx *);
+void greatbuf_circbuf_head_release(greatbuf_ctx *, int);
 
-size_t greatbuf_demod_head_start(greatbuf_ctx *);
+ssize_t greatbuf_circbuf_tail_acquire(greatbuf_ctx *, int);
 
-void greatbuf_demod_head_stop(greatbuf_ctx *);
-
-size_t greatbuf_demod_tail(greatbuf_ctx *);
-
-size_t greatbuf_filtered_head_start(greatbuf_ctx *);
-
-void greatbuf_filtered_head_stop(greatbuf_ctx *);
-
-size_t greatbuf_filtered_tail(greatbuf_ctx *);
-
-size_t greatbuf_pcm_head_start(greatbuf_ctx *);
-
-void greatbuf_pcm_head_stop(greatbuf_ctx *);
-
-size_t greatbuf_pcm_tail(greatbuf_ctx *);
-
-void greatbuf_item_init(greatbuf_ctx *, size_t);
-
-uint64_t greatbuf_item_number_get(greatbuf_ctx *, size_t);
-
-struct timespec *greatbuf_item_ts_get(greatbuf_ctx *, size_t);
-
-uint8_t *greatbuf_item_iq_get(greatbuf_ctx *, size_t);
-
-FP_FLOAT complex *greatbuf_item_samples_get(greatbuf_ctx *, size_t);
-
-FP_FLOAT *greatbuf_item_demod_get(greatbuf_ctx *, size_t);
-
-FP_FLOAT *greatbuf_item_filtered_get(greatbuf_ctx *, size_t);
-
-int16_t *greatbuf_item_pcm_get(greatbuf_ctx *, size_t);
+void greatbuf_circbuf_tail_release(greatbuf_ctx *, int);
 
 #endif

@@ -17,182 +17,291 @@
  */
 
 
-#include <stdlib.h>
-#include <pthread.h>
+#include <malloc.h>
+#include <string.h>
 
 #include "greatbuf.h"
 #include "log.h"
+#include "ui.h"
 
-greatbuf_ctx *greatbuf_init(size_t size, size_t sample_size, size_t pcm_size) {
-    greatbuf_ctx *ctx;
-    greatbuf_item *item;
-    size_t i;
+greatbuf_circbuf *greatbuf_circbuf_init(const char *name, size_t size) {
+    greatbuf_circbuf *circbuf;
+    size_t ln;
     int result;
 
-    log_debug("Initializing Great Buffer");
+    circbuf = NULL;
 
-    log_trace("Allocating Great Buffer");
+    log_info("Greatbuf circbuf init");
+
+    log_debug("Allocating circbuf");
+    circbuf = (greatbuf_circbuf *) malloc(sizeof(greatbuf_circbuf));
+    if (circbuf == NULL) {
+        log_error("Unable to allocate circbuf");
+        return NULL;
+    }
+
+    log_debug("Setting name");
+    ln = strlen(name);
+    circbuf->name = (char *) calloc(ln + 1, sizeof(char));
+    if (circbuf->name == NULL) {
+        log_error("Unable to allocate circbuf name");
+        greatbuf_circbuf_free(circbuf);
+        return NULL;
+    }
+    strcpy(circbuf->name, name);
+
+    log_debug("Setting initial values");
+    circbuf->head = 0;
+    circbuf->tail = 0;
+
+    circbuf->size = size;
+    circbuf->free = size;
+
+    circbuf->busy_head = 0;
+    circbuf->busy_tail = 0;
+
+    circbuf->keep_running = 1;
+
+    log_debug("Initializing mutex");
+    result = pthread_mutex_init(&circbuf->mutex, NULL);
+    if (result != 0) {
+        log_error("Error initializing mutex: %d", result);
+        greatbuf_circbuf_free(circbuf);
+        return NULL;
+    }
+
+    log_debug("Initializing condition");
+    result = pthread_cond_init(&circbuf->cond, NULL);
+    if (result != 0) {
+        log_error("Error initializing condition: %d", result);
+        greatbuf_circbuf_free(circbuf);
+        return NULL;
+    }
+
+    return circbuf;
+}
+
+void greatbuf_circbuf_free(greatbuf_circbuf *circbuf) {
+    log_info("Freeing greatbuf circbuf");
+
+    if (circbuf == NULL)
+        return;
+
+    if (circbuf->name != NULL)
+        free(circbuf->name);
+
+    log_debug("Destroying mutex");
+    pthread_mutex_destroy(&circbuf->mutex);
+
+    log_debug("Destroying cond");
+    pthread_cond_destroy(&circbuf->cond);
+
+    free(circbuf);
+}
+
+greatbuf_item *greatbuf_item_init(size_t samples_size, size_t pcm_size) {
+    greatbuf_item *item;
+    size_t i;
+
+    item = NULL;
+
+    log_info("Greatbuf 2 item init");
+
+    log_debug("Allocating greatbuf 2 item");
+    item = (greatbuf_item *) malloc(sizeof(greatbuf_item));
+    if (item == NULL) {
+        log_error("Unable to allocate greatbuf 2 item");
+        return NULL;
+    }
+
+    log_debug("Setting samples_size");
+
+    item->samples_size = samples_size;
+    item->pcm_size = pcm_size;
+
+    log_debug("Allocating IQ buffer");
+    item->iq = (uint8_t *) calloc(item->samples_size * 2, sizeof(uint8_t));
+    if (item->iq == NULL) {
+        log_error("Unable to allocate IQ buffer");
+        greatbuf_item_free(item);
+        return NULL;
+    }
+
+    log_debug("Allocating samples buffer");
+    item->samples = (FP_FLOAT complex *) calloc(item->samples_size, sizeof(FP_FLOAT complex));
+    if (item->samples == NULL) {
+        log_error("Unable to allocate samples buffer");
+        greatbuf_item_free(item);
+        return NULL;
+    }
+
+    log_debug("Allocating demod buffer");
+    item->demod = (FP_FLOAT *) calloc(item->samples_size, sizeof(FP_FLOAT));
+    if (item->demod == NULL) {
+        log_error("Unable to allocate demod buffer");
+        greatbuf_item_free(item);
+        return NULL;
+    }
+
+    log_debug("Allocating filtered buffer");
+    item->filtered = (FP_FLOAT *) calloc(item->samples_size, sizeof(FP_FLOAT));
+    if (item->filtered == NULL) {
+        log_error("Unable to allocate filtered buffer");
+        greatbuf_item_free(item);
+        return NULL;
+    }
+
+    log_debug("Allocating pcm buffer");
+    item->pcm = (int16_t *) calloc(item->pcm_size, sizeof(int16_t));
+    if (item->pcm == NULL) {
+        log_error("Unable to allocate pcm buffer");
+        greatbuf_item_free(item);
+        return NULL;
+    }
+
+    log_debug("Setting initial values");
+
+    item->number = 0;
+
+    item->ts.tv_sec = 0;
+    item->ts.tv_nsec = 0;
+
+    item->delay.tv_sec = 0;
+    item->delay.tv_nsec = 0;
+
+    for (i = 0; i < item->samples_size; i++) {
+        item->iq[i * 2] = 0;
+        item->iq[i * 2 + 1] = 0;
+        item->samples[i] = 0 + 0 * I;
+        item->demod[i] = 0;
+        item->filtered[i] = 0;
+    }
+
+    for (i = 0; i < item->pcm_size; i++) {
+        item->pcm[i] = 0;
+    }
+
+    item->rms = 0;
+
+    return item;
+}
+
+void greatbuf_item_free(greatbuf_item *item) {
+    log_debug("Freeing circbuff item");
+
+    if (item == NULL)
+        return;
+
+    if (item->iq != NULL)
+        free(item->iq);
+    if (item->samples != NULL)
+        free(item->samples);
+    if (item->demod != NULL)
+        free(item->demod);
+    if (item->filtered != NULL)
+        free(item->filtered);
+    if (item->pcm != NULL)
+        free(item->pcm);
+
+    free(item);
+}
+
+greatbuf_ctx *greatbuf_init(size_t size, size_t samples_size, size_t pcm_size) {
+    greatbuf_ctx *ctx;
+    size_t i;
+
+    ctx = NULL;
+
+    log_info("Greatbuf init");
+
+    log_debug("Allocating greatbuf ctx");
     ctx = (greatbuf_ctx *) malloc(sizeof(greatbuf_ctx));
     if (ctx == NULL) {
-        log_error("Unable to allocate Great Buffer");
+        log_error("Unable to allocate greatbuf 2 item");
         return NULL;
     }
 
-    log_trace("Setting sizes");
-    ctx->iq_size = sample_size * 2;
-    ctx->samples_size = sample_size;
-    ctx->demod_size = sample_size;
-    ctx->filtered_size = sample_size;
-    ctx->pcm_size = pcm_size;
+    log_debug("Setting samples_size");
     ctx->size = size;
 
-    log_trace("Allocating buffer");
-    ctx->buffer = (greatbuf_item *) calloc(ctx->size, sizeof(greatbuf_item));
-    if (ctx->buffer == NULL) {
-        log_error("Unable to allocate buffer");
+    log_debug("Allocating items buffer");
+    ctx->items = (greatbuf_item **) calloc(ctx->size, sizeof(greatbuf_item *));
+    if (ctx->items == NULL) {
+        log_error("Unable to allocate items");
         greatbuf_free(ctx);
         return NULL;
     }
 
-    log_trace("Initializing buffer");
+    log_debug("Initializing items");
     for (i = 0; i < ctx->size; i++) {
-        item = &ctx->buffer[i];
-
-        item->number = 0;
-
-        item->ts.tv_sec = 0;
-        item->ts.tv_nsec = 0;
-
-        item->iq = (uint8_t *) calloc(ctx->size, sizeof(uint8_t));
-        if (item->iq == NULL) {
-            log_error("Unable to allocate IQ buffer");
-            greatbuf_free(ctx);
-            return NULL;
-        }
-
-        item->samples = (FP_FLOAT complex *) calloc(ctx->size, sizeof(FP_FLOAT complex));
-        if (item->samples == NULL) {
-            log_error("Unable to allocate samples buffer");
-            greatbuf_free(ctx);
-            return NULL;
-        }
-
-        item->demod = (FP_FLOAT *) calloc(ctx->size, sizeof(FP_FLOAT));
-        if (item->demod == NULL) {
-            log_error("Unable to allocate demod buffer");
-            greatbuf_free(ctx);
-            return NULL;
-        }
-
-        item->filtered = (FP_FLOAT *) calloc(ctx->size, sizeof(FP_FLOAT));
-        if (item->filtered == NULL) {
-            log_error("Unable to allocate filtered buffer");
-            greatbuf_free(ctx);
-            return NULL;
-        }
-
-        item->pcm = (int16_t *) calloc(ctx->size, sizeof(int16_t));
-        if (item->pcm == NULL) {
-            log_error("Unable to allocate pcm buffer");
+        ctx->items[i] = greatbuf_item_init(samples_size, pcm_size);
+        if (ctx->items[i] == NULL) {
+            log_error("Unable to allocate item");
             greatbuf_free(ctx);
             return NULL;
         }
     }
 
-    log_trace("Setting counter, heads and tails initial values");
-    ctx->counter = 0;
-
-    ctx->pos_iq_head = 0;
-    ctx->pos_iq_tail = 0;
-
-    ctx->pos_samples_head = 0;
-    ctx->pos_samples_tail = 0;
-
-    ctx->pos_demod_head = 0;
-    ctx->pos_demod_tail = 0;
-
-    ctx->pos_filtered_head = 0;
-    ctx->pos_filtered_tail = 0;
-
-    ctx->pos_pcm_head = 0;
-    ctx->pos_pcm_tail = 0;
-
-    log_debug("Initializing IQ mutex");
-    result = pthread_mutex_init(&ctx->mutex_iq, NULL);
-    if (result != 0) {
-        log_error("Error initializing mutex: %d", result);
+    log_debug("Allocating circbuf read");
+    ctx->circbuf_read = greatbuf_circbuf_init("read", ctx->size);
+    if (ctx->circbuf_read == NULL) {
+        log_error("Unable to allocate circbuf read");
         greatbuf_free(ctx);
         return NULL;
     }
 
-    log_debug("Initializing IQ condition");
-    result = pthread_cond_init(&ctx->cond_iq, NULL);
-    if (result != 0) {
-        log_error("Error initializing condition: %d", result);
+    log_debug("Allocating circbuf samples");
+    ctx->circbuf_samples = greatbuf_circbuf_init("samples", ctx->size);
+    if (ctx->circbuf_samples == NULL) {
+        log_error("Unable to allocate circbuf samples");
         greatbuf_free(ctx);
         return NULL;
     }
 
-    log_debug("Initializing samples mutex");
-    result = pthread_mutex_init(&ctx->mutex_samples, NULL);
-    if (result != 0) {
-        log_error("Error initializing mutex: %d", result);
+    log_debug("Allocating circbuf demod");
+    ctx->circbuf_demod = greatbuf_circbuf_init("demod", ctx->size);
+    if (ctx->circbuf_demod == NULL) {
+        log_error("Unable to allocate circbuf demod");
         greatbuf_free(ctx);
         return NULL;
     }
 
-    log_debug("Initializing samples condition");
-    result = pthread_cond_init(&ctx->cond_samples, NULL);
-    if (result != 0) {
-        log_error("Error initializing condition: %d", result);
+    log_debug("Allocating circbuf lpf");
+    ctx->circbuf_lpf = greatbuf_circbuf_init("lpf", ctx->size);
+    if (ctx->circbuf_lpf == NULL) {
+        log_error("Unable to allocate circbuf lpf");
         greatbuf_free(ctx);
         return NULL;
     }
 
-    log_debug("Initializing demod mutex");
-    result = pthread_mutex_init(&ctx->mutex_demod, NULL);
-    if (result != 0) {
-        log_error("Error initializing mutex: %d", result);
+    log_debug("Allocating circbuf resample");
+    ctx->circbuf_resample = greatbuf_circbuf_init("resample", ctx->size);
+    if (ctx->circbuf_resample == NULL) {
+        log_error("Unable to allocate circbuf resample");
         greatbuf_free(ctx);
         return NULL;
     }
 
-    log_debug("Initializing demod condition");
-    result = pthread_cond_init(&ctx->cond_demod, NULL);
-    if (result != 0) {
-        log_error("Error initializing condition: %d", result);
+    log_debug("Allocating circbuf codec");
+    ctx->circbuf_codec = greatbuf_circbuf_init("codec", ctx->size);
+    if (ctx->circbuf_codec == NULL) {
+        log_error("Unable to allocate circbuf codec");
         greatbuf_free(ctx);
         return NULL;
     }
 
-    log_debug("Initializing filtered mutex");
-    result = pthread_mutex_init(&ctx->mutex_filtered, NULL);
-    if (result != 0) {
-        log_error("Error initializing mutex: %d", result);
+    log_debug("Allocating circbuf monitor");
+    ctx->circbuf_monitor = greatbuf_circbuf_init("monitor", ctx->size);
+    if (ctx->circbuf_monitor == NULL) {
+        log_error("Unable to allocate circbuf monitor");
         greatbuf_free(ctx);
         return NULL;
     }
 
-    log_debug("Initializing filtered condition");
-    result = pthread_cond_init(&ctx->cond_filtered, NULL);
-    if (result != 0) {
-        log_error("Error initializing condition: %d", result);
-        greatbuf_free(ctx);
-        return NULL;
-    }
-
-    log_debug("Initializing pcm mutex");
-    result = pthread_mutex_init(&ctx->mutex_pcm, NULL);
-    if (result != 0) {
-        log_error("Error initializing mutex: %d", result);
-        greatbuf_free(ctx);
-        return NULL;
-    }
-
-    log_debug("Initializing pcm condition");
-    result = pthread_cond_init(&ctx->cond_pcm, NULL);
-    if (result != 0) {
-        log_error("Error initializing condition: %d", result);
+    log_debug("Allocating circbuf network");
+    ctx->circbuf_network = greatbuf_circbuf_init("network", ctx->size);
+    if (ctx->circbuf_network == NULL) {
+        log_error("Unable to allocate circbuf network");
         greatbuf_free(ctx);
         return NULL;
     }
@@ -201,416 +310,206 @@ greatbuf_ctx *greatbuf_init(size_t size, size_t sample_size, size_t pcm_size) {
 }
 
 void greatbuf_free(greatbuf_ctx *ctx) {
-    greatbuf_item *item;
     size_t i;
 
-    log_debug("Cleaning Great Buffer");
+    log_info("Greatbuf free");
 
-    if (ctx == NULL)
-        return;
+    log_debug("Freeing items");
+    for (i = 0; i < ctx->size; i++)
+        if (ctx->items[i] != NULL)
+            greatbuf_item_free(ctx->items[i]);
 
-    if (ctx->buffer != NULL) {
-        log_trace("Freeing buffer items");
+    log_debug("Freeing items buffer");
+    free(ctx->items);
 
-        for (i = 0; i < ctx->size; i++) {
-            item = &ctx->buffer[i];
+    log_debug("Freeing circbufs");
+    greatbuf_circbuf_free(ctx->circbuf_read);
+    greatbuf_circbuf_free(ctx->circbuf_samples);
+    greatbuf_circbuf_free(ctx->circbuf_demod);
+    greatbuf_circbuf_free(ctx->circbuf_lpf);
+    greatbuf_circbuf_free(ctx->circbuf_resample);
+    greatbuf_circbuf_free(ctx->circbuf_codec);
+    greatbuf_circbuf_free(ctx->circbuf_monitor);
+    greatbuf_circbuf_free(ctx->circbuf_network);
 
-            if (item->iq != NULL)
-                free(item->iq);
-
-            if (item->samples != NULL)
-                free(item->samples);
-
-            if (item->demod != NULL)
-                free(item->demod);
-
-            if (item->filtered != NULL)
-                free(item->filtered);
-
-            if (item->pcm != NULL)
-                free(item->pcm);
-        }
-
-        log_trace("Freeing buffer");
-        free(ctx->buffer);
-    }
-
-    log_debug("Destroying mutexes");
-    pthread_mutex_destroy(&ctx->mutex_iq);
-    pthread_mutex_destroy(&ctx->mutex_samples);
-    pthread_mutex_destroy(&ctx->mutex_demod);
-    pthread_mutex_destroy(&ctx->mutex_filtered);
-    pthread_mutex_destroy(&ctx->mutex_pcm);
-
-    log_debug("Destroying conds");
-    pthread_cond_destroy(&ctx->cond_iq);
-    pthread_cond_destroy(&ctx->cond_samples);
-    pthread_cond_destroy(&ctx->cond_demod);
-    pthread_cond_destroy(&ctx->cond_filtered);
-    pthread_cond_destroy(&ctx->cond_pcm);
-
-    log_trace("Freeing context");
+    log_debug("Freeing context");
     free(ctx);
 }
 
-size_t greatbuf_iq_head_start(greatbuf_ctx *ctx) {
-    size_t pos;
+void greatbuf_stop(greatbuf_ctx *ctx) {
+    log_info("Stopping greatbuf");
 
-    log_debug("Getting Great Buffer IQ head");
+    ctx->circbuf_read->keep_running = 0;
+    ctx->circbuf_samples->keep_running = 0;
+    ctx->circbuf_demod->keep_running = 0;
+    ctx->circbuf_lpf->keep_running = 0;
+    ctx->circbuf_resample->keep_running = 0;
+    ctx->circbuf_codec->keep_running = 0;
+    ctx->circbuf_monitor->keep_running = 0;
+    ctx->circbuf_network->keep_running = 0;
+}
 
-    log_trace("Locking mutex");
-    pthread_mutex_lock(&ctx->mutex_iq);
+greatbuf_circbuf *greatbuf_circbuf_get(greatbuf_ctx *ctx, int circbuf) {
+    switch (circbuf) {
+        case GREATBUF_CIRCBUF_READ:
+            return ctx->circbuf_read;
+        case GREATBUF_CIRCBUF_SAMPLES:
+            return ctx->circbuf_samples;
+        case GREATBUF_CIRCBUF_DEMOD:
+            return ctx->circbuf_demod;
+        case GREATBUF_CIRCBUF_FILTER:
+            return ctx->circbuf_lpf;
+        case GREATBUF_CIRCBUF_RESAMPLE:
+            return ctx->circbuf_resample;
+        case GREATBUF_CIRCBUF_CODEC:
+            return ctx->circbuf_codec;
+        case GREATBUF_CIRCBUF_MONITOR:
+            return ctx->circbuf_monitor;
+        case GREATBUF_CIRCBUF_NETWORK:
+            return ctx->circbuf_network;
+        default:
+            return NULL;
+    }
+}
 
-    pos = ctx->pos_iq_head;
-    log_trace("Position is %zu", pos);
+void greatbuf_circbuf_status(greatbuf_ctx *ctx, int circbuf_num) {
+    greatbuf_circbuf *circbuf;
+    int dimension;
 
-    log_trace("Unlocking mutex");
-    pthread_mutex_unlock(&ctx->mutex_iq);
+    circbuf = greatbuf_circbuf_get(ctx, circbuf_num);
+
+    dimension = 100 - (int) ((FP_FLOAT) (circbuf->free) * 100 / (FP_FLOAT) circbuf->size);
+    ui_message("Circular buffer %s: %d% (%zu/%zu)\n", circbuf->name, dimension, circbuf->free, ctx->size);
+}
+
+greatbuf_item *greatbuf_item_get(greatbuf_ctx *ctx, size_t pos) {
+    log_debug("Circular buffer item get");
+
+    return ctx->items[pos];
+}
+
+ssize_t greatbuf_circbuf_head_acquire(greatbuf_ctx *ctx, int circbuf_num) {
+    greatbuf_circbuf *circbuf;
+    ssize_t pos;
+
+    log_debug("Circular buffer head acquire");
+
+    circbuf = NULL;
+    pos = -1;
+
+    log_debug("Selecting circbuf");
+    circbuf = greatbuf_circbuf_get(ctx, circbuf_num);
+
+    log_trace("Acquiring lock");
+    pthread_mutex_lock(&circbuf->mutex);
+
+    if (circbuf->busy_head == 0) {
+        if (circbuf->free > 0) {
+            circbuf->busy_head = 1;
+            pos = (ssize_t) circbuf->head;
+        } else {
+            log_warn("No free space in %s buffer", circbuf->name);
+        }
+    } else {
+        log_warn("Head busy in %s buffer", circbuf->name);
+    }
+
+    pthread_mutex_unlock(&circbuf->mutex);
+    log_trace("Releasing lock");
 
     return pos;
 }
 
-void greatbuf_iq_head_stop(greatbuf_ctx *ctx) {
-    log_debug("Incrementing Great Buffer IQ head");
+void greatbuf_circbuf_head_release(greatbuf_ctx *ctx, int circbuf_num) {
+    greatbuf_circbuf *circbuf;
 
-    log_trace("Locking mutex");
-    pthread_mutex_lock(&ctx->mutex_iq);
+    log_debug("Circular buffer head release");
 
-    log_trace("Incrementing position");
-    ctx->pos_iq_head++;
-    if (ctx->pos_iq_head >= ctx->iq_size)
-        ctx->pos_iq_head = 0;
+    circbuf = NULL;
 
-    pthread_cond_signal(&ctx->cond_iq);
+    log_debug("Selecting circbuf");
+    circbuf = greatbuf_circbuf_get(ctx, circbuf_num);
 
-    log_trace("Unlocking mutex");
-    pthread_mutex_unlock(&ctx->mutex_iq);
+    log_trace("Acquiring lock");
+    pthread_mutex_lock(&circbuf->mutex);
+
+    if (circbuf->busy_head != 0) {
+        circbuf->busy_head = 0;
+
+        circbuf->head++;
+        if (circbuf->head >= circbuf->size)
+            circbuf->head = 0;
+
+        circbuf->free--;
+        if (circbuf->free == 0)
+            log_warn("Buffer %s full", circbuf->name);
+    }
+
+    pthread_mutex_unlock(&circbuf->mutex);
+    log_trace("Releasing lock");
+
+    log_debug("Signaling condition");
+    pthread_cond_signal(&circbuf->cond);
 }
 
-size_t greatbuf_iq_tail(greatbuf_ctx *ctx) {
-    size_t pos;
+ssize_t greatbuf_circbuf_tail_acquire(greatbuf_ctx *ctx, int circbuf_num) {
+    greatbuf_circbuf *circbuf;
+    ssize_t pos;
 
-    log_debug("Getting Great Buffer IQ tail");
+    log_debug("Circular buffer tail acquire");
 
-    log_trace("Locking mutex");
-    pthread_mutex_lock(&ctx->mutex_iq);
+    circbuf = NULL;
+    pos = -1;
 
-    pos = ctx->pos_iq_tail;
-    log_trace("Position is %zu", pos);
+    log_debug("Selecting circbuf");
+    circbuf = greatbuf_circbuf_get(ctx, circbuf_num);
 
-    while (pos == ctx->pos_iq_head)
-        pthread_cond_wait(&ctx->cond_iq, &ctx->mutex_iq);
+    log_trace("Acquiring lock");
+    pthread_mutex_lock(&circbuf->mutex);
 
-    log_trace("Incrementing position");
-    ctx->pos_iq_tail++;
-    if (ctx->pos_iq_tail >= ctx->iq_size)
-        ctx->pos_iq_tail = 0;
+    if (circbuf->busy_tail == 0 && circbuf->free > 0) {
+        while (circbuf->keep_running == 1 && circbuf->free == circbuf->size) {
+            log_trace("Data not available yet, waiting");
+            pthread_cond_wait(&circbuf->cond, &circbuf->mutex);
+        }
 
-    log_trace("Unlocking mutex");
-    pthread_mutex_unlock(&ctx->mutex_iq);
+        if (circbuf->keep_running == 1) {
+            circbuf->busy_tail = 1;
+            pos = (ssize_t) circbuf->tail;
+        }
+    } else {
+        log_warn("Head busy");
+    }
+
+    pthread_mutex_unlock(&circbuf->mutex);
+    log_trace("Releasing lock");
 
     return pos;
 }
 
-size_t greatbuf_samples_head_start(greatbuf_ctx *ctx) {
-    size_t pos;
+void greatbuf_circbuf_tail_release(greatbuf_ctx *ctx, int circbuf_num) {
+    greatbuf_circbuf *circbuf;
 
-    log_debug("Getting Great Buffer samples head");
+    log_debug("Circular buffer tail release");
 
-    log_trace("Locking mutex");
-    pthread_mutex_lock(&ctx->mutex_samples);
+    circbuf = NULL;
 
-    pos = ctx->pos_samples_head;
-    log_trace("Position is %zu", pos);
+    log_debug("Selecting circbuf");
+    circbuf = greatbuf_circbuf_get(ctx, circbuf_num);
 
-    log_trace("Unlocking mutex");
-    pthread_mutex_unlock(&ctx->mutex_samples);
+    log_trace("Acquiring lock");
+    pthread_mutex_lock(&circbuf->mutex);
 
-    return pos;
-}
+    if (circbuf->busy_tail != 0) {
+        circbuf->busy_tail = 0;
 
-void greatbuf_samples_head_stop(greatbuf_ctx *ctx) {
-    log_debug("Incrementing Great Buffer samples head");
+        circbuf->tail++;
+        if (circbuf->tail >= circbuf->size)
+            circbuf->tail = 0;
 
-    log_trace("Locking mutex");
-    pthread_mutex_lock(&ctx->mutex_samples);
+        circbuf->free++;
+    }
 
-    log_trace("Incrementing position");
-    ctx->pos_samples_head++;
-    if (ctx->pos_samples_head >= ctx->samples_size)
-        ctx->pos_samples_head = 0;
-
-    pthread_cond_signal(&ctx->cond_samples);
-
-    log_trace("Unlocking mutex");
-    pthread_mutex_unlock(&ctx->mutex_samples);
-}
-
-size_t greatbuf_samples_tail(greatbuf_ctx *ctx) {
-    size_t pos;
-
-    log_debug("Getting Great Buffer samples tail");
-
-    log_trace("Locking mutex");
-    pthread_mutex_lock(&ctx->mutex_samples);
-
-    pos = ctx->pos_samples_tail;
-    log_trace("Position is %zu", pos);
-
-    while (pos == ctx->pos_iq_head)
-        pthread_cond_wait(&ctx->cond_samples, &ctx->mutex_samples);
-
-    log_trace("Incrementing position");
-    ctx->pos_samples_tail++;
-    if (ctx->pos_samples_tail >= ctx->samples_size)
-        ctx->pos_samples_tail = 0;
-
-    log_trace("Unlocking mutex");
-    pthread_mutex_unlock(&ctx->mutex_samples);
-
-    return pos;
-}
-
-size_t greatbuf_demod_head_start(greatbuf_ctx *ctx) {
-    size_t pos;
-
-    log_debug("Getting Great Buffer demod head");
-
-    log_trace("Locking mutex");
-    pthread_mutex_lock(&ctx->mutex_demod);
-
-    pos = ctx->pos_demod_head;
-    log_trace("Position is %zu", pos);
-
-    log_trace("Unlocking mutex");
-    pthread_mutex_unlock(&ctx->mutex_demod);
-
-    return pos;
-}
-
-void greatbuf_demod_head_stop(greatbuf_ctx *ctx) {
-    log_debug("Incrementing Great Buffer demod head");
-
-    log_trace("Locking mutex");
-    pthread_mutex_lock(&ctx->mutex_demod);
-
-    log_trace("Incrementing position");
-    ctx->pos_demod_head++;
-    if (ctx->pos_demod_head >= ctx->demod_size)
-        ctx->pos_demod_head = 0;
-
-    pthread_cond_signal(&ctx->cond_demod);
-
-    log_trace("Unlocking mutex");
-    pthread_mutex_unlock(&ctx->mutex_demod);
-}
-
-size_t greatbuf_demod_tail(greatbuf_ctx *ctx) {
-    size_t pos;
-
-    log_debug("Getting Great Buffer demod tail");
-
-    log_trace("Locking mutex");
-    pthread_mutex_lock(&ctx->mutex_demod);
-
-    pos = ctx->pos_demod_tail;
-    log_trace("Position is %zu", pos);
-
-    while (pos == ctx->pos_iq_head)
-        pthread_cond_wait(&ctx->cond_demod, &ctx->mutex_demod);
-
-    log_trace("Incrementing position");
-    ctx->pos_demod_tail++;
-    if (ctx->pos_demod_tail >= ctx->demod_size)
-        ctx->pos_demod_tail = 0;
-
-    log_trace("Unlocking mutex");
-    pthread_mutex_unlock(&ctx->mutex_demod);
-
-    return pos;
-}
-
-size_t greatbuf_filtered_head_start(greatbuf_ctx *ctx) {
-    size_t pos;
-
-    log_debug("Getting Great Buffer filterd head");
-
-    log_trace("Locking mutex");
-    pthread_mutex_lock(&ctx->mutex_filtered);
-
-    pos = ctx->pos_filtered_head;
-    log_trace("Position is %zu", pos);
-
-    log_trace("Unlocking mutex");
-    pthread_mutex_unlock(&ctx->mutex_filtered);
-
-    return pos;
-}
-
-void greatbuf_filtered_head_stop(greatbuf_ctx *ctx) {
-    log_debug("Incrementing Great Buffer filterd head");
-
-    log_trace("Locking mutex");
-    pthread_mutex_lock(&ctx->mutex_filtered);
-
-    log_trace("Incrementing position");
-    ctx->pos_filtered_head++;
-    if (ctx->pos_filtered_head >= ctx->filtered_size)
-        ctx->pos_filtered_head = 0;
-
-    pthread_cond_signal(&ctx->cond_filtered);
-
-    log_trace("Unlocking mutex");
-    pthread_mutex_unlock(&ctx->mutex_filtered);
-}
-
-size_t greatbuf_filtered_tail(greatbuf_ctx *ctx) {
-    size_t pos;
-
-    log_debug("Getting Great Buffer filterd tail");
-
-    log_trace("Locking mutex");
-    pthread_mutex_lock(&ctx->mutex_filtered);
-
-    pos = ctx->pos_filtered_tail;
-    log_trace("Position is %zu", pos);
-
-    while (pos == ctx->pos_iq_head)
-        pthread_cond_wait(&ctx->cond_filtered, &ctx->mutex_filtered);
-
-    log_trace("Incrementing position");
-    ctx->pos_filtered_tail++;
-    if (ctx->pos_filtered_tail >= ctx->filtered_size)
-        ctx->pos_filtered_tail = 0;
-
-    log_trace("Unlocking mutex");
-    pthread_mutex_unlock(&ctx->mutex_filtered);
-
-    return pos;
-}
-
-size_t greatbuf_pcm_head_start(greatbuf_ctx *ctx) {
-    size_t pos;
-
-    log_debug("Getting Great Buffer pcm head");
-
-    log_trace("Locking mutex");
-    pthread_mutex_lock(&ctx->mutex_pcm);
-
-    pos = ctx->pos_pcm_head;
-    log_trace("Position is %zu", pos);
-
-    log_trace("Unlocking mutex");
-    pthread_mutex_unlock(&ctx->mutex_pcm);
-
-    return pos;
-}
-
-void greatbuf_pcm_head_stop(greatbuf_ctx *ctx) {
-    log_debug("Incrementing Great Buffer pcm head");
-
-    log_trace("Locking mutex");
-    pthread_mutex_lock(&ctx->mutex_pcm);
-
-    log_trace("Incrementing position");
-    ctx->pos_pcm_head++;
-    if (ctx->pos_pcm_head >= ctx->pcm_size)
-        ctx->pos_pcm_head = 0;
-
-    pthread_cond_signal(&ctx->cond_pcm);
-
-    log_trace("Unlocking mutex");
-    pthread_mutex_unlock(&ctx->mutex_pcm);
-}
-
-size_t greatbuf_pcm_tail(greatbuf_ctx *ctx) {
-    size_t pos;
-
-    log_debug("Getting Great Buffer pcm tail");
-
-    log_trace("Locking mutex");
-    pthread_mutex_lock(&ctx->mutex_pcm);
-
-    pos = ctx->pos_pcm_tail;
-    log_trace("Position is %zu", pos);
-
-    while (pos == ctx->pos_iq_head)
-        pthread_cond_wait(&ctx->cond_pcm, &ctx->mutex_pcm);
-
-    log_trace("Incrementing position");
-    ctx->pos_pcm_tail++;
-    if (ctx->pos_pcm_tail >= ctx->pcm_size)
-        ctx->pos_pcm_tail = 0;
-
-    log_trace("Unlocking mutex");
-    pthread_mutex_unlock(&ctx->mutex_pcm);
-
-    return pos;
-}
-
-void greatbuf_item_init(greatbuf_ctx *ctx, size_t pos) {
-    greatbuf_item *item;
-
-    item = &ctx->buffer[pos];
-
-    item->number = ctx->counter;
-    ctx->counter++;
-
-    clock_gettime(CLOCK_REALTIME, &item->ts);
-}
-
-uint64_t greatbuf_item_number_get(greatbuf_ctx *ctx, size_t pos) {
-    greatbuf_item *item;
-
-    item = &ctx->buffer[pos];
-
-    return item->number;
-}
-
-struct timespec *greatbuf_item_ts_get(greatbuf_ctx *ctx, size_t pos) {
-    greatbuf_item *item;
-
-    item = &ctx->buffer[pos];
-
-    return &item->ts;
-}
-
-uint8_t *greatbuf_item_iq_get(greatbuf_ctx *ctx, size_t pos) {
-    greatbuf_item *item;
-
-    item = &ctx->buffer[pos];
-
-    return item->iq;
-}
-
-FP_FLOAT complex *greatbuf_item_samples_get(greatbuf_ctx *ctx, size_t pos) {
-    greatbuf_item *item;
-
-    item = &ctx->buffer[pos];
-
-    return item->samples;
-}
-
-FP_FLOAT *greatbuf_item_demod_get(greatbuf_ctx *ctx, size_t pos) {
-    greatbuf_item *item;
-
-    item = &ctx->buffer[pos];
-
-    return item->demod;
-}
-
-FP_FLOAT *greatbuf_item_filtered_get(greatbuf_ctx *ctx, size_t pos) {
-    greatbuf_item *item;
-
-    item = &ctx->buffer[pos];
-
-    return item->filtered;
-}
-
-int16_t *greatbuf_item_pcm_get(greatbuf_ctx *ctx, size_t pos) {
-    greatbuf_item *item;
-
-    item = &ctx->buffer[pos];
-
-    return item->pcm;
+    pthread_mutex_unlock(&circbuf->mutex);
+    log_trace("Releasing lock");
 }

@@ -20,15 +20,16 @@
 #ifndef __RTLSDR_RADIO__MAIN_RX__H
 #define __RTLSDR_RADIO__MAIN_RX__H
 
-#define BUFFER_FRAMES 8192
-#define BUFFER_PAYLOADS 8192
+#define MAIN_RX_BUFFERS_SIZE 2048
 
-#define BUFFER_SAMPLES 8192
-#define BUFFER_DEMOD 8192
-#define BUFFER_FILTERED 8192
-#define BUFFER_CODEC 8192
-#define BUFFER_MONITOR 8192
-#define BUFFER_NETWORK 8192
+#define MAIN_RX_ENABLE_THREAD_READ
+#define MAIN_RX_ENABLE_THREAD_SAMPLES
+#define MAIN_RX_ENABLE_THREAD_DEMOD
+#define MAIN_RX_ENABLE_THREAD_FILTER
+#define MAIN_RX_ENABLE_THREAD_RESAMPLE
+//#define MAIN_RX_ENABLE_THREAD_CODEC
+#define MAIN_RX_ENABLE_THREAD_MONITOR
+//#define MAIN_RX_ENABLE_THREAD_NETWORK
 
 int main_rx();
 
@@ -36,18 +37,36 @@ void main_rx_end();
 
 void main_rx_wait_init();
 
-void *thread_rx_device_read();
+#ifdef MAIN_RX_ENABLE_THREAD_READ
+void *thread_rx_read();
+#endif
 
+#ifdef MAIN_RX_ENABLE_THREAD_SAMPLES
+void *thread_rx_samples();
+#endif
+
+#ifdef MAIN_RX_ENABLE_THREAD_DEMOD
 void *thread_rx_demod();
+#endif
 
-void *thread_rx_lpf();
+#ifdef MAIN_RX_ENABLE_THREAD_FILTER
+void *thread_rx_filter();
+#endif
 
+#ifdef MAIN_RX_ENABLE_THREAD_RESAMPLE
 void *thread_rx_resample();
+#endif
 
+#ifdef MAIN_RX_ENABLE_THREAD_CODEC
 void *thread_rx_codec();
+#endif
 
+#ifdef MAIN_RX_ENABLE_THREAD_MONITOR
 void *thread_rx_monitor();
+#endif
 
+#ifdef MAIN_RX_ENABLE_THREAD_NETWORK
 void *thread_rx_network();
+#endif
 
 #endif

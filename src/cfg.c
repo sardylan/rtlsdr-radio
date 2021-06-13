@@ -47,6 +47,7 @@ void cfg_init() {
     conf->file_log_name = (char *) calloc(sizeof(char), ln);
     strcpy(conf->file_log_name, CONFIG_FILE_LOG_NAME_DEFAULT);
 
+    conf->source = CONFIG_SOURCE_DEFAULT;
     conf->mode = CONFIG_MODE_DEFAULT;
     conf->debug = CONFIG_DEBUG_DEFAULT;
 
@@ -97,6 +98,7 @@ void cfg_print() {
     ui_message("\n");
     ui_message("debug:                         %s\n", cfg_tochar_bool(conf->debug));
     ui_message("\n");
+    ui_message("source:                        %s\n", cfg_tochar_source_type(conf->source));
     ui_message("mode:                          %s\n", cfg_tochar_work_mode(conf->mode));
     ui_message("\n");
     ui_message("rtlsdr_device_id:              %u\n", conf->rtlsdr_device_id);
@@ -151,6 +153,7 @@ int cfg_parse(int argc, char **argv) {
 
             {"debug",          no_argument,       0, 'D'},
 
+            {"source",         required_argument, 0, 's'},
             {"mode",           required_argument, 0, 'm'},
 
             {0, 0,                                0, 0}
@@ -160,7 +163,7 @@ int cfg_parse(int argc, char **argv) {
     *config_filename = '\0';
 
     while (1) {
-        c = getopt_long(argc, argv, "c:hVqvd:l:L:Dm:i:f:p:G:g:a:M:", long_options, &option_index);
+        c = getopt_long(argc, argv, "c:hVqvd:l:L:Ds:m:", long_options, &option_index);
 
         if (c == -1) {
             break;
@@ -224,6 +227,15 @@ int cfg_parse(int argc, char **argv) {
 
         if (c == 'm') {
             if (cfg_parse_work_mode(&conf->mode, optarg) != EXIT_SUCCESS) {
+                ret = EXIT_FAILURE;
+                break;
+            }
+
+            continue;
+        }
+
+        if (c == 's') {
+            if (cfg_parse_source_type(&conf->source, optarg) != EXIT_SUCCESS) {
                 ret = EXIT_FAILURE;
                 break;
             }
@@ -313,6 +325,16 @@ int cfg_parse_file(char *config_filename) {
 
         if (strcmp(param, "debug") == 0) {
             conf->debug = cfg_parse_flag((int) strtol(value, &endptr, 10));
+            continue;
+        }
+
+        if (strcmp(param, "source") == 0) {
+            if (cfg_parse_source_type(&conf->source, value) != EXIT_SUCCESS) {
+                log_error("Config file error in line %zu", line_num);
+                ret = EXIT_FAILURE;
+                break;
+            }
+
             continue;
         }
 
@@ -443,17 +465,34 @@ int cfg_parse_flag(int flag) {
         return 0;
 }
 
-int cfg_parse_work_mode(work_mode *mode, char *value) {
+int cfg_parse_source_type(source_type *source, char *value) {
+    int ret;
+
+    ret = EXIT_SUCCESS;
+
+    if (strcmp(value, "rtlsdr") == 0)
+        *source = SOURCE_RTLSDR;
+    else if (strcmp(value, "file") == 0)
+        *source = SOURCE_FILE;
+    else {
+        log_error("Wrong source: %s", value);
+        ret = EXIT_FAILURE;
+    }
+
+    return ret;
+}
+
+int cfg_parse_work_mode(work_mode *source, char *value) {
     int ret;
 
     ret = EXIT_SUCCESS;
 
     if (strcmp(value, "rx") == 0)
-        *mode = MODE_RX;
+        *source = MODE_RX;
     else if (strcmp(value, "info") == 0)
-        *mode = MODE_INFO;
+        *source = MODE_INFO;
     else {
-        log_error("Wrong mode: %s", value);
+        log_error("Wrong source: %s", value);
         ret = EXIT_FAILURE;
     }
 
@@ -519,6 +558,17 @@ const char *cfg_tochar_log_level(int value) {
             return "TRACE";
         default:
             return "     ";
+    }
+}
+
+const char *cfg_tochar_source_type(source_type source) {
+    switch (source) {
+        case SOURCE_RTLSDR:
+            return "RTL-SDR device";
+        case SOURCE_FILE:
+            return "Raw IQ file";
+        default:
+            return "";
     }
 }
 

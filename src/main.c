@@ -24,7 +24,7 @@
 
 #include "main.h"
 #include "main_rx.h"
-#include "main_rx2.h"
+#include "main_rx.h"
 #include "main_info.h"
 #include "ui.h"
 #include "cfg.h"
@@ -126,10 +126,6 @@ int main_program(int argc, char **argv) {
 
             case MODE_RX:
                 result = main_rx();
-                break;
-
-            case MODE_RX2:
-                result = main_rx2();
                 break;
 
             case MODE_INFO:

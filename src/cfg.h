@@ -23,11 +23,17 @@
 #include <stddef.h>
 #include <stdint.h>
 
+enum source_type_t {
+    SOURCE_RTLSDR = 'r',
+    SOURCE_FILE = 'f'
+};
+
+typedef enum source_type_t source_type;
+
 enum work_mode_t {
     MODE_VERSION = 'v',
     MODE_HELP = 'h',
     MODE_RX = 'r',
-    MODE_RX2 = 'R',
     MODE_INFO = 'i'
 };
 
@@ -55,6 +61,7 @@ struct cfg_t {
 
     int debug;
 
+    source_type source;
     work_mode mode;
 
     uint32_t rtlsdr_device_id;
@@ -96,6 +103,8 @@ int cfg_parse_file(char *);
 
 int cfg_parse_flag(int);
 
+int cfg_parse_source_type(source_type *, char *);
+
 int cfg_parse_work_mode(work_mode *, char *);
 
 int cfg_parse_modulation(modulation_type *, char *);
@@ -105,6 +114,8 @@ int cfg_parse_filter_mode(filter_mode *, char *);
 const char *cfg_tochar_bool(int);
 
 const char *cfg_tochar_log_level(int);
+
+const char *cfg_tochar_source_type(source_type);
 
 const char *cfg_tochar_work_mode(work_mode);
 

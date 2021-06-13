@@ -17,78 +17,85 @@
  */
 
 
-#include <stdio.h>
 #include <stdlib.h>
-#include <rtl-sdr.h>
-#include <complex.h>
-#include <math.h>
 #include <pthread.h>
 #include <string.h>
+#include <stdio.h>
+#include <rtl-sdr.h>
+#include <math.h>
+#include <unistd.h>
 
 #include "main_rx.h"
 #include "main.h"
-#include "ui.h"
 #include "cfg.h"
-#include "device.h"
 #include "log.h"
+#include "ui.h"
+#include "device.h"
 #include "circbuf.h"
+#include "greatbuf.h"
 #include "fir.h"
 #include "fft.h"
 #include "resample.h"
-#include "dsp.h"
-#include "agc.h"
-#include "frame.h"
-#include "codec.h"
-#include "network.h"
-#include "payload.h"
 #include "audio.h"
 
-frame **frames;
-uint64_t frame_number = 0;
+extern volatile int keep_running;
+extern cfg *conf;
 
-payload **payloads;
-uint64_t payload_number = 0;
+#ifdef MAIN_RX_ENABLE_THREAD_READ
+pthread_t rx_read_thread;
+#endif
 
-circbuf_ctx *buffer_samples;
-circbuf_ctx *buffer_demod;
-circbuf_ctx *buffer_filtered;
-circbuf_ctx *buffer_codec;
-circbuf_ctx *buffer_monitor;
-circbuf_ctx *buffer_network;
+#ifdef MAIN_RX_ENABLE_THREAD_SAMPLES
+pthread_t rx_samples_thread;
+#endif
 
-pthread_t rx_device_thread;
+#ifdef MAIN_RX_ENABLE_THREAD_DEMOD
 pthread_t rx_demod_thread;
-pthread_t rx_lpf_thread;
+#endif
+
+#ifdef MAIN_RX_ENABLE_THREAD_FILTER
+pthread_t rx_filter_thread;
+#endif
+
+#ifdef MAIN_RX_ENABLE_THREAD_RESAMPLE
 pthread_t rx_resample_thread;
-pthread_t rx_codec_thread;
+#endif
+
+#ifdef MAIN_RX_ENABLE_THREAD_MONITOR
 pthread_t rx_monitor_thread;
+#endif
+
+#ifdef MAIN_RX_ENABLE_THREAD_CODEC
+pthread_t rx_codec_thread;
+#endif
+
+#ifdef MAIN_RX_ENABLE_THREAD_NETWORK
 pthread_t rx_network_thread;
+#endif
 
 pthread_mutex_t rx_ready_mutex;
 pthread_cond_t rx_ready_cond;
 
-int rx_device_ready;
+int rx_read_ready;
+int rx_samples_ready;
 int rx_demod_ready;
-int rx_lpf_ready;
+int rx_filter_ready;
 int rx_resample_ready;
-int rx_codec_ready;
 int rx_monitor_ready;
+int rx_codec_ready;
 int rx_network_ready;
 
-rtlsdr_dev_t *device;
+rtlsdr_dev_t *rx_device;
 
-extern volatile int keep_running;
-extern cfg *conf;
+greatbuf_ctx *greatbuf;
+
+size_t rx_pcm_size;
 
 int main_rx() {
     int result;
     pthread_attr_t attr;
     struct timespec sleep_req;
     struct timespec sleep_rem;
-    size_t size_iq;
-    size_t size_sample;
-    size_t size_pcm;
-    size_t i;
 
     char datetime[27];
     struct tm *timeinfo;
@@ -96,150 +103,70 @@ int main_rx() {
 
     int thread_result;
 
-    log_info("Main program RX mode");
+    FP_FLOAT sample_pcm_ratio;
 
-    frames = NULL;
+    log_info("Main program RX 2 mode");
 
-    buffer_samples = NULL;
-    buffer_demod = NULL;
-    buffer_filtered = NULL;
-    buffer_codec = NULL;
-    buffer_monitor = NULL;
+    greatbuf = NULL;
 
-    device = NULL;
+    sample_pcm_ratio = (FP_FLOAT) conf->rtlsdr_device_sample_rate / (FP_FLOAT) conf->audio_sample_rate;
+    rx_pcm_size = (size_t) ((FP_FLOAT) conf->rtlsdr_samples / sample_pcm_ratio);
 
-    log_debug("Allocating frames buffer");
-    frames = (frame **) calloc(BUFFER_FRAMES, sizeof(frame *));
-    if (frames == NULL) {
-        log_error("Unable to allocate frames buffer");
+    log_debug("Initializing Great Buffer");
+    greatbuf = greatbuf_init(MAIN_RX_BUFFERS_SIZE, conf->rtlsdr_samples, rx_pcm_size);
+    if (greatbuf == NULL) {
+        log_error("Unable to allocate Greatbuf");
         main_rx_end();
         return EXIT_FAILURE;
     }
 
-    for (i = 0; i < BUFFER_FRAMES; i++)
-        frames[i] = NULL;
+#ifdef MAIN_RX_ENABLE_THREAD_READ
+    rx_read_ready = 0;
+#else
+    rx_read_ready = 1;
+#endif
 
-    log_debug("Preparing frames buffer");
-    size_iq = conf->rtlsdr_samples * 2;
-    size_sample = conf->rtlsdr_samples;
-    size_pcm = (size_t) ((FP_FLOAT) conf->rtlsdr_device_sample_rate / (FP_FLOAT) conf->audio_sample_rate);
+#ifdef MAIN_RX_ENABLE_THREAD_SAMPLES
+    rx_samples_ready = 0;
+#else
+    rx_samples_ready = 1;
+#endif
 
-    for (i = 0; i < BUFFER_FRAMES; i++) {
-        frames[i] = frame_init(size_iq, size_sample, size_pcm);
-        if (frames[i] == NULL) {
-            log_error("Unable to initialize frames");
-            main_rx_end();
-            return EXIT_FAILURE;
-        }
-    }
-
-    log_debug("Allocating payloads buffer");
-    payloads = (payload **) calloc(BUFFER_PAYLOADS, sizeof(payload *));
-    if (payloads == NULL) {
-        log_error("Unable to allocate payloads buffer");
-        main_rx_end();
-        return EXIT_FAILURE;
-    }
-
-    for (i = 0; i < BUFFER_PAYLOADS; i++)
-        payloads[i] = NULL;
-
-    log_debug("Preparing payloads buffer");
-    for (i = 0; i < BUFFER_PAYLOADS; i++) {
-        payloads[i] = payload_init();
-        if (payloads[i] == NULL) {
-            log_error("Unable to initialize frames");
-            main_rx_end();
-            return EXIT_FAILURE;
-        }
-    }
-
-    log_debug("Init samples circbuf");
-    buffer_samples = circbuf_init("samples", sizeof(uint64_t), BUFFER_SAMPLES);
-    if (buffer_samples == NULL) {
-        log_error("Unable to init IQ circular buffer");
-        main_rx_end();
-        return EXIT_FAILURE;
-    }
-
-    log_debug("Init demod circbuf");
-    buffer_demod = circbuf_init("demod", sizeof(uint64_t), BUFFER_DEMOD);
-    if (buffer_demod == NULL) {
-        log_error("Unable to init demod circular buffer");
-        main_rx_end();
-        return EXIT_FAILURE;
-    }
-
-    log_debug("Init filtered circbuf");
-    buffer_filtered = circbuf_init("filtered", sizeof(uint64_t), BUFFER_FILTERED);
-    if (buffer_filtered == NULL) {
-        log_error("Unable to allocate lpf circular buffer");
-        main_rx_end();
-        return EXIT_FAILURE;
-    }
-
-    log_debug("Init codec circbuf");
-    buffer_codec = circbuf_init("codec", sizeof(uint64_t), BUFFER_CODEC);
-    if (buffer_codec == NULL) {
-        log_error("Unable to allocate codec circular buffer");
-        main_rx_end();
-        return EXIT_FAILURE;
-    }
-
-    log_debug("Init monitor circbuf");
-    buffer_monitor = circbuf_init("monitor", sizeof(uint64_t), BUFFER_MONITOR);
-    if (buffer_monitor == NULL) {
-        log_error("Unable to allocate monitor circular buffer");
-        main_rx_end();
-        return EXIT_FAILURE;
-    }
-
-    log_debug("Init network circbuf");
-    buffer_network = circbuf_init("network", sizeof(uint64_t), BUFFER_NETWORK);
-    if (buffer_network == NULL) {
-        log_error("Unable to allocate network circular buffer");
-        main_rx_end();
-        return EXIT_FAILURE;
-    }
-
-    log_debug("Opening RTL-SDR device");
-    result = device_open(&device, conf->rtlsdr_device_id);
-    if (result == EXIT_FAILURE) {
-        log_error("Unable to open RTL-SDR device");
-        main_rx_end();
-        return EXIT_FAILURE;
-    }
-
-    log_debug("Setting RTL-SDR device params");
-    result = device_set_params(
-            device,
-            conf->rtlsdr_device_sample_rate,
-            conf->rtlsdr_device_freq_correction,
-            conf->rtlsdr_device_tuner_gain_mode,
-            conf->rtlsdr_device_tuner_gain,
-            conf->rtlsdr_device_agc_mode
-    );
-    if (result == EXIT_FAILURE) {
-        log_error("Unable to set RTL-SDR device params");
-        main_rx_end();
-        return EXIT_FAILURE;
-    }
-
-    log_debug("Setting RTL-SDR device frequency");
-    result = device_set_frequency(device, conf->rtlsdr_device_center_freq);
-    if (result == EXIT_FAILURE) {
-        log_error("Unable to set RTL-SDR device frequency");
-        main_rx_end();
-        return EXIT_FAILURE;
-    }
-
-    rx_device_ready = 0;
+#ifdef MAIN_RX_ENABLE_THREAD_DEMOD
     rx_demod_ready = 0;
-    rx_lpf_ready = 0;
+#else
+    rx_demod_ready = 1;
+#endif
+
+#ifdef MAIN_RX_ENABLE_THREAD_FILTER
+    rx_filter_ready = 0;
+#else
+    rx_filter_ready = 1;
+#endif
+
+#ifdef MAIN_RX_ENABLE_THREAD_RESAMPLE
     rx_resample_ready = 0;
-    rx_codec_ready = 0;
+#else
+    rx_resample_ready = 1;
+#endif
+
+#ifdef MAIN_RX_ENABLE_THREAD_MONITOR
     rx_monitor_ready = 0;
+#else
+    rx_monitor_ready = 1;
+#endif
+
+#ifdef MAIN_RX_ENABLE_THREAD_CODEC
+    rx_codec_ready = 0;
+#else
+    rx_codec_ready = 1;
+#endif
+
+#ifdef MAIN_RX_ENABLE_THREAD_NETWORK
     rx_network_ready = 0;
+#else
+    rx_network_ready = 1;
+#endif
 
     log_debug("Initializing mutex");
     result = pthread_mutex_init(&rx_ready_mutex, NULL);
@@ -257,35 +184,85 @@ int main_rx() {
         return EXIT_FAILURE;
     }
 
+    log_debug("Opening RTL-SDR device");
+    result = device_open(&rx_device, conf->rtlsdr_device_id);
+    if (result == EXIT_FAILURE) {
+        log_error("Unable to open RTL-SDR device");
+        main_rx_end();
+        return EXIT_FAILURE;
+    }
+
+    log_debug("Setting RTL-SDR device params");
+    result = device_set_params(
+            rx_device,
+            conf->rtlsdr_device_sample_rate,
+            conf->rtlsdr_device_freq_correction,
+            conf->rtlsdr_device_tuner_gain_mode,
+            conf->rtlsdr_device_tuner_gain,
+            conf->rtlsdr_device_agc_mode
+    );
+    if (result == EXIT_FAILURE) {
+        log_error("Unable to set RTL-SDR device params");
+        main_rx_end();
+        return EXIT_FAILURE;
+    }
+
     log_debug("Setting thread attributes");
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
 
-    log_debug("Starting RX device read thread");
-    pthread_create(&rx_device_thread, &attr, thread_rx_device_read, NULL);
+#ifdef MAIN_RX_ENABLE_THREAD_READ
+    log_debug("Starting RX 2 read thread");
+    pthread_create(&rx_read_thread, &attr, thread_rx_read, NULL);
+#endif
 
-    log_debug("Starting RX demod thread");
+#ifdef MAIN_RX_ENABLE_THREAD_SAMPLES
+    log_debug("Starting RX 2 sample thread");
+    pthread_create(&rx_samples_thread, &attr, thread_rx_samples, NULL);
+#endif
+
+#ifdef MAIN_RX_ENABLE_THREAD_DEMOD
+    log_debug("Starting RX 2 demod thread");
     pthread_create(&rx_demod_thread, &attr, thread_rx_demod, NULL);
+#endif
 
-    log_debug("Starting RX lpf thread");
-    pthread_create(&rx_lpf_thread, &attr, thread_rx_lpf, NULL);
+#ifdef MAIN_RX_ENABLE_THREAD_FILTER
+    log_debug("Starting RX 2 filter thread");
+    pthread_create(&rx_filter_thread, &attr, thread_rx_filter, NULL);
+#endif
 
-    log_debug("Starting RX resample thread");
+#ifdef MAIN_RX_ENABLE_THREAD_RESAMPLE
+    log_debug("Starting RX 2 resample thread");
     pthread_create(&rx_resample_thread, &attr, thread_rx_resample, NULL);
+#endif
 
-    log_debug("Starting RX codec thread");
-    pthread_create(&rx_codec_thread, &attr, thread_rx_codec, NULL);
-
-    log_debug("Starting RX monitor thread");
+#ifdef MAIN_RX_ENABLE_THREAD_MONITOR
+    log_debug("Starting RX 2 monitor thread");
     pthread_create(&rx_monitor_thread, &attr, thread_rx_monitor, NULL);
+#endif
 
-    log_debug("Starting RX network thread");
+#ifdef MAIN_RX_ENABLE_THREAD_CODEC
+    log_debug("Starting RX 2 codec thread");
+    pthread_create(&rx_codec_thread, &attr, thread_rx_codec, NULL);
+#endif
+
+#ifdef MAIN_RX_ENABLE_THREAD_NETWORK
+    log_debug("Starting RX 2 network thread");
     pthread_create(&rx_network_thread, &attr, thread_rx_network, NULL);
+#endif
 
     log_debug("Waiting for other threads to startup");
     main_rx_wait_init();
 
-    sleep_req.tv_sec = 2;
+    log_debug("Setting RTL-SDR device frequency");
+    result = device_set_frequency(rx_device, conf->rtlsdr_device_center_freq);
+    if (result == EXIT_FAILURE) {
+        log_error("Unable to set RTL-SDR device frequency");
+        main_rx_end();
+        return EXIT_FAILURE;
+    }
+
+    sleep_req.tv_sec = 1;
     sleep_req.tv_nsec = 0;
 
     log_debug("Printing device infos");
@@ -298,57 +275,77 @@ int main_rx() {
         ui_message("---\n");
         ui_message("UTC: %s\n", datetime);
 
-        device_info(device);
-
-        circbuf_status(buffer_samples);
-        circbuf_status(buffer_demod);
-        circbuf_status(buffer_filtered);
-        circbuf_status(buffer_codec);
-        circbuf_status(buffer_monitor);
-        circbuf_status(buffer_network);
+        greatbuf_circbuf_status(greatbuf, GREATBUF_CIRCBUF_READ);
+        greatbuf_circbuf_status(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
+        greatbuf_circbuf_status(greatbuf, GREATBUF_CIRCBUF_DEMOD);
+        greatbuf_circbuf_status(greatbuf, GREATBUF_CIRCBUF_FILTER);
+        greatbuf_circbuf_status(greatbuf, GREATBUF_CIRCBUF_RESAMPLE);
+        greatbuf_circbuf_status(greatbuf, GREATBUF_CIRCBUF_CODEC);
+        greatbuf_circbuf_status(greatbuf, GREATBUF_CIRCBUF_MONITOR);
+        greatbuf_circbuf_status(greatbuf, GREATBUF_CIRCBUF_NETWORK);
 
         nanosleep(&sleep_req, &sleep_rem);
     }
-
-    log_debug("Stopping circula buffers");
-    circbuf_stop(buffer_samples);
-    circbuf_stop(buffer_demod);
-    circbuf_stop(buffer_filtered);
-    circbuf_stop(buffer_codec);
-    circbuf_stop(buffer_monitor);
-    circbuf_stop(buffer_network);
 
     log_debug("Joining threads");
 
     result = EXIT_SUCCESS;
 
-    pthread_join(rx_device_thread, (void **) &thread_result);
+#ifdef MAIN_RX_ENABLE_THREAD_READ
+    log_debug("Joining RX 2 read thread");
+    pthread_join(rx_read_thread, (void **) &thread_result);
     if (thread_result != EXIT_SUCCESS)
         result = EXIT_FAILURE;
+#endif
 
+#ifdef MAIN_RX_ENABLE_THREAD_SAMPLES
+    log_debug("Joining RX 2 sample thread");
+    pthread_join(rx_samples_thread, (void **) &thread_result);
+    if (thread_result != EXIT_SUCCESS)
+        result = EXIT_FAILURE;
+#endif
+
+#ifdef MAIN_RX_ENABLE_THREAD_DEMOD
+    log_debug("Joining RX 2 demod thread");
     pthread_join(rx_demod_thread, (void **) &thread_result);
     if (thread_result != EXIT_SUCCESS)
         result = EXIT_FAILURE;
+#endif
 
-    pthread_join(rx_lpf_thread, (void **) &thread_result);
+#ifdef MAIN_RX_ENABLE_THREAD_FILTER
+    log_debug("Joining RX 2 filter thread");
+    pthread_join(rx_filter_thread, (void **) &thread_result);
     if (thread_result != EXIT_SUCCESS)
         result = EXIT_FAILURE;
+#endif
 
+#ifdef MAIN_RX_ENABLE_THREAD_RESAMPLE
+    log_debug("Joining RX 2 resample thread");
     pthread_join(rx_resample_thread, (void **) &thread_result);
     if (thread_result != EXIT_SUCCESS)
         result = EXIT_FAILURE;
+#endif
 
-    pthread_join(rx_codec_thread, (void **) &thread_result);
-    if (thread_result != EXIT_SUCCESS)
-        result = EXIT_FAILURE;
-
+#ifdef MAIN_RX_ENABLE_THREAD_MONITOR
+    log_debug("Joining RX 2 monitor thread");
     pthread_join(rx_monitor_thread, (void **) &thread_result);
     if (thread_result != EXIT_SUCCESS)
         result = EXIT_FAILURE;
+#endif
 
+#ifdef MAIN_RX_ENABLE_THREAD_CODEC
+    log_debug("Joining RX 2 codec thread");
+    pthread_join(rx_codec_thread, (void **) &thread_result);
+    if (thread_result != EXIT_SUCCESS)
+        result = EXIT_FAILURE;
+#endif
+
+#ifdef MAIN_RX_ENABLE_THREAD_NETWORK
+    log_debug("Joining RX 2 network thread");
     pthread_join(rx_network_thread, (void **) &thread_result);
     if (thread_result != EXIT_SUCCESS)
         result = EXIT_FAILURE;
+#endif
 
     main_rx_end();
 
@@ -356,40 +353,13 @@ int main_rx() {
 }
 
 void main_rx_end() {
-    int i;
-
     log_info("Main program RX mode ending");
 
     log_debug("Closing RTL-SDR device");
-    device_close(device);
+    device_close(rx_device);
 
-    log_debug("Freeing frames");
-    if (frames != NULL) {
-        for (i = 0; i < BUFFER_FRAMES; i++)
-            if (frames[i] != NULL)
-                frame_free(frames[i]);
-
-        free(frames);
-    }
-
-    log_debug("Freeing payloads");
-    if (payloads != NULL) {
-        for (i = 0; i < BUFFER_PAYLOADS; i++)
-            if (payloads[i] != NULL)
-                payload_free(payloads[i]);
-
-        free(payloads);
-    }
-
-    log_debug("Freeing buffers");
-    if (buffer_samples != NULL)
-        circbuf_free(buffer_samples);
-    if (buffer_demod != NULL)
-        circbuf_free(buffer_demod);
-    if (buffer_filtered != NULL)
-        circbuf_free(buffer_filtered);
-    if (buffer_codec != NULL)
-        circbuf_free(buffer_codec);
+    log_debug("Freeing Great Buffer");
+    greatbuf_free(greatbuf);
 
     log_debug("Destroying mutex");
     pthread_mutex_destroy(&rx_ready_mutex);
@@ -402,13 +372,14 @@ void main_rx_wait_init() {
     log_debug("Locking mutex");
     pthread_mutex_lock(&rx_ready_mutex);
 
-    if (rx_device_ready == 0
-        || rx_demod_ready == 0
-        || rx_lpf_ready == 0
-        || rx_resample_ready == 0
-        || rx_codec_ready == 0
-        || rx_monitor_ready == 0
-        || rx_network_ready == 0)
+    while (rx_read_ready == 0
+           || rx_samples_ready == 0
+           || rx_demod_ready == 0
+           || rx_filter_ready == 0
+           || rx_resample_ready == 0
+           || rx_monitor_ready == 0
+           || rx_codec_ready == 0
+           || rx_network_ready == 0)
         pthread_cond_wait(&rx_ready_cond, &rx_ready_mutex);
 
     log_debug("Unlocking mutex");
@@ -417,13 +388,15 @@ void main_rx_wait_init() {
     pthread_cond_broadcast(&rx_ready_cond);
 }
 
-void *thread_rx_device_read() {
+#ifdef MAIN_RX_ENABLE_THREAD_READ
+
+void *thread_rx_read() {
     int retval;
 
-    size_t frame_pos;
-    frame *fr;
+    ssize_t pos;
+    uint8_t *iq_buffer;
+    int len;
 
-    size_t rtlsdr_buffer_size;
     int bytes;
     int result;
 
@@ -431,40 +404,30 @@ void *thread_rx_device_read() {
 
     retval = EXIT_SUCCESS;
 
-    rtlsdr_buffer_size = conf->rtlsdr_samples * 2;
-
     log_debug("Waiting for other threads to init");
-    rx_device_ready = 1;
+    rx_read_ready = 1;
     main_rx_wait_init();
+
+    len = (int) conf->rtlsdr_samples * 2;
 
     log_debug("Starting read loop");
     while (keep_running) {
-        frame_pos = frame_number % BUFFER_FRAMES;
-        log_trace("Using frame %zu");
-        fr = frames[frame_pos];
-
-        frame_clear(fr, frame_number);
-        frame_number++;
-
-        result = rtlsdr_read_sync(device, fr->iq, rtlsdr_buffer_size, &bytes);
+        pos = greatbuf_circbuf_head_acquire(greatbuf, GREATBUF_CIRCBUF_READ);
+        if (pos == -1) {
+            log_error("Error acquiring IQ buffer head");
+            retval = EXIT_FAILURE;
+            break;
+        }
+        iq_buffer = greatbuf_item_get(greatbuf, pos)->iq;
+        result = rtlsdr_read_sync(rx_device, (void *) iq_buffer, len, &bytes);
+        greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_READ);
         if (result != 0) {
-            log_error("Error reading data from RTL-SDR device: %d", result);
+            log_error("Error %d reading data from RTL-SDR device: %s", result, strerror(result));
             retval = EXIT_FAILURE;
             break;
         }
 
-        log_trace("Read %zu bytes", bytes);
-
-        log_trace("Converting to complex samples");
-        device_buffer_to_samples(fr->iq, fr->samples, rtlsdr_buffer_size);
-
-        log_trace("Put samples in circbuf");
-        result = circbuf_put(buffer_samples, &fr->number, 1);
-        if (result != EXIT_SUCCESS) {
-            log_error("Unable to put data to circbuf");
-            retval = EXIT_FAILURE;
-            break;
-        }
+        log_trace("Read %zu bytes from RTL-SDR", bytes);
     }
 
     log_info("Thread end");
@@ -474,84 +437,166 @@ void *thread_rx_device_read() {
     pthread_exit(&retval);
 }
 
+#endif
+
+#ifdef MAIN_RX_ENABLE_THREAD_SAMPLES
+
+void *thread_rx_samples() {
+    int retval;
+
+    ssize_t pos;
+    uint8_t *iq_buffer;
+    FP_FLOAT complex *samples_buffer;
+    int len;
+
+    log_info("Thread start");
+
+    iq_buffer = NULL;
+    samples_buffer = NULL;
+
+    retval = EXIT_SUCCESS;
+
+    log_debug("Waiting for other threads to init");
+    rx_samples_ready = 1;
+    main_rx_wait_init();
+
+    len = (int) conf->rtlsdr_samples * 2;
+
+    log_debug("Starting read loop");
+    while (keep_running) {
+        pos = greatbuf_circbuf_tail_acquire(greatbuf, GREATBUF_CIRCBUF_READ);
+        if (pos == -1) {
+            log_error("Error acquiring IQ buffer tail");
+            retval = EXIT_FAILURE;
+            break;
+        }
+        iq_buffer = greatbuf_item_get(greatbuf, pos)->iq;
+
+        pos = greatbuf_circbuf_head_acquire(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
+        if (pos == -1) {
+            log_error("Error acquiring Samples buffer head");
+            retval = EXIT_FAILURE;
+            break;
+        }
+        samples_buffer = greatbuf_item_get(greatbuf, pos)->samples;
+
+        log_trace("Converting IQ to complex samples");
+        device_buffer_to_samples(iq_buffer, samples_buffer, len);
+
+        greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_READ);
+        greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
+    }
+
+    log_info("Thread end");
+
+    main_stop();
+
+    pthread_exit(&retval);
+}
+
+#endif
+
+#ifdef MAIN_RX_ENABLE_THREAD_DEMOD
+
 void *thread_rx_demod() {
     int retval;
 
-    uint64_t fr_number;
-    size_t fr_pos;
-    frame *fr;
+    ssize_t pos;
+
+    FP_FLOAT complex *samples_buffer;
+    FP_FLOAT *demod_buffer;
 
     FP_FLOAT complex product;
     FP_FLOAT complex prev_sample;
 
-    FP_FLOAT value;
-    FP_FLOAT prod_fm;
-    FP_FLOAT prod_am;
-    int8_t elem;
+    FP_FLOAT real;
+    FP_FLOAT imag;
+
     size_t j;
-    int result;
 
     log_info("Thread start");
 
     retval = EXIT_SUCCESS;
-
     prev_sample = 0 + 0 * I;
 
     log_debug("Waiting for other threads to init");
     rx_demod_ready = 1;
     main_rx_wait_init();
 
-    prod_fm = (FP_FLOAT) (127 / M_PI);
-    prod_am = (FP_FLOAT) ((127 * M_SQRT2) / 2);
-
     log_debug("Starting demod loop");
     while (keep_running) {
-        log_trace("Reading from circbuf");
-        result = circbuf_get(buffer_samples, &fr_number, 1);
-        if (result != EXIT_SUCCESS) {
-            log_error("Unable to get data from circbuf");
+        pos = greatbuf_circbuf_tail_acquire(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
+        if (pos == -1) {
+            log_error("Error acquiring samples buffer tail");
             retval = EXIT_FAILURE;
             break;
         }
+        samples_buffer = greatbuf_item_get(greatbuf, pos)->samples;
 
-        fr_pos = fr_number % BUFFER_FRAMES;
-        log_trace("Frame number: %zu - Pos: %zu", fr_number, fr_pos);
-        fr = frames[fr_pos];
+        pos = greatbuf_circbuf_head_acquire(greatbuf, GREATBUF_CIRCBUF_DEMOD);
+        if (pos == -1) {
+            log_error("Error acquiring demod buffer head");
+            retval = EXIT_FAILURE;
+            break;
+        }
+        demod_buffer = greatbuf_item_get(greatbuf, pos)->demod;
 
-        log_trace("Computing RMS");
-        fr->rms = dsp_complex_rms(fr->samples, conf->rtlsdr_samples);
-
-        log_trace("Demodulating");
+        log_trace("Demodulating samples");
         for (j = 0; j < conf->rtlsdr_samples; j++) {
             switch (conf->modulation) {
                 case MOD_TYPE_FM:
-                    product = fr->samples[j] * conj(prev_sample);
-                    value = (FP_FLOAT) (atan2(cimag(product), creal(product)) * prod_fm);
+                    product = samples_buffer[j] * conj(prev_sample);
 
-                    prev_sample = fr->samples[j];
+#if FP_FLOAT == float
+                    real = crealf(product);
+                    imag = cimagf(product);
+
+                    if (real != 0 || imag != 0)
+                        demod_buffer[j] = atan2f(imag, real) * (float) M_1_PI;
+                    else
+                        demod_buffer[j] = 0;
+#elif FP_FLOAT == double
+                    real = creal(product);
+                    imag = cimag(product);
+
+                    if (real != 0 || imag != 0)
+                        demod_buffer[j] = atan2(imag, real) * M_1_PI;
+                    else
+                        demod_buffer[j] = 0;
+#elif FP_FLOAT == long double
+                    real = creall(product);
+                    imag = cimagl(product);
+
+                    if (real != 0 || imag != 0)
+                        demod_buffer[j] = atan2l(imag, real) * M_1_PI;
+                    else
+                        demod_buffer[j] = 0;
+#else
+                    demod_buffer[j] = 0;
+#endif
+                    prev_sample = samples_buffer[j];
                     break;
 
                 case MOD_TYPE_AM:
-                    value = (FP_FLOAT) (((cabs(fr->samples[j]) / prod_am) - 1) * 127);
+
+#if FP_FLOAT == float
+                    demod_buffer[j] = cabsf(samples_buffer[j]) / (float) M_SQRT2;
+#elif FP_FLOAT == double
+                    demod_buffer[j] = cabs(samples_buffer[j]) / M_SQRT2;
+#elif FP_FLOAT == long double
+                    demod_buffer[j] = cabsl(samples_buffer[j]) / M_SQRT2;
+#else
+                    demod_buffer[j] = 0;
+#endif
                     break;
 
                 default:
-                    value = 0;
+                    demod_buffer[j] = 0;
             }
-
-            elem = (int8_t) value;
-            fr->demod[j] = elem;
         }
 
-        log_trace("Removing DC offset");
-        dsp_remove_dc_offset(fr->demod, conf->rtlsdr_samples);
-
-        result = circbuf_put(buffer_demod, &fr->number, 1);
-        if (result != EXIT_SUCCESS) {
-            log_error("Unable to put data to circbuf");
-            retval = EXIT_FAILURE;
-            break;
-        }
+        greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
+        greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_DEMOD);
     }
 
     log_info("Thread end");
@@ -561,125 +606,118 @@ void *thread_rx_demod() {
     pthread_exit(&retval);
 }
 
-void *thread_rx_lpf() {
+#endif
+
+#ifdef MAIN_RX_ENABLE_THREAD_FILTER
+
+void *thread_rx_filter() {
     int retval;
 
-    uint64_t fr_number;
-    size_t fr_pos;
-    frame *fr;
+    ssize_t pos;
 
-    fir_ctx *lpf_ctx;
+    FP_FLOAT *demod_buffer;
+    FP_FLOAT *filtered_buffer;
 
     fft_ctx *fwd_fft_ctx;
     fft_ctx *bck_fft_ctx;
-    FP_FLOAT *freq_domain_coeffs;
 
-    int result;
     size_t i;
     size_t half;
+    size_t coeff_truncate;
 
     log_info("Thread start");
 
     retval = EXIT_SUCCESS;
+    half = conf->rtlsdr_samples / 2;
+    coeff_truncate = (conf->audio_sample_rate * conf->rtlsdr_samples) / conf->rtlsdr_device_sample_rate;
 
-    if (conf->filter == FILTER_MODE_FIR_SW) {
-        log_debug("Initializing FIR low-pass filter context");
-        lpf_ctx = fir_init_lpf(conf->filter_fir);
-        if (lpf_ctx == NULL) {
-            log_error("Unable to allocate FIR low-pass filter context");
-            retval = EXIT_FAILURE;
-            pthread_exit(&retval);
-        }
-    } else if (conf->filter == FILTER_MODE_FFT_SW) {
-        log_debug("Initializing FFT forward context");
-        fwd_fft_ctx = fft_init(conf->rtlsdr_samples, FFTW_R2HC, FFT_DATA_TYPE_REAL);
-        if (fwd_fft_ctx == NULL) {
-            log_error("Unable to allocate FFT forward context");
-            retval = EXIT_FAILURE;
-            pthread_exit(&retval);
-        }
+    switch (conf->filter) {
 
-        log_debug("Initializing FFT backward context");
-        bck_fft_ctx = fft_init(conf->rtlsdr_samples, FFTW_HC2R, FFT_DATA_TYPE_REAL);
-        if (bck_fft_ctx == NULL) {
-            log_error("Unable to allocate FFT backward context");
-            fft_free(fwd_fft_ctx);
-            retval = EXIT_FAILURE;
-            pthread_exit(&retval);
-        }
+        case FILTER_MODE_NONE:
+            break;
 
-        log_debug("Allocating Frequency Domain coefficients buffer");
-        freq_domain_coeffs = (FP_FLOAT *) calloc(conf->rtlsdr_samples, sizeof(FP_FLOAT));
-        if (freq_domain_coeffs == NULL) {
-            log_error("Unable to allocate Frequency Domain coefficients buffer");
-            fft_free(fwd_fft_ctx);
-            fft_free(bck_fft_ctx);
+        case FILTER_MODE_FFT_SW:
+            log_debug("Initializing FFT forward context");
+            fwd_fft_ctx = fft_init(conf->rtlsdr_samples, FFTW_R2HC, FFT_DATA_TYPE_REAL);
+            if (fwd_fft_ctx == NULL) {
+                log_error("Unable to allocate FFT forward context");
+                retval = EXIT_FAILURE;
+                pthread_exit(&retval);
+            }
+
+            log_debug("Initializing FFT backward context");
+            bck_fft_ctx = fft_init(conf->rtlsdr_samples, FFTW_HC2R, FFT_DATA_TYPE_REAL);
+            if (bck_fft_ctx == NULL) {
+                log_error("Unable to allocate FFT backward context");
+                fft_free(fwd_fft_ctx);
+                retval = EXIT_FAILURE;
+                pthread_exit(&retval);
+            }
+
+            break;
+
+        default:
+            log_error("Not implemented");
             retval = EXIT_FAILURE;
             pthread_exit(&retval);
-        }
     }
 
     log_debug("Waiting for other threads to init");
-    rx_lpf_ready = 1;
+    rx_filter_ready = 1;
     main_rx_wait_init();
 
     log_debug("Starting filter loop");
-
-    half = conf->rtlsdr_samples / 2;
-
     while (keep_running) {
-        log_trace("Reading %zu bytes", conf->rtlsdr_samples);
-        result = circbuf_get(buffer_demod, &fr_number, 1);
-        if (result != EXIT_SUCCESS) {
-            log_error("Unable to get data from circbuf");
+        pos = greatbuf_circbuf_tail_acquire(greatbuf, GREATBUF_CIRCBUF_DEMOD);
+        if (pos == -1) {
+            log_error("Error acquiring demod buffer tail");
             retval = EXIT_FAILURE;
             break;
         }
+        demod_buffer = greatbuf_item_get(greatbuf, pos)->demod;
 
-        fr_pos = fr_number % BUFFER_FRAMES;
-        log_trace("Frame number: %zu - Pos: %zu", fr_number, fr_pos);
-        fr = frames[fr_pos];
+        pos = greatbuf_circbuf_head_acquire(greatbuf, GREATBUF_CIRCBUF_FILTER);
+        if (pos == -1) {
+            log_error("Error acquiring filtered buffer head");
+            retval = EXIT_FAILURE;
+            break;
+        }
+        filtered_buffer = greatbuf_item_get(greatbuf, pos)->filtered;
+
+        log_trace("Filtering");
 
         switch (conf->filter) {
 
             case FILTER_MODE_NONE:
                 log_trace("Copying data");
-                memcpy(fr->filtered, fr->demod, conf->rtlsdr_samples);
-                break;
-
-            case FILTER_MODE_FIR_SW:
-                log_trace("Filtering with FIR");
-                fir_convolve(lpf_ctx, fr->filtered, fr->demod, conf->rtlsdr_samples);
+                for (i = 0; i < conf->rtlsdr_samples; i++)
+                    filtered_buffer[i] = demod_buffer[i];
                 break;
 
             case FILTER_MODE_FFT_SW:
                 log_debug("Copying input values for forward FFT");
                 for (i = 0; i < conf->rtlsdr_samples; i++)
-                    fwd_fft_ctx->real_input[i] = (FP_FLOAT) fr->demod[i];
+                    fwd_fft_ctx->real_input[i] = demod_buffer[i];
 
                 log_trace("Computing forward FFT");
                 fft_compute(fwd_fft_ctx);
 
-                log_debug("Copying output values from forward FFT output");
+                log_debug("Copying output values from forward FFT output to input values for backward FFT");
                 for (i = 0; i < conf->rtlsdr_samples; i++)
-                    freq_domain_coeffs[i] = fwd_fft_ctx->real_output[i];
+                    bck_fft_ctx->real_input[i] = fwd_fft_ctx->real_output[i];
 
                 log_trace("Adjusting coeffs");
-                for (i = 64; i < half; i++) {
-                    freq_domain_coeffs[i] = 0;
-                    freq_domain_coeffs[conf->rtlsdr_samples - i] = 0;
+                for (i = coeff_truncate; i < half; i++) {
+                    bck_fft_ctx->real_input[i] = 0;
+                    bck_fft_ctx->real_input[conf->rtlsdr_samples - i] = 0;
                 }
-
-                log_debug("Copying input values for backward FFT");
-                for (i = 0; i < conf->rtlsdr_samples; i++)
-                    bck_fft_ctx->real_input[i] = freq_domain_coeffs[i];
 
                 log_trace("Computing backward FFT");
                 fft_compute(bck_fft_ctx);
 
                 log_debug("Copying output values from backward FFT output");
                 for (i = 0; i < conf->rtlsdr_samples; i++)
-                    fr->filtered[i] = bck_fft_ctx->real_output[i] / conf->rtlsdr_samples;
+                    filtered_buffer[i] = bck_fft_ctx->real_output[i] / (FP_FLOAT) conf->rtlsdr_samples;
 
                 break;
 
@@ -689,28 +727,27 @@ void *thread_rx_lpf() {
                 break;
         }
 
-        result = circbuf_put(buffer_filtered, &fr->number, 1);
-        if (result != EXIT_SUCCESS) {
-            log_error("Unable to put data to circbuf");
+        greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_DEMOD);
+        greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_FILTER);
+    }
+
+    switch (conf->filter) {
+
+        case FILTER_MODE_NONE:
+            break;
+
+        case FILTER_MODE_FFT_SW:
+            log_debug("Freeing FFT forward context");
+            fft_free(fwd_fft_ctx);
+
+            log_debug("Freeing FFT backward context");
+            fft_free(bck_fft_ctx);
+            break;
+
+        default:
+            log_error("Not implemented");
             retval = EXIT_FAILURE;
             break;
-        }
-    }
-
-    if (conf->filter == FILTER_MODE_FIR_SW) {
-        log_debug("Freeing resample context");
-        fir_free(lpf_ctx);
-    }
-
-    if (conf->filter == FILTER_MODE_FFT_SW) {
-        log_debug("Freeing FFT forward context");
-        fft_free(fwd_fft_ctx);
-
-        log_debug("Freeing FFT backward context");
-        fft_free(bck_fft_ctx);
-
-        log_debug("Freeing Frequency Domain coefficients buffer");
-        free(freq_domain_coeffs);
     }
 
     log_info("Thread end");
@@ -720,16 +757,19 @@ void *thread_rx_lpf() {
     pthread_exit(&retval);
 }
 
+#endif
+
+#ifdef MAIN_RX_ENABLE_THREAD_RESAMPLE
+
 void *thread_rx_resample() {
     int retval;
 
-    uint64_t fr_number;
-    size_t fr_pos;
-    frame *fr;
+    ssize_t pos;
 
-    size_t audio_num;
     resample_ctx *res_ctx;
-    int result;
+
+    FP_FLOAT *filtered_buffer;
+    int16_t *pcm_buffer;
 
     log_info("Thread start");
 
@@ -743,49 +783,35 @@ void *thread_rx_resample() {
         pthread_exit(&retval);
     }
 
-    audio_num = resample_compute_output_size(res_ctx, conf->rtlsdr_samples);
-    log_debug("Audio buffer samples_size is %zu", audio_num);
-
     log_debug("Waiting for other threads to init");
     rx_resample_ready = 1;
     main_rx_wait_init();
 
-    log_debug("Starting resample loop");
+    log_debug("Starting read loop");
     while (keep_running) {
-        log_trace("Reading %zu bytes", conf->rtlsdr_samples);
-        result = circbuf_get(buffer_filtered, &fr_number, 1);
-        if (result != EXIT_SUCCESS) {
-            log_error("Unable to get data from circbuf");
+        pos = greatbuf_circbuf_tail_acquire(greatbuf, GREATBUF_CIRCBUF_FILTER);
+        if (pos == -1) {
+            log_error("Error acquiring filtered buffer tail");
             retval = EXIT_FAILURE;
             break;
         }
+        filtered_buffer = greatbuf_item_get(greatbuf, pos)->filtered;
 
-        fr_pos = fr_number % BUFFER_FRAMES;
-        log_trace("Frame number: %zu - Pos: %zu", fr_number, fr_pos);
-        fr = frames[fr_pos];
-
-        log_trace("Resampling %zu bytes in %zu bytes", conf->rtlsdr_samples, audio_num);
-        resample_do(res_ctx, fr->filtered, conf->rtlsdr_samples, fr->pcm, audio_num);
-
-//        log_trace("Applying limiter");
-//        agc_perform_gain(fr->pcm, audio_num);
-
-        result = circbuf_put(buffer_codec, &fr->number, 1);
-        if (result != EXIT_SUCCESS) {
-            log_error("Unable to put data to codec circbuf");
+        pos = greatbuf_circbuf_head_acquire(greatbuf, GREATBUF_CIRCBUF_RESAMPLE);
+        if (pos == -1) {
+            log_error("Error acquiring pcm buffer head");
             retval = EXIT_FAILURE;
             break;
         }
+        pcm_buffer = greatbuf_item_get(greatbuf, pos)->pcm;
 
-        result = circbuf_put(buffer_monitor, &fr->number, 1);
-        if (result != EXIT_SUCCESS) {
-            log_error("Unable to put data to monitor circbuf");
-            retval = EXIT_FAILURE;
-            break;
-        }
+        log_trace("Resampling");
+        resample_float_to_int16(res_ctx, filtered_buffer, conf->rtlsdr_samples, pcm_buffer, rx_pcm_size);
+
+        greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_FILTER);
+        greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_RESAMPLE);
     }
 
-    log_debug("Freeing resample context");
     resample_free(res_ctx);
 
     log_info("Thread end");
@@ -795,191 +821,50 @@ void *thread_rx_resample() {
     pthread_exit(&retval);
 }
 
-void *thread_rx_codec() {
-    int retval;
+#endif
 
-    codec_ctx *ctx;
-
-    uint64_t fr_number;
-    size_t fr_pos;
-    frame *fr;
-
-    size_t p_pos;
-    payload *p;
-
-    int result;
-
-    int8_t *pcm_buffer;
-    size_t pcm_size;
-
-    uint8_t codec_buffer[8192];
-    size_t codec_bytes;
-
-    log_info("Thread start");
-
-    retval = EXIT_SUCCESS;
-
-    payload_number = 0;
-
-    log_debug("Initializing codec context");
-    ctx = codec_init(conf->audio_sample_rate, conf->codec_opus_bitrate);
-    if (ctx == NULL) {
-        log_error("Unable to allocate codec context");
-        retval = EXIT_FAILURE;
-        pthread_exit(&retval);
-    }
-
-    log_debug("Preparing PCM buffer");
-    pcm_buffer = (int8_t *) calloc(CODEC_FRAME_BUFFER, sizeof(int8_t));
-    if (pcm_buffer == NULL) {
-        log_error("Unable to allocate PCM buffer");
-        codec_free(ctx);
-        retval = EXIT_FAILURE;
-        pthread_exit(&retval);
-    }
-
-    pcm_size = 0;
-
-    log_debug("Waiting for other threads to init");
-    rx_codec_ready = 1;
-    main_rx_wait_init();
-
-    log_debug("Starting codec loop");
-
-    while (keep_running) {
-        log_trace("Reading frame number");
-        result = circbuf_get(buffer_codec, &fr_number, 1);
-        if (result != EXIT_SUCCESS) {
-            log_error("Unable to get data from circbuf");
-            retval = EXIT_FAILURE;
-            break;
-        }
-
-        fr_pos = fr_number % BUFFER_FRAMES;
-        fr = frames[fr_pos];
-        log_trace("Frame number: %zu - Pos: %zu", fr->number, fr_pos);
-
-        memcpy(pcm_buffer + pcm_size, fr->pcm, fr->size_pcm);
-        pcm_size += fr->size_pcm;
-
-        if (pcm_size >= CODEC_FRAME_SIZE) {
-            codec_encode(ctx, pcm_buffer, codec_buffer, sizeof(codec_buffer), &codec_bytes);
-
-            p_pos = payload_number % BUFFER_PAYLOADS;
-            p = payloads[p_pos];
-            log_trace("Payload number: %zu - Pos: %zu", fr->number, fr_pos);
-
-            payload_set_numbers(p, 0, payload_number);
-            payload_set_timestamp(p, &fr->ts);
-            payload_set_rms(p, fr->rms);
-            payload_set_channel_frequency(p, 0, conf->rtlsdr_device_center_freq);
-            payload_set_data(p, codec_buffer, codec_bytes);
-
-            result = circbuf_put(buffer_network, &payload_number, 1);
-            if (result != EXIT_SUCCESS) {
-                log_error("Unable to put data to circbuf");
-                retval = EXIT_FAILURE;
-                break;
-            }
-
-            pcm_size = 0;
-
-            payload_number++;
-        }
-    }
-
-    log_debug("Freeing codec context");
-    codec_free(ctx);
-
-    log_debug("Freeing PCM buffer");
-    free(pcm_buffer);
-
-    log_info("Thread end");
-
-    main_stop();
-
-    pthread_exit(&retval);
-}
-
+#ifdef MAIN_RX_ENABLE_THREAD_CODEC
 void *thread_rx_monitor() {
     int retval;
 
-    audio_ctx *ctx;
-
-    uint64_t fr_number;
-    size_t fr_pos;
-    frame *fr;
-
     int result;
 
-    uint8_t *pcm_buffer;
-    size_t pcm_size;
-    size_t i;
+    size_t pcm_pos;
+    int16_t *pcm_buffer;
+
+    audio_ctx *ctx;
 
     log_info("Thread start");
 
     retval = EXIT_SUCCESS;
 
     log_debug("Initializing audio context");
-    ctx = audio_init(conf->audio_monitor_device, conf->audio_sample_rate, 1, SND_PCM_FORMAT_U8);
+    ctx = audio_init(conf->audio_monitor_device, conf->audio_sample_rate, 1, SND_PCM_FORMAT_S16);
     if (ctx == NULL) {
         log_error("Unable to allocate codec context");
         retval = EXIT_FAILURE;
         pthread_exit(&retval);
     }
 
-    log_debug("Preparing PCM buffer");
-    pcm_buffer = (uint8_t *) calloc(CODEC_FRAME_BUFFER, sizeof(uint8_t));
-    if (pcm_buffer == NULL) {
-        log_error("Unable to allocate PCM buffer");
-        audio_free(ctx);
-        retval = EXIT_FAILURE;
-        pthread_exit(&retval);
-    }
-
-    pcm_size = 0;
-
     log_debug("Waiting for other threads to init");
     rx_monitor_ready = 1;
     main_rx_wait_init();
 
-    log_debug("Starting monitor loop");
-
+    log_debug("Starting read loop");
     while (keep_running) {
-        log_trace("Reading frame number");
-        result = circbuf_get(buffer_monitor, &fr_number, 1);
+        pcm_pos = greatbuf_pcm_tail(greatbuf);
+        pcm_buffer = greatbuf_item_pcm_get(greatbuf, pcm_pos);
+
+        result = audio_play_int16(ctx, pcm_buffer, greatbuf->rx_pcm_size);
         if (result != EXIT_SUCCESS) {
-            log_error("Unable to get data from circbuf");
+            log_error("Unable to play buffer");
             retval = EXIT_FAILURE;
             break;
-        }
-
-        fr_pos = fr_number % BUFFER_FRAMES;
-        fr = frames[fr_pos];
-        log_trace("Frame number: %zu - Pos: %zu", fr->number, fr_pos);
-
-        for (i = 0; i < fr->size_pcm; i++)
-            pcm_buffer[pcm_size + i] = (uint8_t) (127 + fr->pcm[i]);
-
-        pcm_size += fr->size_pcm;
-
-        if (pcm_size >= ctx->frames_per_period) {
-            result = audio_play_uint8(ctx, pcm_buffer, pcm_size);
-            if (result != EXIT_SUCCESS) {
-                log_error("Unable to play buffer");
-                retval = EXIT_FAILURE;
-                break;
-            }
-
-            pcm_size = 0;
         }
     }
 
     log_debug("Freeing audio context");
     audio_free(ctx);
-
-    log_debug("Freeing PCM buffer");
-    free(pcm_buffer);
 
     log_info("Thread end");
 
@@ -987,18 +872,17 @@ void *thread_rx_monitor() {
 
     pthread_exit(&retval);
 }
+#endif
 
-void *thread_rx_network() {
+#ifdef MAIN_RX_ENABLE_THREAD_MONITOR
+
+void *thread_rx_monitor() {
     int retval;
 
-    network_ctx *ctx;
+    ssize_t pos;
 
-    uint64_t p_number;
-    size_t p_pos;
-    payload *p;
-
-    uint8_t network_buffer[8192];
-    size_t network_bytes;
+    audio_ctx *ctx;
+    int16_t *pcm_buffer;
 
     int result;
 
@@ -1006,51 +890,40 @@ void *thread_rx_network() {
 
     retval = EXIT_SUCCESS;
 
-    log_debug("Initializing network context");
-    ctx = network_init(conf->network_server, conf->network_port);
+    log_debug("Initializing audio context");
+    ctx = audio_init(conf->audio_monitor_device, conf->audio_sample_rate, 1, SND_PCM_FORMAT_S16_LE);
     if (ctx == NULL) {
-        log_error("Unable to allocate network context");
-        retval = EXIT_FAILURE;
-        pthread_exit(&retval);
-    }
-
-    log_debug("Opening socket");
-    result = network_socket_open(ctx);
-    if (result != EXIT_SUCCESS) {
-        log_error("Unable to open network socket");
-        network_free(ctx);
+        log_error("Unable to allocate codec context");
         retval = EXIT_FAILURE;
         pthread_exit(&retval);
     }
 
     log_debug("Waiting for other threads to init");
-    rx_network_ready = 1;
+    rx_monitor_ready = 1;
     main_rx_wait_init();
 
+    log_debug("Starting read loop");
     while (keep_running) {
-        log_trace("Reading frame number");
-        result = circbuf_get(buffer_network, &p_number, 1);
+        pos = greatbuf_circbuf_tail_acquire(greatbuf, GREATBUF_CIRCBUF_RESAMPLE);
+        if (pos == -1) {
+            log_error("Error acquiring filtered buffer tail");
+            retval = EXIT_FAILURE;
+            break;
+        }
+        pcm_buffer = greatbuf_item_get(greatbuf, pos)->pcm;
+
+        result = audio_play_int16(ctx, pcm_buffer, rx_pcm_size);
         if (result != EXIT_SUCCESS) {
-            log_error("Unable to get data from circbuf");
+            log_error("Unable to play buffer");
             retval = EXIT_FAILURE;
             break;
         }
 
-        p_pos = p_number % BUFFER_PAYLOADS;
-        p = payloads[p_pos];
-        log_trace("Payload number: %zu - Pos: %zu", p_number, p_pos);
-
-        if (p->rms > 10) {
-            payload_serialize(p, network_buffer, sizeof(network_buffer), &network_bytes);
-            network_socket_send(ctx, network_buffer, network_bytes);
-        }
+        greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_RESAMPLE);
     }
 
-    log_debug("Closing network socket");
-    network_socket_close(ctx);
-
-    log_debug("Freeing codec context");
-    network_free(ctx);
+    log_debug("Freeing audio context");
+    audio_free(ctx);
 
     log_info("Thread end");
 
@@ -1058,3 +931,30 @@ void *thread_rx_network() {
 
     pthread_exit(&retval);
 }
+
+#endif
+
+#ifdef MAIN_RX_ENABLE_THREAD_NETWORK
+void *thread_rx_network() {
+    int retval;
+
+    log_info("Thread start");
+
+    retval = EXIT_SUCCESS;
+
+    log_debug("Waiting for other threads to init");
+    rx_network_ready = 1;
+    main_rx_wait_init();
+
+    log_debug("Starting read loop");
+    while (keep_running) {
+        sleep(1);
+    }
+
+    log_info("Thread end");
+
+    main_stop();
+
+    pthread_exit(&retval);
+}
+#endif

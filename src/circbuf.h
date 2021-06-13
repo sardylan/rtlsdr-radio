@@ -27,38 +27,44 @@
 struct circbuf_ctx_t {
     char *name;
 
-    int keep_running;
-
-    uint8_t *pointer;
-
+    size_t size;
+    size_t payload_size;
     size_t item_size;
+
+    size_t shift;
+
+    void *data;
 
     size_t head;
     size_t tail;
 
-    size_t size;
     size_t free;
+
+    int busy_head;
+    int busy_tail;
 
     pthread_mutex_t mutex;
     pthread_cond_t cond;
+
+    volatile int keep_running;
 };
 
 typedef struct circbuf_ctx_t circbuf_ctx;
 
-circbuf_ctx *circbuf_init(const char *, size_t, size_t);
+circbuf_ctx *circbuf_init(const char *, size_t, size_t, size_t);
 
 void circbuf_free(circbuf_ctx *);
 
-int circbuf_put_data(circbuf_ctx *, void *, size_t);
-
-int circbuf_get_data(circbuf_ctx *, void *, size_t);
-
-int circbuf_put(circbuf_ctx *, void *, size_t);
-
-int circbuf_get(circbuf_ctx *, void *, size_t);
+void circbuf_status(circbuf_ctx *);
 
 void circbuf_stop(circbuf_ctx *);
 
-void circbuf_status(circbuf_ctx *);
+void *circbuf_head_acquire(circbuf_ctx *);
+
+void circbuf_head_release(circbuf_ctx *);
+
+void *circbuf_tail_acquire(circbuf_ctx *);
+
+void circbuf_tail_release(circbuf_ctx *);
 
 #endif

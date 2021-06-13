@@ -21,7 +21,6 @@ add_executable(rtlsdr_radio
         codec.c codec.h
         cfg.c cfg.h
         circbuf.c circbuf.h
-        circbuf2.c circbuf2.h
         default.h
         device.c device.h
         dsp.c dsp.h
@@ -29,12 +28,10 @@ add_executable(rtlsdr_radio
         fir.c fir.h fir_lpf.h
         frame.c frame.h
         greatbuf.c greatbuf.h
-        greatbuf2.c greatbuf2.h
         log.c log.h
         main.c main.h
         main_info.c main_info.h
         main_rx.c main_rx.h
-        main_rx2.c main_rx2.h
         network.h network.c
         payload.c payload.h
         resample.c resample.h
