@@ -102,7 +102,7 @@ audio_ctx *audio_init(const char *device_name, unsigned int rate, unsigned int c
 
     result = snd_pcm_hw_params_get_period_size(params, &ctx->frames_per_period, 0);
     if (result != 0) {
-        log_error("Error %d getting period size: %s", result, snd_strerror(result));
+        log_error("Error %d getting period samples_size: %s", result, snd_strerror(result));
         audio_free(ctx);
         return NULL;
     }
@@ -136,7 +136,7 @@ int audio_play_uint8(audio_ctx *ctx, uint8_t *buffer, size_t buffer_size) {
     snd_pcm_prepare(ctx->pcm);
     result = snd_pcm_writei(ctx->pcm, buffer, buffer_size);
     if (result != (snd_pcm_sframes_t) buffer_size) {
-        log_error("Error %d getting period size: %s", result, snd_strerror(result));
+        log_error("Error %d getting period samples_size: %s", result, snd_strerror(result));
         return EXIT_FAILURE;
     }
 
@@ -149,7 +149,7 @@ int audio_play_int16(audio_ctx *ctx, int16_t *buffer, size_t buffer_size) {
     snd_pcm_prepare(ctx->pcm);
     result = snd_pcm_writei(ctx->pcm, buffer, buffer_size);
     if (result != (snd_pcm_sframes_t) buffer_size) {
-        log_error("Error %d getting period size: %s", result, snd_strerror(result));
+        log_error("Error %d getting period samples_size: %s", result, snd_strerror(result));
         return EXIT_FAILURE;
     }
 

@@ -59,13 +59,14 @@ void log_message(const int level, const char *element, char *filename, const int
         return;
 
     if (strncmp(element, "circbuf2_", 9) == 0 && level >= LOG_LEVEL_DEBUG) return;
+    if (strncmp(element, "greatbuf2_", 9) == 0 && level >= LOG_LEVEL_DEBUG) return;
     if (strncmp(element, "fft_", 4) == 0 && level >= LOG_LEVEL_DEBUG) return;
     if (strncmp(element, "resample_", 9) == 0 && level >= LOG_LEVEL_DEBUG) return;
 
     if (strcmp(element, "thread_rx2_read") == 0 && level >= LOG_LEVEL_DEBUG) return;
-    if (strcmp(element, "thread_rx2_sample") == 0 && level >= LOG_LEVEL_DEBUG) return;
+    if (strcmp(element, "thread_rx2_samples") == 0 && level >= LOG_LEVEL_DEBUG) return;
     if (strcmp(element, "thread_rx2_demod") == 0 && level >= LOG_LEVEL_DEBUG) return;
-    if (strcmp(element, "thread_rx2_lpf") == 0 && level >= LOG_LEVEL_DEBUG) return;
+    if (strcmp(element, "thread_rx2_filter") == 0 && level >= LOG_LEVEL_DEBUG) return;
     if (strcmp(element, "thread_rx2_resample") == 0 && level >= LOG_LEVEL_DEBUG) return;
 
     pthread_mutex_lock(&log_lock);

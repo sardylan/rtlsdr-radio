@@ -37,7 +37,7 @@ frame *frame_init(size_t size_iq, size_t size_sample, size_t size_pcm) {
 
     f->number = 0;
 
-    log_trace("Setting IQ buffer size");
+    log_trace("Setting IQ buffer samples_size");
     f->size_iq = size_iq;
 
     log_trace("Allocating IQ buffer");
@@ -48,7 +48,7 @@ frame *frame_init(size_t size_iq, size_t size_sample, size_t size_pcm) {
         return NULL;
     }
 
-    log_trace("Setting Samples buffer size");
+    log_trace("Setting Samples buffer samples_size");
     f->size_sample = size_sample;
 
     log_trace("Allocating Samples buffer");
@@ -75,7 +75,7 @@ frame *frame_init(size_t size_iq, size_t size_sample, size_t size_pcm) {
         return NULL;
     }
 
-    log_trace("Setting PCM buffer size");
+    log_trace("Setting PCM buffer samples_size");
     f->size_pcm = size_pcm;
 
     log_trace("Allocating PCM buffer");

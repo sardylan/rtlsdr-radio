@@ -20,13 +20,12 @@
 #ifndef __RTLSDR_RADIO__MAIN_RX2__H
 #define __RTLSDR_RADIO__MAIN_RX2__H
 
-#define MAIN_RX2_PAYLOAD_SIZE 1024
 #define MAIN_RX2_BUFFERS_SIZE 2048
 
 #define MAIN_RX2_ENABLE_THREAD_READ
-#define MAIN_RX2_ENABLE_THREAD_SAMPLE
+#define MAIN_RX2_ENABLE_THREAD_SAMPLES
 #define MAIN_RX2_ENABLE_THREAD_DEMOD
-#define MAIN_RX2_ENABLE_THREAD_LPF
+#define MAIN_RX2_ENABLE_THREAD_FILTER
 #define MAIN_RX2_ENABLE_THREAD_RESAMPLE
 //#define MAIN_RX2_ENABLE_THREAD_CODEC
 #define MAIN_RX2_ENABLE_THREAD_MONITOR
@@ -42,16 +41,16 @@ void main_rx2_wait_init();
 void *thread_rx2_read();
 #endif
 
-#ifdef MAIN_RX2_ENABLE_THREAD_SAMPLE
-void *thread_rx2_sample();
+#ifdef MAIN_RX2_ENABLE_THREAD_SAMPLES
+void *thread_rx2_samples();
 #endif
 
 #ifdef MAIN_RX2_ENABLE_THREAD_DEMOD
 void *thread_rx2_demod();
 #endif
 
-#ifdef MAIN_RX2_ENABLE_THREAD_LPF
-void *thread_rx2_lpf();
+#ifdef MAIN_RX2_ENABLE_THREAD_FILTER
+void *thread_rx2_filter();
 #endif
 
 #ifdef MAIN_RX2_ENABLE_THREAD_RESAMPLE

@@ -25,6 +25,7 @@
 
 resample_ctx *resample_init(uint32_t src_rate, uint32_t dst_rate) {
     resample_ctx *ctx;
+
     log_info("Initializing resample context");
 
     log_debug("Create resample context");
@@ -88,7 +89,7 @@ int resample_float_to_int16(resample_ctx *ctx,
         shift = ctx->ratio * i;
         if (shift >= input_size)
             break;
-        output[i] = (int16_t) (input[shift] * 0xFFFF);
+        output[i] = (int16_t) (input[shift] * 32767);
     }
 
     return EXIT_SUCCESS;

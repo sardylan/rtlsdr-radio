@@ -744,7 +744,7 @@ void *thread_rx_resample() {
     }
 
     audio_num = resample_compute_output_size(res_ctx, conf->rtlsdr_samples);
-    log_debug("Audio buffer size is %zu", audio_num);
+    log_debug("Audio buffer samples_size is %zu", audio_num);
 
     log_debug("Waiting for other threads to init");
     rx_resample_ready = 1;
@@ -767,8 +767,8 @@ void *thread_rx_resample() {
         log_trace("Resampling %zu bytes in %zu bytes", conf->rtlsdr_samples, audio_num);
         resample_do(res_ctx, fr->filtered, conf->rtlsdr_samples, fr->pcm, audio_num);
 
-        log_trace("Applying limiter");
-        agc_limiter(fr->pcm, audio_num);
+//        log_trace("Applying limiter");
+//        agc_perform_gain(fr->pcm, audio_num);
 
         result = circbuf_put(buffer_codec, &fr->number, 1);
         if (result != EXIT_SUCCESS) {

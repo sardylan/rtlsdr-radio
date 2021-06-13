@@ -116,7 +116,7 @@ int payload_set_data(payload *p, uint8_t *data, uint32_t data_size) {
     log_debug("Copying data");
     memcpy(p->data, data, data_size);
 
-    log_debug("Setting data size");
+    log_debug("Setting data samples_size");
     p->data_size = data_size;
 
     return EXIT_SUCCESS;
@@ -125,7 +125,7 @@ int payload_set_data(payload *p, uint8_t *data, uint32_t data_size) {
 size_t payload_get_size(payload *p) {
     size_t ln;
 
-    log_info("Getting payload size");
+    log_info("Getting payload samples_size");
 
     ln = 0;
 
@@ -188,7 +188,7 @@ int payload_serialize(payload *p, uint8_t *buffer, size_t buffer_size, size_t *b
     utils_uint32_to_be(buffer + ln, p->frequency);
     ln += sizeof(uint32_t);
 
-    log_debug("Adds data size");
+    log_debug("Adds data samples_size");
     utils_uint32_to_be(buffer + ln, p->data_size);
     ln += sizeof(uint32_t);
 

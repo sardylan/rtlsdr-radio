@@ -191,6 +191,10 @@ int device_buffer_to_samples(const uint8_t *buffer, FP_FLOAT complex *samples, s
     for (j = 0; j < buffer_size; j += 2) {
         i = (FP_FLOAT) buffer[j] - 128;
         q = (FP_FLOAT) buffer[j + 1] - 128;
+
+        i /= 128;
+        q /= 128;
+
         samples[j / 2] = i + q * I;
     }
 

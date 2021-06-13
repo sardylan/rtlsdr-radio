@@ -49,7 +49,7 @@ circbuf2_ctx *circbuf2_init(const char *name, size_t item_size, size_t payload_s
 
     strcpy(ctx->name, name);
 
-    log_debug("Setting size");
+    log_debug("Setting samples_size");
     ctx->size = size;
     ctx->payload_size = payload_size;
     ctx->item_size = item_size;

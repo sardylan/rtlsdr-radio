@@ -37,7 +37,7 @@ fft_ctx *fft_init(size_t size, int sign, fft_data_type data_type) {
         return NULL;
     }
 
-    log_debug("Setting size");
+    log_debug("Setting samples_size");
     ctx->size = size;
 
     log_debug("Setting data type");

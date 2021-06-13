@@ -63,7 +63,7 @@ circbuf_ctx *circbuf_init(const char *name, size_t item_size, size_t initial_siz
         return NULL;
     }
 
-    log_debug("Setting size");
+    log_debug("Setting samples_size");
     ctx->item_size = item_size;
 
     log_debug("Initializing internal vars");

@@ -23,6 +23,22 @@
 #include <stddef.h>
 #include <stdint.h>
 
-int agc_limiter(int8_t *, size_t);
+struct agc_ctx_t {
+    FP_FLOAT gain;
+    FP_FLOAT dc_offset;
+
+    FP_FLOAT gain_factor;
+    FP_FLOAT dc_offset_factor;
+};
+
+typedef struct agc_ctx_t agc_ctx;
+
+agc_ctx *agc_init();
+
+void agc_free();
+
+int agc_perform_gain(agc_ctx *ctx, FP_FLOAT *data, size_t len);
+
+//int agc_perform_gain(int8_t *, size_t);
 
 #endif

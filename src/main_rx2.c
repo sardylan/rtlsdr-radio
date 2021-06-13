@@ -32,6 +32,7 @@
 #include "ui.h"
 #include "device.h"
 #include "circbuf2.h"
+#include "greatbuf2.h"
 #include "fir.h"
 #include "fft.h"
 #include "resample.h"
@@ -44,16 +45,16 @@ extern cfg *conf;
 pthread_t rx2_read_thread;
 #endif
 
-#ifdef MAIN_RX2_ENABLE_THREAD_SAMPLE
-pthread_t rx2_sample_thread;
+#ifdef MAIN_RX2_ENABLE_THREAD_SAMPLES
+pthread_t rx2_samples_thread;
 #endif
 
 #ifdef MAIN_RX2_ENABLE_THREAD_DEMOD
 pthread_t rx2_demod_thread;
 #endif
 
-#ifdef MAIN_RX2_ENABLE_THREAD_LPF
-pthread_t rx2_lpf_thread;
+#ifdef MAIN_RX2_ENABLE_THREAD_FILTER
+pthread_t rx2_filter_thread;
 #endif
 
 #ifdef MAIN_RX2_ENABLE_THREAD_RESAMPLE
@@ -76,9 +77,9 @@ pthread_mutex_t rx2_ready_mutex;
 pthread_cond_t rx2_ready_cond;
 
 int rx2_read_ready;
-int rx2_sample_ready;
+int rx2_samples_ready;
 int rx2_demod_ready;
-int rx2_lpf_ready;
+int rx2_filter_ready;
 int rx2_resample_ready;
 int rx2_monitor_ready;
 int rx2_codec_ready;
@@ -86,11 +87,7 @@ int rx2_network_ready;
 
 rtlsdr_dev_t *rx2_device;
 
-circbuf2_ctx *rx2_buf_iq;
-circbuf2_ctx *rx2_buf_sample;
-circbuf2_ctx *rx2_buf_demod;
-circbuf2_ctx *rx2_buf_filtered;
-circbuf2_ctx *rx2_buf_pcm;
+greatbuf2_ctx *greatbuf;
 
 size_t rx2_pcm_size;
 
@@ -106,52 +103,19 @@ int main_rx2() {
 
     int thread_result;
 
+    FP_FLOAT sample_pcm_ratio;
+
     log_info("Main program RX 2 mode");
 
-    rx2_buf_iq = NULL;
-    rx2_buf_sample = NULL;
-    rx2_buf_demod = NULL;
-    rx2_buf_filtered = NULL;
-    rx2_buf_pcm = NULL;
+    greatbuf = NULL;
 
-    rx2_pcm_size = (size_t) ((FP_FLOAT) conf->rtlsdr_device_sample_rate / (FP_FLOAT) conf->audio_sample_rate);
+    sample_pcm_ratio = (FP_FLOAT) conf->rtlsdr_device_sample_rate / (FP_FLOAT) conf->audio_sample_rate;
+    rx2_pcm_size = (size_t) ((FP_FLOAT) conf->rtlsdr_samples / sample_pcm_ratio);
 
-    log_debug("Initializing IQ Circular Buffer");
-    rx2_buf_iq = circbuf2_init("iq", sizeof(uint8_t) * 2, MAIN_RX2_PAYLOAD_SIZE, MAIN_RX2_BUFFERS_SIZE);
-    if (rx2_buf_iq == NULL) {
-        log_error("Unable to allocate IQ Circular Buffer");
-        main_rx2_end();
-        return EXIT_FAILURE;
-    }
-
-    log_debug("Initializing Samples Circular Buffer");
-    rx2_buf_sample = circbuf2_init("sample", sizeof(FP_FLOAT complex), MAIN_RX2_PAYLOAD_SIZE, MAIN_RX2_BUFFERS_SIZE);
-    if (rx2_buf_sample == NULL) {
-        log_error("Unable to allocate Samples Circular Buffer");
-        main_rx2_end();
-        return EXIT_FAILURE;
-    }
-
-    log_debug("Initializing Demod Circular Buffer");
-    rx2_buf_demod = circbuf2_init("demod", sizeof(FP_FLOAT), MAIN_RX2_PAYLOAD_SIZE, MAIN_RX2_BUFFERS_SIZE);
-    if (rx2_buf_demod == NULL) {
-        log_error("Unable to allocate Demod Circular Buffer");
-        main_rx2_end();
-        return EXIT_FAILURE;
-    }
-
-    log_debug("Initializing Filtered Circular Buffer");
-    rx2_buf_filtered = circbuf2_init("filtered", sizeof(FP_FLOAT), MAIN_RX2_PAYLOAD_SIZE, MAIN_RX2_BUFFERS_SIZE);
-    if (rx2_buf_filtered == NULL) {
-        log_error("Unable to allocate Filtered Circular Buffer");
-        main_rx2_end();
-        return EXIT_FAILURE;
-    }
-
-    log_debug("Initializing PCM Circular Buffer");
-    rx2_buf_pcm = circbuf2_init("pcm", sizeof(int16_t), rx2_pcm_size, MAIN_RX2_BUFFERS_SIZE);
-    if (rx2_buf_pcm == NULL) {
-        log_error("Unable to allocate PCM Circular Buffer");
+    log_debug("Initializing Great Buffer");
+    greatbuf = greatbuf2_init(MAIN_RX2_BUFFERS_SIZE, conf->rtlsdr_samples, rx2_pcm_size);
+    if (greatbuf == NULL) {
+        log_error("Unable to allocate Greatbuf");
         main_rx2_end();
         return EXIT_FAILURE;
     }
@@ -162,10 +126,10 @@ int main_rx2() {
     rx2_read_ready = 1;
 #endif
 
-#ifdef MAIN_RX2_ENABLE_THREAD_SAMPLE
-    rx2_sample_ready = 0;
+#ifdef MAIN_RX2_ENABLE_THREAD_SAMPLES
+    rx2_samples_ready = 0;
 #else
-    rx2_sample_ready = 1;
+    rx2_samples_ready = 1;
 #endif
 
 #ifdef MAIN_RX2_ENABLE_THREAD_DEMOD
@@ -174,10 +138,10 @@ int main_rx2() {
     rx2_demod_ready = 1;
 #endif
 
-#ifdef MAIN_RX2_ENABLE_THREAD_LPF
-    rx2_lpf_ready = 0;
+#ifdef MAIN_RX2_ENABLE_THREAD_FILTER
+    rx2_filter_ready = 0;
 #else
-    rx2_lpf_ready = 1;
+    rx2_filter_ready = 1;
 #endif
 
 #ifdef MAIN_RX2_ENABLE_THREAD_RESAMPLE
@@ -252,9 +216,9 @@ int main_rx2() {
     pthread_create(&rx2_read_thread, &attr, thread_rx2_read, NULL);
 #endif
 
-#ifdef MAIN_RX2_ENABLE_THREAD_SAMPLE
+#ifdef MAIN_RX2_ENABLE_THREAD_SAMPLES
     log_debug("Starting RX 2 sample thread");
-    pthread_create(&rx2_sample_thread, &attr, thread_rx2_sample, NULL);
+    pthread_create(&rx2_samples_thread, &attr, thread_rx2_samples, NULL);
 #endif
 
 #ifdef MAIN_RX2_ENABLE_THREAD_DEMOD
@@ -262,9 +226,9 @@ int main_rx2() {
     pthread_create(&rx2_demod_thread, &attr, thread_rx2_demod, NULL);
 #endif
 
-#ifdef MAIN_RX2_ENABLE_THREAD_LPF
-    log_debug("Starting RX 2 lpf thread");
-    pthread_create(&rx2_lpf_thread, &attr, thread_rx2_lpf, NULL);
+#ifdef MAIN_RX2_ENABLE_THREAD_FILTER
+    log_debug("Starting RX 2 filter thread");
+    pthread_create(&rx2_filter_thread, &attr, thread_rx2_filter, NULL);
 #endif
 
 #ifdef MAIN_RX2_ENABLE_THREAD_RESAMPLE
@@ -311,11 +275,14 @@ int main_rx2() {
         ui_message("---\n");
         ui_message("UTC: %s\n", datetime);
 
-        circbuf2_status(rx2_buf_iq);
-        circbuf2_status(rx2_buf_sample);
-        circbuf2_status(rx2_buf_demod);
-        circbuf2_status(rx2_buf_filtered);
-        circbuf2_status(rx2_buf_pcm);
+        greatbuf2_circbuf_status(greatbuf, GREATBUF2_CIRCBUF_READ);
+        greatbuf2_circbuf_status(greatbuf, GREATBUF2_CIRCBUF_SAMPLES);
+        greatbuf2_circbuf_status(greatbuf, GREATBUF2_CIRCBUF_DEMOD);
+        greatbuf2_circbuf_status(greatbuf, GREATBUF2_CIRCBUF_FILTER);
+        greatbuf2_circbuf_status(greatbuf, GREATBUF2_CIRCBUF_RESAMPLE);
+        greatbuf2_circbuf_status(greatbuf, GREATBUF2_CIRCBUF_CODEC);
+        greatbuf2_circbuf_status(greatbuf, GREATBUF2_CIRCBUF_MONITOR);
+        greatbuf2_circbuf_status(greatbuf, GREATBUF2_CIRCBUF_NETWORK);
 
         nanosleep(&sleep_req, &sleep_rem);
     }
@@ -331,9 +298,9 @@ int main_rx2() {
         result = EXIT_FAILURE;
 #endif
 
-#ifdef MAIN_RX2_ENABLE_THREAD_SAMPLE
+#ifdef MAIN_RX2_ENABLE_THREAD_SAMPLES
     log_debug("Joining RX 2 sample thread");
-    pthread_join(rx2_sample_thread, (void **) &thread_result);
+    pthread_join(rx2_samples_thread, (void **) &thread_result);
     if (thread_result != EXIT_SUCCESS)
         result = EXIT_FAILURE;
 #endif
@@ -345,9 +312,9 @@ int main_rx2() {
         result = EXIT_FAILURE;
 #endif
 
-#ifdef MAIN_RX2_ENABLE_THREAD_LPF
-    log_debug("Joining RX 2 lpf thread");
-    pthread_join(rx2_lpf_thread, (void **) &thread_result);
+#ifdef MAIN_RX2_ENABLE_THREAD_FILTER
+    log_debug("Joining RX 2 filter thread");
+    pthread_join(rx2_filter_thread, (void **) &thread_result);
     if (thread_result != EXIT_SUCCESS)
         result = EXIT_FAILURE;
 #endif
@@ -391,20 +358,8 @@ void main_rx2_end() {
     log_debug("Closing RTL-SDR device");
     device_close(rx2_device);
 
-    log_debug("Freeing IQ Buffer");
-    circbuf2_free(rx2_buf_iq);
-
-    log_debug("Freeing Sample Buffer");
-    circbuf2_free(rx2_buf_sample);
-
-    log_debug("Freeing Demod Buffer");
-    circbuf2_free(rx2_buf_demod);
-
-    log_debug("Freeing Filtered Buffer");
-    circbuf2_free(rx2_buf_filtered);
-
-    log_debug("Freeing PCM Buffer");
-    circbuf2_free(rx2_buf_pcm);
+    log_debug("Freeing Great Buffer");
+    greatbuf2_free(greatbuf);
 
     log_debug("Destroying mutex");
     pthread_mutex_destroy(&rx2_ready_mutex);
@@ -418,9 +373,9 @@ void main_rx2_wait_init() {
     pthread_mutex_lock(&rx2_ready_mutex);
 
     while (rx2_read_ready == 0
-           || rx2_sample_ready == 0
+           || rx2_samples_ready == 0
            || rx2_demod_ready == 0
-           || rx2_lpf_ready == 0
+           || rx2_filter_ready == 0
            || rx2_resample_ready == 0
            || rx2_monitor_ready == 0
            || rx2_codec_ready == 0
@@ -438,6 +393,7 @@ void main_rx2_wait_init() {
 void *thread_rx2_read() {
     int retval;
 
+    ssize_t pos;
     uint8_t *iq_buffer;
     int len;
 
@@ -452,19 +408,19 @@ void *thread_rx2_read() {
     rx2_read_ready = 1;
     main_rx2_wait_init();
 
-    len = MAIN_RX2_PAYLOAD_SIZE * 2;
+    len = (int) conf->rtlsdr_samples * 2;
 
     log_debug("Starting read loop");
     while (keep_running) {
-        iq_buffer = (uint8_t *) circbuf2_head_acquire(rx2_buf_iq);
-        if (iq_buffer == NULL) {
+        pos = greatbuf2_circbuf_head_acquire(greatbuf, GREATBUF2_CIRCBUF_READ);
+        if (pos == -1) {
             log_error("Error acquiring IQ buffer head");
             retval = EXIT_FAILURE;
             break;
         }
-
+        iq_buffer = greatbuf2_item_get(greatbuf, pos)->iq;
         result = rtlsdr_read_sync(rx2_device, (void *) iq_buffer, len, &bytes);
-        circbuf2_head_release(rx2_buf_iq);
+        greatbuf2_circbuf_head_release(greatbuf, GREATBUF2_CIRCBUF_READ);
         if (result != 0) {
             log_error("Error %d reading data from RTL-SDR device: %s", result, strerror(result));
             retval = EXIT_FAILURE;
@@ -483,11 +439,12 @@ void *thread_rx2_read() {
 
 #endif
 
-#ifdef MAIN_RX2_ENABLE_THREAD_SAMPLE
+#ifdef MAIN_RX2_ENABLE_THREAD_SAMPLES
 
-void *thread_rx2_sample() {
+void *thread_rx2_samples() {
     int retval;
 
+    ssize_t pos;
     uint8_t *iq_buffer;
     FP_FLOAT complex *samples_buffer;
     int len;
@@ -500,32 +457,34 @@ void *thread_rx2_sample() {
     retval = EXIT_SUCCESS;
 
     log_debug("Waiting for other threads to init");
-    rx2_sample_ready = 1;
+    rx2_samples_ready = 1;
     main_rx2_wait_init();
 
-    len = MAIN_RX2_PAYLOAD_SIZE * 2;
+    len = (int) conf->rtlsdr_samples * 2;
 
     log_debug("Starting read loop");
     while (keep_running) {
-        iq_buffer = (uint8_t *) circbuf2_tail_acquire(rx2_buf_iq);
-        if (iq_buffer == NULL) {
+        pos = greatbuf2_circbuf_tail_acquire(greatbuf, GREATBUF2_CIRCBUF_READ);
+        if (pos == -1) {
             log_error("Error acquiring IQ buffer tail");
             retval = EXIT_FAILURE;
             break;
         }
+        iq_buffer = greatbuf2_item_get(greatbuf, pos)->iq;
 
-        samples_buffer = (FP_FLOAT complex *) circbuf2_head_acquire(rx2_buf_sample);
-        if (samples_buffer == NULL) {
-            log_error("Error acquiring samples buffer head");
+        pos = greatbuf2_circbuf_head_acquire(greatbuf, GREATBUF2_CIRCBUF_SAMPLES);
+        if (pos == -1) {
+            log_error("Error acquiring Samples buffer head");
             retval = EXIT_FAILURE;
             break;
         }
+        samples_buffer = greatbuf2_item_get(greatbuf, pos)->samples;
 
         log_trace("Converting IQ to complex samples");
         device_buffer_to_samples(iq_buffer, samples_buffer, len);
 
-        circbuf2_tail_release(rx2_buf_iq);
-        circbuf2_head_release(rx2_buf_sample);
+        greatbuf2_circbuf_tail_release(greatbuf, GREATBUF2_CIRCBUF_READ);
+        greatbuf2_circbuf_head_release(greatbuf, GREATBUF2_CIRCBUF_SAMPLES);
     }
 
     log_info("Thread end");
@@ -542,22 +501,23 @@ void *thread_rx2_sample() {
 void *thread_rx2_demod() {
     int retval;
 
+    ssize_t pos;
+
     FP_FLOAT complex *samples_buffer;
     FP_FLOAT *demod_buffer;
 
     FP_FLOAT complex product;
     FP_FLOAT complex prev_sample;
 
-    FP_FLOAT prod_fm;
-    FP_FLOAT prod_am;
+    FP_FLOAT real;
+    FP_FLOAT imag;
+
     size_t j;
 
     log_info("Thread start");
 
     retval = EXIT_SUCCESS;
     prev_sample = 0 + 0 * I;
-    prod_fm = (FP_FLOAT) (127 / M_PI);
-    prod_am = (FP_FLOAT) ((127 * M_SQRT2) / 2);
 
     log_debug("Waiting for other threads to init");
     rx2_demod_ready = 1;
@@ -565,32 +525,69 @@ void *thread_rx2_demod() {
 
     log_debug("Starting demod loop");
     while (keep_running) {
-        samples_buffer = (FP_FLOAT complex *) circbuf2_tail_acquire(rx2_buf_sample);
-        if (samples_buffer == NULL) {
+        pos = greatbuf2_circbuf_tail_acquire(greatbuf, GREATBUF2_CIRCBUF_SAMPLES);
+        if (pos == -1) {
             log_error("Error acquiring samples buffer tail");
             retval = EXIT_FAILURE;
             break;
         }
+        samples_buffer = greatbuf2_item_get(greatbuf, pos)->samples;
 
-        demod_buffer = (FP_FLOAT *) circbuf2_head_acquire(rx2_buf_demod);
-        if (demod_buffer == NULL) {
+        pos = greatbuf2_circbuf_head_acquire(greatbuf, GREATBUF2_CIRCBUF_DEMOD);
+        if (pos == -1) {
             log_error("Error acquiring demod buffer head");
             retval = EXIT_FAILURE;
             break;
         }
+        demod_buffer = greatbuf2_item_get(greatbuf, pos)->demod;
 
         log_trace("Demodulating samples");
-        for (j = 0; j < MAIN_RX2_PAYLOAD_SIZE; j++) {
+        for (j = 0; j < conf->rtlsdr_samples; j++) {
             switch (conf->modulation) {
                 case MOD_TYPE_FM:
                     product = samples_buffer[j] * conj(prev_sample);
-                    demod_buffer[j] = (FP_FLOAT) (atan2(cimag(product), creal(product)) * prod_fm);
 
+#if FP_FLOAT == float
+                    real = crealf(product);
+                    imag = cimagf(product);
+
+                    if (real != 0 || imag != 0)
+                        demod_buffer[j] = atan2f(imag, real) * (float) M_1_PI;
+                    else
+                        demod_buffer[j] = 0;
+#elif FP_FLOAT == double
+                    real = creal(product);
+                    imag = cimag(product);
+
+                    if (real != 0 || imag != 0)
+                        demod_buffer[j] = atan2(imag, real) * M_1_PI;
+                    else
+                        demod_buffer[j] = 0;
+#elif FP_FLOAT == long double
+                    real = creall(product);
+                    imag = cimagl(product);
+
+                    if (real != 0 || imag != 0)
+                        demod_buffer[j] = atan2l(imag, real) * M_1_PI;
+                    else
+                        demod_buffer[j] = 0;
+#else
+                    demod_buffer[j] = 0;
+#endif
                     prev_sample = samples_buffer[j];
                     break;
 
                 case MOD_TYPE_AM:
-                    demod_buffer[j] = (FP_FLOAT) (((cabs(samples_buffer[j]) / prod_am) - 1) * 127);
+
+#if FP_FLOAT == float
+                    demod_buffer[j] = cabsf(samples_buffer[j]) / (float) M_SQRT2;
+#elif FP_FLOAT == double
+                    demod_buffer[j] = cabs(samples_buffer[j]) / M_SQRT2;
+#elif FP_FLOAT == long double
+                    demod_buffer[j] = cabsl(samples_buffer[j]) / M_SQRT2;
+#else
+                    demod_buffer[j] = 0;
+#endif
                     break;
 
                 default:
@@ -598,8 +595,8 @@ void *thread_rx2_demod() {
             }
         }
 
-        circbuf2_tail_release(rx2_buf_sample);
-        circbuf2_head_release(rx2_buf_demod);
+        greatbuf2_circbuf_tail_release(greatbuf, GREATBUF2_CIRCBUF_SAMPLES);
+        greatbuf2_circbuf_head_release(greatbuf, GREATBUF2_CIRCBUF_DEMOD);
     }
 
     log_info("Thread end");
@@ -611,10 +608,12 @@ void *thread_rx2_demod() {
 
 #endif
 
-#ifdef MAIN_RX2_ENABLE_THREAD_LPF
+#ifdef MAIN_RX2_ENABLE_THREAD_FILTER
 
-void *thread_rx2_lpf() {
+void *thread_rx2_filter() {
     int retval;
+
+    ssize_t pos;
 
     FP_FLOAT *demod_buffer;
     FP_FLOAT *filtered_buffer;
@@ -624,11 +623,13 @@ void *thread_rx2_lpf() {
 
     size_t i;
     size_t half;
+    size_t coeff_truncate;
 
     log_info("Thread start");
 
     retval = EXIT_SUCCESS;
-    half = MAIN_RX2_PAYLOAD_SIZE / 2;
+    half = conf->rtlsdr_samples / 2;
+    coeff_truncate = (conf->audio_sample_rate * conf->rtlsdr_samples) / conf->rtlsdr_device_sample_rate;
 
     switch (conf->filter) {
 
@@ -637,7 +638,7 @@ void *thread_rx2_lpf() {
 
         case FILTER_MODE_FFT_SW:
             log_debug("Initializing FFT forward context");
-            fwd_fft_ctx = fft_init(MAIN_RX2_PAYLOAD_SIZE, FFTW_R2HC, FFT_DATA_TYPE_REAL);
+            fwd_fft_ctx = fft_init(conf->rtlsdr_samples, FFTW_R2HC, FFT_DATA_TYPE_REAL);
             if (fwd_fft_ctx == NULL) {
                 log_error("Unable to allocate FFT forward context");
                 retval = EXIT_FAILURE;
@@ -645,7 +646,7 @@ void *thread_rx2_lpf() {
             }
 
             log_debug("Initializing FFT backward context");
-            bck_fft_ctx = fft_init(MAIN_RX2_PAYLOAD_SIZE, FFTW_HC2R, FFT_DATA_TYPE_REAL);
+            bck_fft_ctx = fft_init(conf->rtlsdr_samples, FFTW_HC2R, FFT_DATA_TYPE_REAL);
             if (bck_fft_ctx == NULL) {
                 log_error("Unable to allocate FFT backward context");
                 fft_free(fwd_fft_ctx);
@@ -662,24 +663,26 @@ void *thread_rx2_lpf() {
     }
 
     log_debug("Waiting for other threads to init");
-    rx2_lpf_ready = 1;
+    rx2_filter_ready = 1;
     main_rx2_wait_init();
 
-    log_debug("Starting lpf loop");
+    log_debug("Starting filter loop");
     while (keep_running) {
-        demod_buffer = (FP_FLOAT *) circbuf2_tail_acquire(rx2_buf_demod);
-        if (demod_buffer == NULL) {
-            log_error("Error acquiring samples buffer tail");
+        pos = greatbuf2_circbuf_tail_acquire(greatbuf, GREATBUF2_CIRCBUF_DEMOD);
+        if (pos == -1) {
+            log_error("Error acquiring demod buffer tail");
             retval = EXIT_FAILURE;
             break;
         }
+        demod_buffer = greatbuf2_item_get(greatbuf, pos)->demod;
 
-        filtered_buffer = (FP_FLOAT *) circbuf2_head_acquire(rx2_buf_filtered);
-        if (filtered_buffer == NULL) {
+        pos = greatbuf2_circbuf_head_acquire(greatbuf, GREATBUF2_CIRCBUF_FILTER);
+        if (pos == -1) {
             log_error("Error acquiring filtered buffer head");
             retval = EXIT_FAILURE;
             break;
         }
+        filtered_buffer = greatbuf2_item_get(greatbuf, pos)->filtered;
 
         log_trace("Filtering");
 
@@ -687,12 +690,13 @@ void *thread_rx2_lpf() {
 
             case FILTER_MODE_NONE:
                 log_trace("Copying data");
-                memcpy(demod_buffer, filtered_buffer, MAIN_RX2_PAYLOAD_SIZE);
+                for (i = 0; i < conf->rtlsdr_samples; i++)
+                    filtered_buffer[i] = demod_buffer[i];
                 break;
 
             case FILTER_MODE_FFT_SW:
                 log_debug("Copying input values for forward FFT");
-                for (i = 0; i < MAIN_RX2_PAYLOAD_SIZE; i++)
+                for (i = 0; i < conf->rtlsdr_samples; i++)
                     fwd_fft_ctx->real_input[i] = demod_buffer[i];
 
                 log_trace("Computing forward FFT");
@@ -703,7 +707,7 @@ void *thread_rx2_lpf() {
                     bck_fft_ctx->real_input[i] = fwd_fft_ctx->real_output[i];
 
                 log_trace("Adjusting coeffs");
-                for (i = 64; i < half; i++) {
+                for (i = coeff_truncate; i < half; i++) {
                     bck_fft_ctx->real_input[i] = 0;
                     bck_fft_ctx->real_input[conf->rtlsdr_samples - i] = 0;
                 }
@@ -713,7 +717,7 @@ void *thread_rx2_lpf() {
 
                 log_debug("Copying output values from backward FFT output");
                 for (i = 0; i < conf->rtlsdr_samples; i++)
-                    filtered_buffer[i] = bck_fft_ctx->real_output[i] / (FP_FLOAT) MAIN_RX2_PAYLOAD_SIZE;
+                    filtered_buffer[i] = bck_fft_ctx->real_output[i] / (FP_FLOAT) conf->rtlsdr_samples;
 
                 break;
 
@@ -723,8 +727,8 @@ void *thread_rx2_lpf() {
                 break;
         }
 
-        circbuf2_tail_release(rx2_buf_demod);
-        circbuf2_head_release(rx2_buf_filtered);
+        greatbuf2_circbuf_tail_release(greatbuf, GREATBUF2_CIRCBUF_DEMOD);
+        greatbuf2_circbuf_head_release(greatbuf, GREATBUF2_CIRCBUF_FILTER);
     }
 
     switch (conf->filter) {
@@ -760,6 +764,8 @@ void *thread_rx2_lpf() {
 void *thread_rx2_resample() {
     int retval;
 
+    ssize_t pos;
+
     resample_ctx *res_ctx;
 
     FP_FLOAT *filtered_buffer;
@@ -783,25 +789,27 @@ void *thread_rx2_resample() {
 
     log_debug("Starting read loop");
     while (keep_running) {
-        filtered_buffer = circbuf2_tail_acquire(rx2_buf_filtered);
-        if (filtered_buffer == NULL) {
+        pos = greatbuf2_circbuf_tail_acquire(greatbuf, GREATBUF2_CIRCBUF_FILTER);
+        if (pos == -1) {
             log_error("Error acquiring filtered buffer tail");
             retval = EXIT_FAILURE;
             break;
         }
+        filtered_buffer = greatbuf2_item_get(greatbuf, pos)->filtered;
 
-        pcm_buffer = circbuf2_head_acquire(rx2_buf_pcm);
-        if (pcm_buffer == NULL) {
+        pos = greatbuf2_circbuf_head_acquire(greatbuf, GREATBUF2_CIRCBUF_RESAMPLE);
+        if (pos == -1) {
             log_error("Error acquiring pcm buffer head");
             retval = EXIT_FAILURE;
             break;
         }
+        pcm_buffer = greatbuf2_item_get(greatbuf, pos)->pcm;
 
         log_trace("Resampling");
-        resample_float_to_int16(res_ctx, filtered_buffer, MAIN_RX2_PAYLOAD_SIZE, pcm_buffer, rx2_pcm_size);
+        resample_float_to_int16(res_ctx, filtered_buffer, conf->rtlsdr_samples, pcm_buffer, rx2_pcm_size);
 
-        circbuf2_tail_release(rx2_buf_filtered);
-        circbuf2_head_release(rx2_buf_pcm);
+        greatbuf2_circbuf_tail_release(greatbuf, GREATBUF2_CIRCBUF_FILTER);
+        greatbuf2_circbuf_head_release(greatbuf, GREATBUF2_CIRCBUF_RESAMPLE);
     }
 
     resample_free(res_ctx);
@@ -871,11 +879,24 @@ void *thread_rx2_monitor() {
 void *thread_rx2_monitor() {
     int retval;
 
+    ssize_t pos;
+
+    audio_ctx *ctx;
     int16_t *pcm_buffer;
+
+    int result;
 
     log_info("Thread start");
 
     retval = EXIT_SUCCESS;
+
+    log_debug("Initializing audio context");
+    ctx = audio_init(conf->audio_monitor_device, conf->audio_sample_rate, 1, SND_PCM_FORMAT_S16_LE);
+    if (ctx == NULL) {
+        log_error("Unable to allocate codec context");
+        retval = EXIT_FAILURE;
+        pthread_exit(&retval);
+    }
 
     log_debug("Waiting for other threads to init");
     rx2_monitor_ready = 1;
@@ -883,17 +904,26 @@ void *thread_rx2_monitor() {
 
     log_debug("Starting read loop");
     while (keep_running) {
-        pcm_buffer = circbuf2_tail_acquire(rx2_buf_pcm);
-        if (pcm_buffer == NULL) {
-            log_error("Error acquiring pcm buffer tail");
+        pos = greatbuf2_circbuf_tail_acquire(greatbuf, GREATBUF2_CIRCBUF_RESAMPLE);
+        if (pos == -1) {
+            log_error("Error acquiring filtered buffer tail");
+            retval = EXIT_FAILURE;
+            break;
+        }
+        pcm_buffer = greatbuf2_item_get(greatbuf, pos)->pcm;
+
+        result = audio_play_int16(ctx, pcm_buffer, rx2_pcm_size);
+        if (result != EXIT_SUCCESS) {
+            log_error("Unable to play buffer");
             retval = EXIT_FAILURE;
             break;
         }
 
-        log_trace("PCM Buffer: %d", sizeof(pcm_buffer));
-
-        circbuf2_tail_release(rx2_buf_pcm);
+        greatbuf2_circbuf_tail_release(greatbuf, GREATBUF2_CIRCBUF_RESAMPLE);
     }
+
+    log_debug("Freeing audio context");
+    audio_free(ctx);
 
     log_info("Thread end");
 
