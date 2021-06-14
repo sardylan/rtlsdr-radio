@@ -26,6 +26,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/syscall.h>
+#include <sys/prctl.h>
 #include <libgen.h>
 
 #include "log.h"
@@ -49,11 +50,15 @@ void log_free() {
 
 void log_message(const int level, const char *element, char *filename, const int row, const char *message, ...) {
     va_list args;
+    char thread_name[16];
     char datetime[27];
     struct tm *timeinfo;
     struct timespec ts;
     char content[LOG_BUFFER];
     char prefix[1025];
+
+    size_t ln;
+    size_t i;
 
     if (level > conf->ui_log_level && level > conf->file_log_level)
         return;
@@ -68,11 +73,12 @@ void log_message(const int level, const char *element, char *filename, const int
     if (strncmp(element, "fft_", 4) == 0 && level >= LOG_LEVEL_DEBUG) return;
     if (strncmp(element, "resample_", 9) == 0 && level >= LOG_LEVEL_DEBUG) return;
 
-    if (strcmp(element, "thread_rx_read") == 0 && level >= LOG_LEVEL_DEBUG) return;
+    if (strcmp(element, "thread_rx_read") == 0 && level >= LOG_LEVEL_TRACE) return;
     if (strcmp(element, "thread_rx_samples") == 0 && level >= LOG_LEVEL_DEBUG) return;
     if (strcmp(element, "thread_rx_demod") == 0 && level >= LOG_LEVEL_DEBUG) return;
     if (strcmp(element, "thread_rx_filter") == 0 && level >= LOG_LEVEL_DEBUG) return;
     if (strcmp(element, "thread_rx_resample") == 0 && level >= LOG_LEVEL_DEBUG) return;
+    if (strcmp(element, "thread_rx_audio") == 0 && level >= LOG_LEVEL_DEBUG) return;
 
     pthread_mutex_lock(&log_lock);
 
@@ -82,9 +88,16 @@ void log_message(const int level, const char *element, char *filename, const int
     strftime(datetime, 20, "%Y-%m-%d %H:%M:%S", timeinfo);
     sprintf(datetime + 19, ".%06lu", ts.tv_nsec / 1000);
 
-    sprintf(prefix, "%s (%lx) [%s] {%s} (%s:%d) ",
+    prctl(PR_GET_NAME, thread_name);
+    ln = strlen(thread_name);
+    for (i = ln; i < 16; i++)
+        thread_name[i] = ' ';
+    thread_name[15] = '\0';
+
+    sprintf(prefix, "%s (%lx [%s]) [%s] {%s} (%s:%d) ",
             datetime,
             pthread_self(),
+            thread_name,
             cfg_tochar_log_level(level),
             element,
             basename(filename),

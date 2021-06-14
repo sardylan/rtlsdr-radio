@@ -64,6 +64,8 @@ struct cfg_t {
     source_type source;
     work_mode mode;
 
+    char *rawiq_file_path;
+
     uint32_t rtlsdr_device_id;
     uint32_t rtlsdr_device_sample_rate;
     uint32_t rtlsdr_device_center_freq;
@@ -79,6 +81,9 @@ struct cfg_t {
     int filter_fir;
 
     uint32_t audio_sample_rate;
+
+    int audio_file_enabled;
+    char *audio_file_path;
 
     int audio_monitor_enabled;
     char *audio_monitor_device;

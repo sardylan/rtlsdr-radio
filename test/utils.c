@@ -23,20 +23,230 @@
 #include <cmocka.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "utils.h"
 
 #define BUFFER_SIZE 16
 
 const struct CMUnitTest tests[] = {
+        cmocka_unit_test(test_utils_uint16_to_be),
+        cmocka_unit_test(test_utils_uint16_to_le),
+        cmocka_unit_test(test_utils_uint32_to_be),
+        cmocka_unit_test(test_utils_uint32_to_le),
         cmocka_unit_test(test_stricmp),
         cmocka_unit_test(test_utils_ltrim),
         cmocka_unit_test(test_utils_rtrim),
         cmocka_unit_test(test_utils_trim),
+        cmocka_unit_test(test_utils_timespec_sub),
 };
 
 int main() {
     return cmocka_run_group_tests(tests, NULL, NULL);
+}
+
+void test_utils_uint16_to_be(void **state) {
+    (void) state;
+
+    uint16_t input;
+    uint8_t expected[2];
+    uint8_t actual[2];
+
+    input = 0;
+    expected[0] = 0x00;
+    expected[1] = 0x00;
+    utils_uint16_to_be(actual, input);
+    assert_memory_equal(expected, actual, 2);
+
+    input = 1;
+    expected[0] = 0x01;
+    expected[1] = 0x00;
+    utils_uint16_to_be(actual, input);
+    assert_memory_equal(expected, actual, 2);
+
+    input = 255;
+    expected[0] = 0xFF;
+    expected[1] = 0x00;
+    utils_uint16_to_be(actual, input);
+    assert_memory_equal(expected, actual, 2);
+
+    input = 256;
+    expected[0] = 0x00;
+    expected[1] = 0x01;
+    utils_uint16_to_be(actual, input);
+    assert_memory_equal(expected, actual, 2);
+
+    input = 12345;
+    expected[0] = 0x39;
+    expected[1] = 0x30;
+    utils_uint16_to_be(actual, input);
+    assert_memory_equal(expected, actual, 2);
+}
+
+void test_utils_uint16_to_le(void **state) {
+    (void) state;
+
+    uint16_t input;
+    uint8_t expected[2];
+    uint8_t actual[2];
+
+    input = 0;
+    expected[0] = 0x00;
+    expected[1] = 0x00;
+    utils_uint16_to_le(actual, input);
+    assert_memory_equal(expected, actual, 2);
+
+    input = 1;
+    expected[0] = 0x00;
+    expected[1] = 0x01;
+    utils_uint16_to_le(actual, input);
+    assert_memory_equal(expected, actual, 2);
+
+    input = 255;
+    expected[0] = 0x00;
+    expected[1] = 0xFF;
+    utils_uint16_to_le(actual, input);
+    assert_memory_equal(expected, actual, 2);
+
+    input = 256;
+    expected[0] = 0x01;
+    expected[1] = 0x00;
+    utils_uint16_to_le(actual, input);
+    assert_memory_equal(expected, actual, 2);
+
+    input = 12345;
+    expected[0] = 0x30;
+    expected[1] = 0x39;
+    utils_uint16_to_le(actual, input);
+    assert_memory_equal(expected, actual, 2);
+}
+
+void test_utils_uint32_to_be(void **state) {
+    (void) state;
+
+    uint32_t input;
+    uint8_t expected[4];
+    uint8_t actual[4];
+
+    input = 0;
+    expected[0] = 0x00;
+    expected[1] = 0x00;
+    expected[2] = 0x00;
+    expected[3] = 0x00;
+    utils_uint32_to_be(actual, input);
+    assert_memory_equal(expected, actual, 4);
+
+    input = 1;
+    expected[0] = 0x01;
+    expected[1] = 0x00;
+    expected[2] = 0x00;
+    expected[3] = 0x00;
+    utils_uint32_to_be(actual, input);
+    assert_memory_equal(expected, actual, 4);
+
+    input = 255;
+    expected[0] = 0xFF;
+    expected[1] = 0x00;
+    expected[2] = 0x00;
+    expected[3] = 0x00;
+    utils_uint32_to_be(actual, input);
+    assert_memory_equal(expected, actual, 4);
+
+    input = 256;
+    expected[0] = 0x00;
+    expected[1] = 0x01;
+    expected[2] = 0x00;
+    expected[3] = 0x00;
+    utils_uint32_to_be(actual, input);
+    assert_memory_equal(expected, actual, 4);
+
+    input = 12345;
+    expected[0] = 0x39;
+    expected[1] = 0x30;
+    expected[2] = 0x00;
+    expected[3] = 0x00;
+    utils_uint32_to_be(actual, input);
+    assert_memory_equal(expected, actual, 4);
+
+    input = 1234567;
+    expected[0] = 0x87;
+    expected[1] = 0xD6;
+    expected[2] = 0x12;
+    expected[3] = 0x00;
+    utils_uint32_to_be(actual, input);
+    assert_memory_equal(expected, actual, 4);
+
+    input = 1234567890;
+    expected[0] = 0xD2;
+    expected[1] = 0x02;
+    expected[2] = 0x96;
+    expected[3] = 0x49;
+    utils_uint32_to_be(actual, input);
+    assert_memory_equal(expected, actual, 4);
+}
+
+void test_utils_uint32_to_le(void **state) {
+    (void) state;
+
+    uint32_t input;
+    uint8_t expected[4];
+    uint8_t actual[4];
+
+    input = 0;
+    expected[0] = 0x00;
+    expected[1] = 0x00;
+    expected[2] = 0x00;
+    expected[3] = 0x00;
+    utils_uint32_to_le(actual, input);
+    assert_memory_equal(expected, actual, 4);
+
+    input = 1;
+    expected[0] = 0x00;
+    expected[1] = 0x00;
+    expected[2] = 0x00;
+    expected[3] = 0x01;
+    utils_uint32_to_le(actual, input);
+    assert_memory_equal(expected, actual, 4);
+
+    input = 255;
+    expected[0] = 0x00;
+    expected[1] = 0x00;
+    expected[2] = 0x00;
+    expected[3] = 0xFF;
+    utils_uint32_to_le(actual, input);
+    assert_memory_equal(expected, actual, 4);
+
+    input = 256;
+    expected[0] = 0x00;
+    expected[1] = 0x00;
+    expected[2] = 0x01;
+    expected[3] = 0x00;
+    utils_uint32_to_le(actual, input);
+    assert_memory_equal(expected, actual, 4);
+
+    input = 12345;
+    expected[0] = 0x00;
+    expected[1] = 0x00;
+    expected[2] = 0x30;
+    expected[3] = 0x39;
+    utils_uint32_to_le(actual, input);
+    assert_memory_equal(expected, actual, 4);
+
+    input = 1234567;
+    expected[0] = 0x00;
+    expected[1] = 0x12;
+    expected[2] = 0xD6;
+    expected[3] = 0x87;
+    utils_uint32_to_le(actual, input);
+    assert_memory_equal(expected, actual, 4);
+
+    input = 1234567890;
+    expected[0] = 0x49;
+    expected[1] = 0x96;
+    expected[2] = 0x02;
+    expected[3] = 0xD2;
+    utils_uint32_to_le(actual, input);
+    assert_memory_equal(expected, actual, 4);
 }
 
 void test_stricmp(void **state) {
@@ -364,4 +574,86 @@ void test_utils_trim(void **state) {
     strcpy(expected, "a b");
     assert_int_equal(EXIT_SUCCESS, utils_trim(actual, input, BUFFER_SIZE));
     assert_string_equal(expected, actual);
+}
+
+void test_utils_timespec_sub(void **state) {
+    struct timespec input_a;
+    struct timespec input_b;
+    struct timespec expected;
+
+    int result;
+    struct timespec actual;
+
+    (void) state;
+
+    result = utils_timespec_sub(NULL, NULL, NULL);
+    assert_int_equal(result, EXIT_FAILURE);
+
+    result = utils_timespec_sub(NULL, NULL, &expected);
+    assert_int_equal(result, EXIT_FAILURE);
+
+    result = utils_timespec_sub(NULL, &input_b, NULL);
+    assert_int_equal(result, EXIT_FAILURE);
+
+    result = utils_timespec_sub(NULL, &input_b, &expected);
+    assert_int_equal(result, EXIT_FAILURE);
+
+    result = utils_timespec_sub(&input_a, NULL, NULL);
+    assert_int_equal(result, EXIT_FAILURE);
+
+    result = utils_timespec_sub(&input_a, NULL, &expected);
+    assert_int_equal(result, EXIT_FAILURE);
+
+    result = utils_timespec_sub(&input_a, &input_b, NULL);
+    assert_int_equal(result, EXIT_FAILURE);
+
+    input_a.tv_sec = 0;
+    input_a.tv_nsec = 0;
+    input_b.tv_sec = 0;
+    input_b.tv_nsec = 0;
+    expected.tv_sec = 0;
+    expected.tv_nsec = 0;
+    result = utils_timespec_sub(&input_a, &input_b, &actual);
+    assert_int_equal(result, EXIT_SUCCESS);
+    assert_memory_equal(&expected, &actual, sizeof(struct timespec));
+
+    input_a.tv_sec = 0;
+    input_a.tv_nsec = 0;
+    input_b.tv_sec = 1;
+    input_b.tv_nsec = 0;
+    expected.tv_sec = 1;
+    expected.tv_nsec = 0;
+    result = utils_timespec_sub(&input_a, &input_b, &actual);
+    assert_int_equal(result, EXIT_SUCCESS);
+    assert_memory_equal(&expected, &actual, sizeof(struct timespec));
+
+    input_a.tv_sec = 2;
+    input_a.tv_nsec = 0;
+    input_b.tv_sec = 6;
+    input_b.tv_nsec = 0;
+    expected.tv_sec = 4;
+    expected.tv_nsec = 0;
+    result = utils_timespec_sub(&input_a, &input_b, &actual);
+    assert_int_equal(result, EXIT_SUCCESS);
+    assert_memory_equal(&expected, &actual, sizeof(struct timespec));
+
+    input_a.tv_sec = 2;
+    input_a.tv_nsec = 0;
+    input_b.tv_sec = -6;
+    input_b.tv_nsec = 0;
+    expected.tv_sec = -8;
+    expected.tv_nsec = 0;
+    result = utils_timespec_sub(&input_a, &input_b, &actual);
+    assert_int_equal(result, EXIT_SUCCESS);
+    assert_memory_equal(&expected, &actual, sizeof(struct timespec));
+
+    input_a.tv_sec = 2;
+    input_a.tv_nsec = 900000000L;
+    input_b.tv_sec = 3;
+    input_b.tv_nsec = 150000000L;
+    expected.tv_sec = 0;
+    expected.tv_nsec = 250000000L;
+    result = utils_timespec_sub(&input_a, &input_b, &actual);
+    assert_int_equal(result, EXIT_SUCCESS);
+    assert_memory_equal(&expected, &actual, sizeof(struct timespec));
 }

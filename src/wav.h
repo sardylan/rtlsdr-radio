@@ -17,27 +17,37 @@
  */
 
 
-#ifndef __RTLSDR_RADIO__UTILS__H__TEST
-#define __RTLSDR_RADIO__UTILS__H__TEST
+#ifndef __RTLSDR_RADIO__WAV__H
+#define __RTLSDR_RADIO__WAV__H
 
-#include "../src/utils.h"
+#define WAV_HEADER_LENGTH 44
 
-void test_utils_uint16_to_be(void **);
+#include <stdint.h>
 
-void test_utils_uint16_to_le(void **);
+struct wav_ctx_t {
+    char *file_path;
 
-void test_utils_uint32_to_be(void **);
+    uint16_t channels;
+    uint32_t sample_rate;
+    uint16_t bit_per_sample;
 
-void test_utils_uint32_to_le(void **);
+    uint32_t data_size;
 
-void test_stricmp(void **);
+    FILE *fp;
+};
 
-void test_utils_ltrim(void **);
+typedef struct wav_ctx_t wav_ctx;
 
-void test_utils_rtrim(void **);
+wav_ctx *wav_init(const char *, uint16_t, uint32_t, uint16_t);
 
-void test_utils_trim(void **);
+void wav_free(wav_ctx *);
 
-void test_utils_timespec_sub(void **);
+int wav_write_begin(wav_ctx *);
+
+int wav_write_end(wav_ctx *);
+
+int wav_write_data_uint8(wav_ctx *, uint8_t *, size_t);
+
+int wav_write_data_int16(wav_ctx *, int16_t *, size_t);
 
 #endif

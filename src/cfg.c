@@ -51,6 +51,10 @@ void cfg_init() {
     conf->mode = CONFIG_MODE_DEFAULT;
     conf->debug = CONFIG_DEBUG_DEFAULT;
 
+    ln = strlen(CONFIG_FILE_RAWIQ_FILE_PATH_DEFAULT) + 1;
+    conf->rawiq_file_path = (char *) calloc(sizeof(char), ln);
+    strcpy(conf->rawiq_file_path, CONFIG_FILE_RAWIQ_FILE_PATH_DEFAULT);
+
     conf->rtlsdr_device_id = CONFIG_RTLSDR_DEVICE_ID_DEFAULT;
     conf->rtlsdr_device_sample_rate = CONFIG_RTLSDR_DEVICE_SAMPLE_RATE_DEFAULT;
     conf->rtlsdr_device_center_freq = CONFIG_RTLSDR_DEVICE_CENTER_FREQ_DEFAULT;
@@ -66,6 +70,12 @@ void cfg_init() {
     conf->filter_fir = CONFIG_FILTER_FIR_DEFAULT;
 
     conf->audio_sample_rate = CONFIG_AUDIO_SAMPLE_RATE_DEFAULT;
+
+    conf->audio_file_enabled = CONFIG_AUDIO_FILE_ENABLED_DEFAULT;
+
+    ln = strlen(CONFIG_AUDIO_FILE_PATH_DEFAULT) + 1;
+    conf->audio_file_path = (char *) calloc(sizeof(char), ln);
+    strcpy(conf->audio_file_path, CONFIG_AUDIO_FILE_PATH_DEFAULT);
 
     conf->audio_monitor_enabled = CONFIG_AUDIO_MONITOR_ENABLED_DEFAULT;
 
@@ -84,6 +94,7 @@ void cfg_init() {
 
 void cfg_free() {
     free(conf->file_log_name);
+    free(conf->audio_file_path);
     free(conf->audio_monitor_device);
     free(conf->network_server);
 
@@ -101,13 +112,15 @@ void cfg_print() {
     ui_message("source:                        %s\n", cfg_tochar_source_type(conf->source));
     ui_message("mode:                          %s\n", cfg_tochar_work_mode(conf->mode));
     ui_message("\n");
+    ui_message("rawiq_file_path:               %s\n", conf->rawiq_file_path);
+    ui_message("\n");
     ui_message("rtlsdr_device_id:              %u\n", conf->rtlsdr_device_id);
     ui_message("rtlsdr_device_sample_rate:     %u (Hz)\n", conf->rtlsdr_device_sample_rate);
     ui_message("rtlsdr_device_center_freq:     %u (Hz)\n", conf->rtlsdr_device_center_freq);
     ui_message("rtlsdr_device_freq_correction: %u (ppm)\n", conf->rtlsdr_device_freq_correction);
-    ui_message("rtlsdr_device_tuner_gain_mode: %u\n", conf->rtlsdr_device_tuner_gain_mode);
+    ui_message("rtlsdr_device_tuner_gain_mode: %s\n", cfg_tochar_bool(conf->rtlsdr_device_tuner_gain_mode));
     ui_message("rtlsdr_device_tuner_gain:      %u (10e-1 dB)\n", conf->rtlsdr_device_tuner_gain);
-    ui_message("rtlsdr_device_agc_mode:        %u\n", conf->rtlsdr_device_agc_mode);
+    ui_message("rtlsdr_device_agc_mode:        %s\n", cfg_tochar_bool(conf->rtlsdr_device_agc_mode));
     ui_message("rtlsdr_samples:                %zu\n", conf->rtlsdr_samples);
     ui_message("\n");
     ui_message("modulation:                    %s\n", cfg_tochar_modulation(conf->modulation));
@@ -117,7 +130,10 @@ void cfg_print() {
     ui_message("\n");
     ui_message("audio_sample_rate:             %u (Hz)\n", conf->audio_sample_rate);
     ui_message("\n");
-    ui_message("audio_monitor_enabled:         %d\n", conf->audio_monitor_enabled);
+    ui_message("audio_file_enabled:            %s\n", cfg_tochar_bool(conf->audio_file_enabled));
+    ui_message("audio_file_path:               %s\n", conf->audio_file_path);
+    ui_message("\n");
+    ui_message("audio_monitor_enabled:         %s\n", cfg_tochar_bool(conf->audio_monitor_enabled));
     ui_message("audio_monitor_device:          %s\n", conf->audio_monitor_device);
     ui_message("\n");
     ui_message("codec_opus_bitrate:            %u (b/s)\n", conf->codec_opus_bitrate);

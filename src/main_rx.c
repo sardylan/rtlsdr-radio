@@ -24,6 +24,8 @@
 #include <rtl-sdr.h>
 #include <math.h>
 #include <unistd.h>
+#include <sys/time.h>
+#include <sys/prctl.h>
 
 #include "main_rx.h"
 #include "main.h"
@@ -37,6 +39,7 @@
 #include "fft.h"
 #include "resample.h"
 #include "audio.h"
+#include "wav.h"
 
 extern volatile int keep_running;
 extern cfg *conf;
@@ -61,8 +64,8 @@ pthread_t rx_filter_thread;
 pthread_t rx_resample_thread;
 #endif
 
-#ifdef MAIN_RX_ENABLE_THREAD_MONITOR
-pthread_t rx_monitor_thread;
+#ifdef MAIN_RX_ENABLE_THREAD_AUDIO
+pthread_t rx_audio_thread;
 #endif
 
 #ifdef MAIN_RX_ENABLE_THREAD_CODEC
@@ -81,11 +84,12 @@ int rx_samples_ready;
 int rx_demod_ready;
 int rx_filter_ready;
 int rx_resample_ready;
-int rx_monitor_ready;
+int rx_audio_ready;
 int rx_codec_ready;
 int rx_network_ready;
 
 rtlsdr_dev_t *rx_device;
+FILE *rx_file;
 
 greatbuf_ctx *greatbuf;
 
@@ -150,10 +154,10 @@ int main_rx() {
     rx_resample_ready = 1;
 #endif
 
-#ifdef MAIN_RX_ENABLE_THREAD_MONITOR
-    rx_monitor_ready = 0;
+#ifdef MAIN_RX_ENABLE_THREAD_AUDIO
+    rx_audio_ready = 0;
 #else
-    rx_monitor_ready = 1;
+    rx_audio_ready = 1;
 #endif
 
 #ifdef MAIN_RX_ENABLE_THREAD_CODEC
@@ -184,27 +188,45 @@ int main_rx() {
         return EXIT_FAILURE;
     }
 
-    log_debug("Opening RTL-SDR device");
-    result = device_open(&rx_device, conf->rtlsdr_device_id);
-    if (result == EXIT_FAILURE) {
-        log_error("Unable to open RTL-SDR device");
-        main_rx_end();
-        return EXIT_FAILURE;
-    }
+    switch (conf->source) {
+        case SOURCE_RTLSDR:
+            log_debug("Opening RTL-SDR device");
 
-    log_debug("Setting RTL-SDR device params");
-    result = device_set_params(
-            rx_device,
-            conf->rtlsdr_device_sample_rate,
-            conf->rtlsdr_device_freq_correction,
-            conf->rtlsdr_device_tuner_gain_mode,
-            conf->rtlsdr_device_tuner_gain,
-            conf->rtlsdr_device_agc_mode
-    );
-    if (result == EXIT_FAILURE) {
-        log_error("Unable to set RTL-SDR device params");
-        main_rx_end();
-        return EXIT_FAILURE;
+            result = device_open(&rx_device, conf->rtlsdr_device_id);
+            if (result == EXIT_FAILURE) {
+                log_error("Unable to open RTL-SDR device");
+                main_rx_end();
+                return EXIT_FAILURE;
+            }
+
+            log_debug("Setting RTL-SDR device params");
+            result = device_set_params(
+                    rx_device,
+                    conf->rtlsdr_device_sample_rate,
+                    conf->rtlsdr_device_freq_correction,
+                    conf->rtlsdr_device_tuner_gain_mode,
+                    conf->rtlsdr_device_tuner_gain,
+                    conf->rtlsdr_device_agc_mode
+            );
+            if (result == EXIT_FAILURE) {
+                log_error("Unable to set RTL-SDR device params");
+                main_rx_end();
+                return EXIT_FAILURE;
+            }
+
+            break;
+
+        case SOURCE_FILE:
+            log_debug("Opening Raw IQ file");
+
+            rx_file = fopen(conf->rawiq_file_path, "rb");
+            if (rx_file == NULL) {
+                log_error("Unable to open raw IQ file!");
+                main_rx_end();
+                return EXIT_FAILURE;
+            }
+
+            break;
     }
 
     log_debug("Setting thread attributes");
@@ -236,9 +258,9 @@ int main_rx() {
     pthread_create(&rx_resample_thread, &attr, thread_rx_resample, NULL);
 #endif
 
-#ifdef MAIN_RX_ENABLE_THREAD_MONITOR
-    log_debug("Starting RX 2 monitor thread");
-    pthread_create(&rx_monitor_thread, &attr, thread_rx_monitor, NULL);
+#ifdef MAIN_RX_ENABLE_THREAD_AUDIO
+    log_debug("Starting RX 2 audio thread");
+    pthread_create(&rx_audio_thread, &attr, thread_rx_audio, NULL);
 #endif
 
 #ifdef MAIN_RX_ENABLE_THREAD_CODEC
@@ -254,12 +276,14 @@ int main_rx() {
     log_debug("Waiting for other threads to startup");
     main_rx_wait_init();
 
-    log_debug("Setting RTL-SDR device frequency");
-    result = device_set_frequency(rx_device, conf->rtlsdr_device_center_freq);
-    if (result == EXIT_FAILURE) {
-        log_error("Unable to set RTL-SDR device frequency");
-        main_rx_end();
-        return EXIT_FAILURE;
+    if (conf->source == SOURCE_RTLSDR) {
+        log_debug("Setting RTL-SDR device frequency");
+        result = device_set_frequency(rx_device, conf->rtlsdr_device_center_freq);
+        if (result == EXIT_FAILURE) {
+            log_error("Unable to set RTL-SDR device frequency");
+            main_rx_end();
+            return EXIT_FAILURE;
+        }
     }
 
     sleep_req.tv_sec = 1;
@@ -326,9 +350,9 @@ int main_rx() {
         result = EXIT_FAILURE;
 #endif
 
-#ifdef MAIN_RX_ENABLE_THREAD_MONITOR
+#ifdef MAIN_RX_ENABLE_THREAD_AUDIO
     log_debug("Joining RX 2 monitor thread");
-    pthread_join(rx_monitor_thread, (void **) &thread_result);
+    pthread_join(rx_audio_thread, (void **) &thread_result);
     if (thread_result != EXIT_SUCCESS)
         result = EXIT_FAILURE;
 #endif
@@ -355,8 +379,18 @@ int main_rx() {
 void main_rx_end() {
     log_info("Main program RX mode ending");
 
-    log_debug("Closing RTL-SDR device");
-    device_close(rx_device);
+    switch (conf->source) {
+
+        case SOURCE_RTLSDR:
+            log_debug("Closing RTL-SDR device");
+            device_close(rx_device);
+            break;
+
+        case SOURCE_FILE:
+            log_debug("Closing Raw IQ file");
+            fclose(rx_file);
+            break;
+    }
 
     log_debug("Freeing Great Buffer");
     greatbuf_free(greatbuf);
@@ -377,7 +411,7 @@ void main_rx_wait_init() {
            || rx_demod_ready == 0
            || rx_filter_ready == 0
            || rx_resample_ready == 0
-           || rx_monitor_ready == 0
+           || rx_audio_ready == 0
            || rx_codec_ready == 0
            || rx_network_ready == 0)
         pthread_cond_wait(&rx_ready_cond, &rx_ready_mutex);
@@ -394,12 +428,21 @@ void *thread_rx_read() {
     int retval;
 
     ssize_t pos;
+    greatbuf_item *item;
+    struct timespec *ts;
     uint8_t *iq_buffer;
     int len;
 
     int bytes;
     int result;
 
+    size_t bytes_read;
+    struct timespec now;
+    struct timespec diff;
+
+    unsigned long frame_duration;
+
+    prctl(PR_SET_NAME, "read");
     log_info("Thread start");
 
     retval = EXIT_SUCCESS;
@@ -410,29 +453,75 @@ void *thread_rx_read() {
 
     len = (int) conf->rtlsdr_samples * 2;
 
+    frame_duration = 1000000000 / (conf->rtlsdr_device_sample_rate / conf->rtlsdr_samples);
+    log_debug("Frame duration: %zu nanosec", frame_duration);
+
     log_debug("Starting read loop");
     while (keep_running) {
         pos = greatbuf_circbuf_head_acquire(greatbuf, GREATBUF_CIRCBUF_READ);
         if (pos == -1) {
             log_error("Error acquiring IQ buffer head");
-            retval = EXIT_FAILURE;
-            break;
-        }
-        iq_buffer = greatbuf_item_get(greatbuf, pos)->iq;
-        result = rtlsdr_read_sync(rx_device, (void *) iq_buffer, len, &bytes);
-        greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_READ);
-        if (result != 0) {
-            log_error("Error %d reading data from RTL-SDR device: %s", result, strerror(result));
+            greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_READ);
             retval = EXIT_FAILURE;
             break;
         }
 
-        log_trace("Read %zu bytes from RTL-SDR", bytes);
+        item = greatbuf_item_get(greatbuf, pos);
+        ts = &item->ts;
+        iq_buffer = item->iq;
+
+        log_trace("Setting timestamp for item");
+        timespec_get(ts, TIME_UTC);
+
+        switch (conf->source) {
+            case SOURCE_RTLSDR:
+                result = rtlsdr_read_sync(rx_device, (void *) iq_buffer, len, &bytes);
+                break;
+
+            case SOURCE_FILE:
+                bytes_read = fread((void *) iq_buffer, sizeof(uint8_t), len, rx_file);
+                break;
+
+            default:
+                break;
+        }
+
+        greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_READ);
+
+        if (conf->source == SOURCE_RTLSDR) {
+            log_trace("Read %zu bytes from RTL-SDR", bytes);
+
+            if (result != 0) {
+                log_error("Error %d reading data from RTL-SDR device: %s", result, strerror(result));
+                retval = EXIT_FAILURE;
+                break;
+            }
+        } else if (conf->source == SOURCE_FILE) {
+            log_trace("Read %d bytes from file", bytes_read);
+
+            if (bytes_read != (size_t) len) {
+                log_error("Error %d reading data from Raw IQ file.");
+                retval = EXIT_FAILURE;
+                break;
+            }
+
+            if (feof(rx_file) != EXIT_SUCCESS) {
+                log_info("IW file loop");
+                rewind(rx_file);
+            }
+
+            timespec_get(&now, TIME_UTC);
+            utils_timespec_sub(ts, &now, &diff);
+            if (diff.tv_nsec < (__syscall_slong_t) frame_duration) {
+                diff.tv_nsec = (__syscall_slong_t) frame_duration - diff.tv_nsec;
+                nanosleep(&diff, &now);
+            }
+        }
     }
 
-    log_info("Thread end");
-
     main_stop();
+
+    log_info("Thread end");
 
     pthread_exit(&retval);
 }
@@ -449,6 +538,7 @@ void *thread_rx_samples() {
     FP_FLOAT complex *samples_buffer;
     int len;
 
+    prctl(PR_SET_NAME, "samples");
     log_info("Thread start");
 
     iq_buffer = NULL;
@@ -467,6 +557,7 @@ void *thread_rx_samples() {
         pos = greatbuf_circbuf_tail_acquire(greatbuf, GREATBUF_CIRCBUF_READ);
         if (pos == -1) {
             log_error("Error acquiring IQ buffer tail");
+            greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_READ);
             retval = EXIT_FAILURE;
             break;
         }
@@ -475,6 +566,8 @@ void *thread_rx_samples() {
         pos = greatbuf_circbuf_head_acquire(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
         if (pos == -1) {
             log_error("Error acquiring Samples buffer head");
+            greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_READ);
+            greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
             retval = EXIT_FAILURE;
             break;
         }
@@ -487,9 +580,9 @@ void *thread_rx_samples() {
         greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
     }
 
-    log_info("Thread end");
-
     main_stop();
+
+    log_info("Thread end");
 
     pthread_exit(&retval);
 }
@@ -514,6 +607,7 @@ void *thread_rx_demod() {
 
     size_t j;
 
+    prctl(PR_SET_NAME, "demod");
     log_info("Thread start");
 
     retval = EXIT_SUCCESS;
@@ -528,6 +622,7 @@ void *thread_rx_demod() {
         pos = greatbuf_circbuf_tail_acquire(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
         if (pos == -1) {
             log_error("Error acquiring samples buffer tail");
+            greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
             retval = EXIT_FAILURE;
             break;
         }
@@ -536,6 +631,8 @@ void *thread_rx_demod() {
         pos = greatbuf_circbuf_head_acquire(greatbuf, GREATBUF_CIRCBUF_DEMOD);
         if (pos == -1) {
             log_error("Error acquiring demod buffer head");
+            greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
+            greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_DEMOD);
             retval = EXIT_FAILURE;
             break;
         }
@@ -552,7 +649,7 @@ void *thread_rx_demod() {
                     imag = cimagf(product);
 
                     if (real != 0 || imag != 0)
-                        demod_buffer[j] = atan2f(imag, real) * (float) M_1_PI;
+                        demod_buffer[j] = atan2f(imag, real) / (float) M_PI;
                     else
                         demod_buffer[j] = 0;
 #elif FP_FLOAT == double
@@ -560,7 +657,7 @@ void *thread_rx_demod() {
                     imag = cimag(product);
 
                     if (real != 0 || imag != 0)
-                        demod_buffer[j] = atan2(imag, real) * M_1_PI;
+                        demod_buffer[j] = atan2(imag, real) / M_PI;
                     else
                         demod_buffer[j] = 0;
 #elif FP_FLOAT == long double
@@ -568,7 +665,7 @@ void *thread_rx_demod() {
                     imag = cimagl(product);
 
                     if (real != 0 || imag != 0)
-                        demod_buffer[j] = atan2l(imag, real) * M_1_PI;
+                        demod_buffer[j] = atan2l(imag, real) / M_PI;
                     else
                         demod_buffer[j] = 0;
 #else
@@ -599,9 +696,9 @@ void *thread_rx_demod() {
         greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_DEMOD);
     }
 
-    log_info("Thread end");
-
     main_stop();
+
+    log_info("Thread end");
 
     pthread_exit(&retval);
 }
@@ -625,6 +722,7 @@ void *thread_rx_filter() {
     size_t half;
     size_t coeff_truncate;
 
+    prctl(PR_SET_NAME, "filter");
     log_info("Thread start");
 
     retval = EXIT_SUCCESS;
@@ -671,6 +769,7 @@ void *thread_rx_filter() {
         pos = greatbuf_circbuf_tail_acquire(greatbuf, GREATBUF_CIRCBUF_DEMOD);
         if (pos == -1) {
             log_error("Error acquiring demod buffer tail");
+            greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_DEMOD);
             retval = EXIT_FAILURE;
             break;
         }
@@ -679,6 +778,8 @@ void *thread_rx_filter() {
         pos = greatbuf_circbuf_head_acquire(greatbuf, GREATBUF_CIRCBUF_FILTER);
         if (pos == -1) {
             log_error("Error acquiring filtered buffer head");
+            greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_DEMOD);
+            greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_FILTER);
             retval = EXIT_FAILURE;
             break;
         }
@@ -750,9 +851,9 @@ void *thread_rx_filter() {
             break;
     }
 
-    log_info("Thread end");
-
     main_stop();
+
+    log_info("Thread end");
 
     pthread_exit(&retval);
 }
@@ -771,6 +872,7 @@ void *thread_rx_resample() {
     FP_FLOAT *filtered_buffer;
     int16_t *pcm_buffer;
 
+    prctl(PR_SET_NAME, "resample");
     log_info("Thread start");
 
     retval = EXIT_SUCCESS;
@@ -792,6 +894,7 @@ void *thread_rx_resample() {
         pos = greatbuf_circbuf_tail_acquire(greatbuf, GREATBUF_CIRCBUF_FILTER);
         if (pos == -1) {
             log_error("Error acquiring filtered buffer tail");
+            greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_FILTER);
             retval = EXIT_FAILURE;
             break;
         }
@@ -800,6 +903,8 @@ void *thread_rx_resample() {
         pos = greatbuf_circbuf_head_acquire(greatbuf, GREATBUF_CIRCBUF_RESAMPLE);
         if (pos == -1) {
             log_error("Error acquiring pcm buffer head");
+            greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_FILTER);
+            greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_RESAMPLE);
             retval = EXIT_FAILURE;
             break;
         }
@@ -814,9 +919,9 @@ void *thread_rx_resample() {
 
     resample_free(res_ctx);
 
-    log_info("Thread end");
-
     main_stop();
+
+    log_info("Thread end");
 
     pthread_exit(&retval);
 }
@@ -824,7 +929,8 @@ void *thread_rx_resample() {
 #endif
 
 #ifdef MAIN_RX_ENABLE_THREAD_CODEC
-void *thread_rx_monitor() {
+
+void *thread_rx_codec() {
     int retval;
 
     int result;
@@ -834,6 +940,7 @@ void *thread_rx_monitor() {
 
     audio_ctx *ctx;
 
+    prctl(PR_SET_NAME, "codec");
     log_info("Thread start");
 
     retval = EXIT_SUCCESS;
@@ -847,7 +954,7 @@ void *thread_rx_monitor() {
     }
 
     log_debug("Waiting for other threads to init");
-    rx_monitor_ready = 1;
+    rx_audio_ready = 1;
     main_rx_wait_init();
 
     log_debug("Starting read loop");
@@ -866,26 +973,33 @@ void *thread_rx_monitor() {
     log_debug("Freeing audio context");
     audio_free(ctx);
 
-    log_info("Thread end");
-
     main_stop();
+
+    log_info("Thread end");
 
     pthread_exit(&retval);
 }
+
 #endif
 
-#ifdef MAIN_RX_ENABLE_THREAD_MONITOR
+#ifdef MAIN_RX_ENABLE_THREAD_AUDIO
 
-void *thread_rx_monitor() {
+void *thread_rx_audio() {
     int retval;
 
     ssize_t pos;
+    greatbuf_item *item;
+    struct timespec *ts;
+    struct timespec *delay;
 
     audio_ctx *ctx;
+    wav_ctx *ctx_wav;
     int16_t *pcm_buffer;
+    struct timespec now;
 
     int result;
 
+    prctl(PR_SET_NAME, "audio");
     log_info("Thread start");
 
     retval = EXIT_SUCCESS;
@@ -898,8 +1012,20 @@ void *thread_rx_monitor() {
         pthread_exit(&retval);
     }
 
+    log_debug("Initializing wav context");
+    ctx_wav = wav_init(conf->audio_file_path, 1, conf->audio_sample_rate, 16);
+    if (ctx_wav == NULL) {
+        log_error("Unable to allocate codec context");
+        audio_free(ctx);
+        retval = EXIT_FAILURE;
+        pthread_exit(&retval);
+    }
+
+    log_debug("Opening WAV file");
+    wav_write_begin(ctx_wav);
+
     log_debug("Waiting for other threads to init");
-    rx_monitor_ready = 1;
+    rx_audio_ready = 1;
     main_rx_wait_init();
 
     log_debug("Starting read loop");
@@ -907,10 +1033,22 @@ void *thread_rx_monitor() {
         pos = greatbuf_circbuf_tail_acquire(greatbuf, GREATBUF_CIRCBUF_RESAMPLE);
         if (pos == -1) {
             log_error("Error acquiring filtered buffer tail");
+            greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_RESAMPLE);
             retval = EXIT_FAILURE;
             break;
         }
-        pcm_buffer = greatbuf_item_get(greatbuf, pos)->pcm;
+
+
+        item = greatbuf_item_get(greatbuf, pos);
+        ts = &item->ts;
+        delay = &item->delay;
+        pcm_buffer = item->pcm;
+
+        log_trace("Setting delay for item");
+        timespec_get(&now, TIME_UTC);
+
+        utils_timespec_sub(ts, &now, delay);
+//        ui_message("Delay: %zu.%zu\n", delay->tv_sec, delay->tv_nsec);
 
         result = audio_play_int16(ctx, pcm_buffer, rx_pcm_size);
         if (result != EXIT_SUCCESS) {
@@ -919,15 +1057,23 @@ void *thread_rx_monitor() {
             break;
         }
 
+        wav_write_data_int16(ctx_wav, pcm_buffer, rx_pcm_size);
+
         greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_RESAMPLE);
     }
+
+    log_debug("Clising WAV file");
+    wav_write_end(ctx_wav);
 
     log_debug("Freeing audio context");
     audio_free(ctx);
 
-    log_info("Thread end");
+    log_debug("Freeing WAV context");
+    wav_free(ctx_wav);
 
     main_stop();
+
+    log_info("Thread end");
 
     pthread_exit(&retval);
 }
@@ -938,6 +1084,7 @@ void *thread_rx_monitor() {
 void *thread_rx_network() {
     int retval;
 
+    prctl(PR_SET_NAME, "network");
     log_info("Thread start");
 
     retval = EXIT_SUCCESS;

@@ -28,7 +28,7 @@
 #define MAIN_RX_ENABLE_THREAD_FILTER
 #define MAIN_RX_ENABLE_THREAD_RESAMPLE
 //#define MAIN_RX_ENABLE_THREAD_CODEC
-#define MAIN_RX_ENABLE_THREAD_MONITOR
+#define MAIN_RX_ENABLE_THREAD_AUDIO
 //#define MAIN_RX_ENABLE_THREAD_NETWORK
 
 int main_rx();
@@ -61,8 +61,8 @@ void *thread_rx_resample();
 void *thread_rx_codec();
 #endif
 
-#ifdef MAIN_RX_ENABLE_THREAD_MONITOR
-void *thread_rx_monitor();
+#ifdef MAIN_RX_ENABLE_THREAD_AUDIO
+void *thread_rx_audio();
 #endif
 
 #ifdef MAIN_RX_ENABLE_THREAD_NETWORK

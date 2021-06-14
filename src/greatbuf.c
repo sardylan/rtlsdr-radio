@@ -105,21 +105,21 @@ greatbuf_item *greatbuf_item_init(size_t samples_size, size_t pcm_size) {
 
     item = NULL;
 
-    log_info("Greatbuf 2 item init");
+    log_debug("Greatbuf 2 item init");
 
-    log_debug("Allocating greatbuf 2 item");
+    log_trace("Allocating greatbuf 2 item");
     item = (greatbuf_item *) malloc(sizeof(greatbuf_item));
     if (item == NULL) {
         log_error("Unable to allocate greatbuf 2 item");
         return NULL;
     }
 
-    log_debug("Setting samples_size");
+    log_trace("Setting samples_size");
 
     item->samples_size = samples_size;
     item->pcm_size = pcm_size;
 
-    log_debug("Allocating IQ buffer");
+    log_trace("Allocating IQ buffer");
     item->iq = (uint8_t *) calloc(item->samples_size * 2, sizeof(uint8_t));
     if (item->iq == NULL) {
         log_error("Unable to allocate IQ buffer");
@@ -127,7 +127,7 @@ greatbuf_item *greatbuf_item_init(size_t samples_size, size_t pcm_size) {
         return NULL;
     }
 
-    log_debug("Allocating samples buffer");
+    log_trace("Allocating samples buffer");
     item->samples = (FP_FLOAT complex *) calloc(item->samples_size, sizeof(FP_FLOAT complex));
     if (item->samples == NULL) {
         log_error("Unable to allocate samples buffer");
@@ -135,7 +135,7 @@ greatbuf_item *greatbuf_item_init(size_t samples_size, size_t pcm_size) {
         return NULL;
     }
 
-    log_debug("Allocating demod buffer");
+    log_trace("Allocating demod buffer");
     item->demod = (FP_FLOAT *) calloc(item->samples_size, sizeof(FP_FLOAT));
     if (item->demod == NULL) {
         log_error("Unable to allocate demod buffer");
@@ -143,7 +143,7 @@ greatbuf_item *greatbuf_item_init(size_t samples_size, size_t pcm_size) {
         return NULL;
     }
 
-    log_debug("Allocating filtered buffer");
+    log_trace("Allocating filtered buffer");
     item->filtered = (FP_FLOAT *) calloc(item->samples_size, sizeof(FP_FLOAT));
     if (item->filtered == NULL) {
         log_error("Unable to allocate filtered buffer");
@@ -151,7 +151,7 @@ greatbuf_item *greatbuf_item_init(size_t samples_size, size_t pcm_size) {
         return NULL;
     }
 
-    log_debug("Allocating pcm buffer");
+    log_trace("Allocating pcm buffer");
     item->pcm = (int16_t *) calloc(item->pcm_size, sizeof(int16_t));
     if (item->pcm == NULL) {
         log_error("Unable to allocate pcm buffer");
@@ -159,7 +159,7 @@ greatbuf_item *greatbuf_item_init(size_t samples_size, size_t pcm_size) {
         return NULL;
     }
 
-    log_debug("Setting initial values");
+    log_trace("Setting initial values");
 
     item->number = 0;
 

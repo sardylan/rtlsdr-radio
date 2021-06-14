@@ -36,7 +36,8 @@ add_executable(rtlsdr_radio
         payload.c payload.h
         resample.c resample.h
         ui.c ui.h
-        utils.c utils.h)
+        utils.c utils.h
+        wav.c wav.h)
 
 target_link_libraries(rtlsdr_radio
         Threads::Threads
