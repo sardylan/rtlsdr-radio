@@ -32,16 +32,19 @@ struct audio_ctx_t {
 
     snd_pcm_t *pcm;
     snd_pcm_uframes_t frames_per_period;
+
+    size_t buffer_size;
+    int16_t *buffer_int16;
 };
 
 typedef struct audio_ctx_t audio_ctx;
 
-audio_ctx *audio_init(const char *, unsigned int, unsigned int, snd_pcm_format_t);
+audio_ctx *audio_init(const char *, unsigned int, unsigned int, snd_pcm_format_t, snd_pcm_uframes_t);
 
 void audio_free(audio_ctx *);
 
 int audio_play_uint8(audio_ctx *ctx, uint8_t *buffer, size_t buffer_size);
 
-int audio_play_int16(audio_ctx *ctx, int16_t *buffer, size_t buffer_size);
+int audio_play_int16(audio_ctx *ctx, const int16_t *buffer, size_t buffer_size);
 
 #endif

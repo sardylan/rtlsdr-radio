@@ -23,12 +23,15 @@
 #include <stddef.h>
 #include <stdint.h>
 
+enum bool_flag_t {
+    FLAG_FALSE = 0,
+    FLAG_TRUE = 1
+};
+
 enum source_type_t {
     SOURCE_RTLSDR = 'r',
     SOURCE_FILE = 'f'
 };
-
-typedef enum source_type_t source_type;
 
 enum work_mode_t {
     MODE_VERSION = 'v',
@@ -37,14 +40,11 @@ enum work_mode_t {
     MODE_INFO = 'i'
 };
 
-typedef enum work_mode_t work_mode;
-
 enum modulation_type_t {
     MOD_TYPE_AM = 0,
     MOD_TYPE_FM = 1
 };
 
-typedef enum modulation_type_t modulation_type;
 
 enum filter_mode_t {
     FILTER_MODE_NONE = 0,
@@ -52,6 +52,10 @@ enum filter_mode_t {
     FILTER_MODE_FFT_SW = 2
 };
 
+typedef enum bool_flag_t bool_flag;
+typedef enum source_type_t source_type;
+typedef enum work_mode_t work_mode;
+typedef enum modulation_type_t modulation_type;
 typedef enum filter_mode_t filter_mode;
 
 struct cfg_t {
@@ -59,7 +63,7 @@ struct cfg_t {
     int file_log_level;
     char *file_log_name;
 
-    int debug;
+    bool_flag debug;
 
     source_type source;
     work_mode mode;
@@ -70,9 +74,9 @@ struct cfg_t {
     uint32_t rtlsdr_device_sample_rate;
     uint32_t rtlsdr_device_center_freq;
     int rtlsdr_device_freq_correction;
-    int rtlsdr_device_tuner_gain_mode;
+    bool_flag rtlsdr_device_tuner_gain_mode;
     int rtlsdr_device_tuner_gain;
-    int rtlsdr_device_agc_mode;
+    bool_flag rtlsdr_device_agc_mode;
     size_t rtlsdr_samples;
 
     modulation_type modulation;
@@ -80,13 +84,16 @@ struct cfg_t {
     filter_mode filter;
     int filter_fir;
 
+    uint64_t audio_frames_per_period;
     uint32_t audio_sample_rate;
 
-    int audio_file_enabled;
+    bool_flag audio_file_enabled;
     char *audio_file_path;
 
-    int audio_monitor_enabled;
+    bool_flag audio_monitor_enabled;
     char *audio_monitor_device;
+
+    bool_flag audio_stdout;
 
     uint32_t codec_opus_bitrate;
 
@@ -106,7 +113,7 @@ int cfg_parse(int, char **);
 
 int cfg_parse_file(char *);
 
-int cfg_parse_flag(int);
+bool_flag cfg_parse_flag(const char *);
 
 int cfg_parse_source_type(source_type *, char *);
 
@@ -116,7 +123,7 @@ int cfg_parse_modulation(modulation_type *, char *);
 
 int cfg_parse_filter_mode(filter_mode *, char *);
 
-const char *cfg_tochar_bool(int);
+const char *cfg_tochar_bool(bool_flag);
 
 const char *cfg_tochar_log_level(int);
 

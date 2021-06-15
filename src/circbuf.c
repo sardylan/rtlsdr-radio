@@ -29,7 +29,7 @@ circbuf_ctx *circbuf_init(const char *name, size_t item_size, size_t payload_siz
     int result;
     size_t ln;
 
-    log_info("Circular buffer init");
+    log_info("Circular buffer_int16 init");
 
     log_debug("Allocating circbuf context");
     ctx = (circbuf_ctx *) malloc(sizeof(circbuf_ctx));
@@ -42,7 +42,7 @@ circbuf_ctx *circbuf_init(const char *name, size_t item_size, size_t payload_siz
     ln = strlen(name);
     ctx->name = calloc(ln + 1, sizeof(char));
     if (ctx->name == NULL) {
-        log_error("Error allocating name buffer");
+        log_error("Error allocating name buffer_int16");
         circbuf_free(ctx);
         return NULL;
     }
@@ -60,7 +60,7 @@ circbuf_ctx *circbuf_init(const char *name, size_t item_size, size_t payload_siz
               ctx->size, ctx->payload_size, ctx->item_size, ctx->size * ctx->shift);
     ctx->data = (void *) calloc(ctx->size, ctx->shift);
     if (ctx->data == NULL) {
-        log_error("Error allocating data buffer");
+        log_error("Error allocating data buffer_int16");
         circbuf_free(ctx);
         return NULL;
     }
@@ -96,7 +96,7 @@ circbuf_ctx *circbuf_init(const char *name, size_t item_size, size_t payload_siz
 }
 
 void circbuf_free(circbuf_ctx *ctx) {
-    log_info("Circular buffer free");
+    log_info("Circular buffer_int16 free");
 
     if (ctx == NULL)
         return;
@@ -123,11 +123,11 @@ void circbuf_status(circbuf_ctx *ctx) {
     int dimension;
 
     dimension = 100 - (int) ((FP_FLOAT) (ctx->free) * 100 / (FP_FLOAT) ctx->size);
-    ui_message("Circular buffer %s: %d% (%zu/%zu)\n", ctx->name, dimension, ctx->free, ctx->size);
+    ui_message("Circular buffer_int16 %s: %d% (%zu/%zu)\n", ctx->name, dimension, ctx->free, ctx->size);
 }
 
 void circbuf_stop(circbuf_ctx *ctx) {
-    log_info("Circular buffer stop");
+    log_info("Circular buffer_int16 stop");
 
     ctx->keep_running = 0;
 }
@@ -136,7 +136,7 @@ void *circbuf_head_acquire(circbuf_ctx *ctx) {
     void *ptr;
     size_t pos;
 
-    log_debug("Circular buffer head acquire");
+    log_debug("Circular buffer_int16 head acquire");
 
     ptr = NULL;
 
@@ -149,10 +149,10 @@ void *circbuf_head_acquire(circbuf_ctx *ctx) {
             pos = ctx->head * ctx->shift;
             ptr = (uint8_t *) ctx->data + pos;
         } else {
-            log_warn("No free space in %s buffer", ctx->name);
+            log_warn("No free space in %s buffer_int16", ctx->name);
         }
     } else {
-        log_warn("Head busy in %s buffer", ctx->name);
+        log_warn("Head busy in %s buffer_int16", ctx->name);
     }
 
     pthread_mutex_unlock(&ctx->mutex);
@@ -162,7 +162,7 @@ void *circbuf_head_acquire(circbuf_ctx *ctx) {
 }
 
 void circbuf_head_release(circbuf_ctx *ctx) {
-    log_debug("Circular buffer head release");
+    log_debug("Circular buffer_int16 head release");
 
     log_trace("Acquiring lock");
     pthread_mutex_lock(&ctx->mutex);
@@ -190,7 +190,7 @@ void *circbuf_tail_acquire(circbuf_ctx *ctx) {
     void *ptr;
     size_t pos;
 
-    log_debug("Circular buffer tail acquire");
+    log_debug("Circular buffer_int16 tail acquire");
 
     ptr = NULL;
 
@@ -218,7 +218,7 @@ void *circbuf_tail_acquire(circbuf_ctx *ctx) {
 }
 
 void circbuf_tail_release(circbuf_ctx *ctx) {
-    log_debug("Circular buffer tail release");
+    log_debug("Circular buffer_int16 tail release");
 
     log_trace("Acquiring lock");
     pthread_mutex_lock(&ctx->mutex);

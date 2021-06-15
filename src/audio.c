@@ -20,7 +20,11 @@
 #include "audio.h"
 #include "log.h"
 
-audio_ctx *audio_init(const char *device_name, unsigned int rate, unsigned int channels, snd_pcm_format_t format) {
+audio_ctx *audio_init(const char *device_name,
+                      unsigned int rate,
+                      unsigned int channels,
+                      snd_pcm_format_t format,
+                      snd_pcm_uframes_t frames_per_period) {
     audio_ctx *ctx;
     int result;
     size_t ln;
@@ -39,18 +43,18 @@ audio_ctx *audio_init(const char *device_name, unsigned int rate, unsigned int c
     ln = strlen(device_name);
     ctx->device_name = calloc(ln + 1, sizeof(char));
     if (ctx->device_name == NULL) {
-        log_error("Error allocating device name buffer");
+        log_error("Error allocating device name buffer_int16");
         audio_free(ctx);
         return NULL;
     }
 
     strcpy(ctx->device_name, device_name);
 
-    log_debug("Setting rate");
+    log_debug("Setting values");
     ctx->rate = rate;
-
-    log_debug("Setting channels");
     ctx->channels = channels;
+    ctx->format = format;
+    ctx->frames_per_period = frames_per_period;
 
     log_debug("Opening ALSA device");
     result = snd_pcm_open(&ctx->pcm, ctx->device_name, SND_PCM_STREAM_PLAYBACK, 0);
@@ -72,7 +76,7 @@ audio_ctx *audio_init(const char *device_name, unsigned int rate, unsigned int c
         return NULL;
     }
 
-    result = snd_pcm_hw_params_set_format(ctx->pcm, params, format);
+    result = snd_pcm_hw_params_set_format(ctx->pcm, params, ctx->format);
     if (result != 0) {
         log_error("Error %d setting format: %s", result, snd_strerror(result));
         audio_free(ctx);
@@ -93,6 +97,13 @@ audio_ctx *audio_init(const char *device_name, unsigned int rate, unsigned int c
         return NULL;
     }
 
+    result = snd_pcm_hw_params_set_period_size(ctx->pcm, params, ctx->frames_per_period, 0);
+    if (result != 0) {
+        log_error("Error %d setting frames per period: %s", result, snd_strerror(result));
+        audio_free(ctx);
+        return NULL;
+    }
+
     result = snd_pcm_hw_params(ctx->pcm, params);
     if (result != 0) {
         log_error("Error %d setting harware parameters: %s", result, snd_strerror(result));
@@ -107,6 +118,17 @@ audio_ctx *audio_init(const char *device_name, unsigned int rate, unsigned int c
         return NULL;
     }
 
+    log_debug("Initializing buffer counter");
+    ctx->buffer_size = 0;
+
+    log_debug("ALSA requires %zu frames per period. Allocating buffers", ctx->frames_per_period);
+    ctx->buffer_int16 = (int16_t *) calloc(ctx->frames_per_period, sizeof(int16_t));
+    if (ctx->buffer_int16 == NULL) {
+        log_error("Error allocation int16 buffer");
+        audio_free(ctx);
+        return NULL;
+    }
+
     return ctx;
 }
 
@@ -115,6 +137,10 @@ void audio_free(audio_ctx *ctx) {
 
     if (ctx == NULL)
         return;
+
+    log_debug("Freeing int16 buffer_int16 name");
+    if (ctx->buffer_int16 != NULL)
+        free(ctx->buffer_int16);
 
     log_debug("Freeing device name");
     if (ctx->device_name != NULL)
@@ -133,7 +159,6 @@ void audio_free(audio_ctx *ctx) {
 int audio_play_uint8(audio_ctx *ctx, uint8_t *buffer, size_t buffer_size) {
     snd_pcm_sframes_t result;
 
-    snd_pcm_prepare(ctx->pcm);
     result = snd_pcm_writei(ctx->pcm, buffer, buffer_size);
     if (result != (snd_pcm_sframes_t) buffer_size) {
         log_error("Error %d getting period samples_size: %s", result, snd_strerror(result));
@@ -143,14 +168,24 @@ int audio_play_uint8(audio_ctx *ctx, uint8_t *buffer, size_t buffer_size) {
     return EXIT_SUCCESS;
 }
 
-int audio_play_int16(audio_ctx *ctx, int16_t *buffer, size_t buffer_size) {
+int audio_play_int16(audio_ctx *ctx, const int16_t *buffer, size_t buffer_size) {
     snd_pcm_sframes_t result;
+    size_t i;
 
-    snd_pcm_prepare(ctx->pcm);
-    result = snd_pcm_writei(ctx->pcm, buffer, buffer_size);
-    if (result != (snd_pcm_sframes_t) buffer_size) {
-        log_error("Error %d getting period samples_size: %s", result, snd_strerror(result));
-        return EXIT_FAILURE;
+    for (i = 0; i < buffer_size; i++) {
+        ctx->buffer_int16[ctx->buffer_size] = buffer[i];
+        ctx->buffer_size++;
+
+        if (ctx->buffer_size == ctx->frames_per_period) {
+            snd_pcm_prepare(ctx->pcm);
+            result = snd_pcm_writei(ctx->pcm, ctx->buffer_int16, ctx->buffer_size);
+            if (result != (snd_pcm_sframes_t) ctx->buffer_size) {
+                log_error("Error %d playing buffer: %s", result, snd_strerror(result));
+                return EXIT_FAILURE;
+            }
+
+            ctx->buffer_size = 0;
+        }
     }
 
     return EXIT_SUCCESS;

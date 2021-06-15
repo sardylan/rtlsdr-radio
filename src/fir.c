@@ -39,14 +39,14 @@ fir_ctx *fir_init(const FP_FLOAT *kernel, size_t kernel_size) {
 
     ctx->kernel = (FP_FLOAT *) calloc(ctx->kernel_size, sizeof(FP_FLOAT));
     if (ctx->kernel == NULL) {
-        log_error("Unable to allocate kernel buffer");
+        log_error("Unable to allocate kernel buffer_int16");
         fir_free(ctx);
         return NULL;
     }
 
     ctx->prev = (int8_t *) calloc((ctx->kernel_size - 1), sizeof(int8_t));
     if (ctx->prev == NULL) {
-        log_error("Unable to allocate previous values buffer");
+        log_error("Unable to allocate previous values buffer_int16");
         fir_free(ctx);
         return NULL;
     }

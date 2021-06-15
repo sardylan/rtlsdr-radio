@@ -69,6 +69,7 @@ void cfg_init() {
     conf->filter = CONFIG_FILTER_DEFAULT;
     conf->filter_fir = CONFIG_FILTER_FIR_DEFAULT;
 
+    conf->audio_frames_per_period = CONFIG_AUDIO_FRAME_PER_PERIOD_DEFAULT;
     conf->audio_sample_rate = CONFIG_AUDIO_SAMPLE_RATE_DEFAULT;
 
     conf->audio_file_enabled = CONFIG_AUDIO_FILE_ENABLED_DEFAULT;
@@ -83,6 +84,8 @@ void cfg_init() {
     conf->audio_monitor_device = (char *) calloc(sizeof(char), ln);
     strcpy(conf->audio_monitor_device, CONFIG_AUDIO_MONITOR_DEVICE_DEFAULT);
 
+    conf->audio_stdout = CONFIG_AUDIO_STDOUT_DEFAULT;
+
     conf->codec_opus_bitrate = CONFIG_CODEC_OPUS_BITRATE_DEFAULT;
 
     ln = strlen(CONFIG_NETWORK_SERVER_DEFAULT) + 1;
@@ -94,6 +97,7 @@ void cfg_init() {
 
 void cfg_free() {
     free(conf->file_log_name);
+    free(conf->rawiq_file_path);
     free(conf->audio_file_path);
     free(conf->audio_monitor_device);
     free(conf->network_server);
@@ -128,6 +132,7 @@ void cfg_print() {
     ui_message("filter:                        %s\n", cfg_tochar_filter_mode(conf->filter));
     ui_message("filter_fir:                    %d\n", conf->filter_fir);
     ui_message("\n");
+    ui_message("audio_frames_per_period:       %u\n", conf->audio_frames_per_period);
     ui_message("audio_sample_rate:             %u (Hz)\n", conf->audio_sample_rate);
     ui_message("\n");
     ui_message("audio_file_enabled:            %s\n", cfg_tochar_bool(conf->audio_file_enabled));
@@ -135,6 +140,8 @@ void cfg_print() {
     ui_message("\n");
     ui_message("audio_monitor_enabled:         %s\n", cfg_tochar_bool(conf->audio_monitor_enabled));
     ui_message("audio_monitor_device:          %s\n", conf->audio_monitor_device);
+    ui_message("\n");
+    ui_message("audio_stdout:                  %s\n", cfg_tochar_bool(conf->audio_stdout));
     ui_message("\n");
     ui_message("codec_opus_bitrate:            %u (b/s)\n", conf->codec_opus_bitrate);
     ui_message("\n");
@@ -156,30 +163,34 @@ int cfg_parse(int argc, char **argv) {
     ret = EXIT_SUCCESS;
 
     static struct option long_options[] = {
-            {"config",         required_argument, 0, 'c'},
+            {"config",                required_argument, 0, 'c'},
 
-            {"help",           no_argument,       0, 'h'},
-            {"version",        no_argument,       0, 'V'},
+            {"help",                  no_argument,       0, 'h'},
+            {"version",               no_argument,       0, 'V'},
 
-            {"quiet",          no_argument,       0, 'q'},
-            {"verbose",        no_argument,       0, 'v'},
-            {"ui-log-level",   required_argument, 0, 'd'},
-            {"file-log-level", required_argument, 0, 'l'},
-            {"file-log-name",  required_argument, 0, 'L'},
+            {"quiet",                 no_argument,       0, 'q'},
+            {"verbose",               no_argument,       0, 'v'},
+            {"ui-log-level",          required_argument, 0, 'd'},
+            {"file-log-level",        required_argument, 0, 'l'},
+            {"file-log-name",         required_argument, 0, 'L'},
 
-            {"debug",          no_argument,       0, 'D'},
+            {"debug",                 no_argument,       0, 'D'},
 
-            {"source",         required_argument, 0, 's'},
-            {"mode",           required_argument, 0, 'm'},
+            {"source",                required_argument, 0, 's'},
+            {"mode",                  required_argument, 0, 'm'},
 
-            {0, 0,                                0, 0}
+            {"audio-monitor-enabled", no_argument,       0, 'a'},
+            {"audio-file-enabled",    no_argument,       0, 'w'},
+            {"audio-stdout",          no_argument,       0, 'o'},
+
+            {0, 0,                                       0, 0}
     };
 
     config_filename = (char *) malloc(sizeof(char));
     *config_filename = '\0';
 
     while (1) {
-        c = getopt_long(argc, argv, "c:hVqvd:l:L:Ds:m:", long_options, &option_index);
+        c = getopt_long(argc, argv, "c:hVqvd:l:L:Ds:m:awo", long_options, &option_index);
 
         if (c == -1) {
             break;
@@ -237,7 +248,16 @@ int cfg_parse(int argc, char **argv) {
         }
 
         if (c == 'D') {
-            conf->debug = 1;
+            conf->debug = FLAG_TRUE;
+            continue;
+        }
+
+        if (c == 's') {
+            if (cfg_parse_source_type(&conf->source, optarg) != EXIT_SUCCESS) {
+                ret = EXIT_FAILURE;
+                break;
+            }
+
             continue;
         }
 
@@ -250,12 +270,18 @@ int cfg_parse(int argc, char **argv) {
             continue;
         }
 
-        if (c == 's') {
-            if (cfg_parse_source_type(&conf->source, optarg) != EXIT_SUCCESS) {
-                ret = EXIT_FAILURE;
-                break;
-            }
+        if (c == 'a') {
+            conf->audio_monitor_enabled = FLAG_TRUE;
+            continue;
+        }
 
+        if (c == 'w') {
+            conf->audio_file_enabled = FLAG_TRUE;
+            continue;
+        }
+
+        if (c == 'o') {
+            conf->audio_stdout = FLAG_TRUE;
             continue;
         }
     }
@@ -340,7 +366,7 @@ int cfg_parse_file(char *config_filename) {
         }
 
         if (strcmp(param, "debug") == 0) {
-            conf->debug = cfg_parse_flag((int) strtol(value, &endptr, 10));
+            conf->debug = cfg_parse_flag(value);
             continue;
         }
 
@@ -429,20 +455,42 @@ int cfg_parse_file(char *config_filename) {
             continue;
         }
 
+        if (strcmp(param, "audio_frames_per_period") == 0) {
+            conf->audio_frames_per_period = (uint64_t) strtol(value, &endptr, 10);
+            continue;
+        }
+
         if (strcmp(param, "audio_sample_rate") == 0) {
             conf->audio_sample_rate = (uint32_t) strtol(value, &endptr, 10);
             continue;
         }
 
+        if (strcmp(param, "audio_file_enabled") == 0) {
+            conf->audio_file_enabled = cfg_parse_flag(value);
+            continue;
+        }
+
+        if (strcmp(param, "audio_file_path") == 0) {
+            ln = strlen(value) + 1;
+            conf->audio_file_path = (char *) realloc((void *) conf->audio_file_path, sizeof(char) * ln);
+            strcpy(conf->audio_file_path, value);
+            continue;
+        }
+
         if (strcmp(param, "audio_monitor_enabled") == 0) {
-            conf->audio_monitor_enabled = cfg_parse_flag((int) strtol(value, &endptr, 10));
+            conf->audio_monitor_enabled = cfg_parse_flag(value);
             continue;
         }
 
         if (strcmp(param, "audio_monitor_device") == 0) {
             ln = strlen(value) + 1;
-            conf->audio_monitor_device = (char *) realloc((void *) conf->file_log_name, sizeof(char) * ln);
+            conf->audio_monitor_device = (char *) realloc((void *) conf->audio_monitor_device, sizeof(char) * ln);
             strcpy(conf->audio_monitor_device, value);
+            continue;
+        }
+
+        if (strcmp(param, "audio_monitor_enabled") == 0) {
+            conf->audio_stdout = cfg_parse_flag(value);
             continue;
         }
 
@@ -474,11 +522,15 @@ int cfg_parse_file(char *config_filename) {
     return ret;
 }
 
-int cfg_parse_flag(int flag) {
-    if (flag != 0)
-        return 1;
+bool_flag cfg_parse_flag(const char *flag) {
+    if (utils_stricmp(flag, "y") == 0
+        || utils_stricmp(flag, "yes") == 0
+        || utils_stricmp(flag, "t") == 0
+        || utils_stricmp(flag, "true") == 0
+        || utils_stricmp(flag, "1") == 0)
+        return FLAG_TRUE;
     else
-        return 0;
+        return FLAG_FALSE;
 }
 
 int cfg_parse_source_type(source_type *source, char *value) {
@@ -551,11 +603,15 @@ int cfg_parse_filter_mode(filter_mode *filter, char *value) {
     return ret;
 }
 
-const char *cfg_tochar_bool(int value) {
-    if (value == 0)
-        return "NO";
-    else
-        return "YES";
+const char *cfg_tochar_bool(bool_flag value) {
+    switch (value) {
+        case FLAG_FALSE:
+            return "NO";
+        case FLAG_TRUE:
+            return "YES";
+        default:
+            return "";
+    }
 }
 
 const char *cfg_tochar_log_level(int value) {

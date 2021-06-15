@@ -57,7 +57,7 @@ payload *payload_init() {
 void payload_free(payload *p) {
     log_debug("Freeing payload");
 
-    log_trace("Freeing data buffer");
+    log_trace("Freeing data buffer_int16");
     if (p->data != NULL)
         free(p->data);
 

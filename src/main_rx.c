@@ -116,6 +116,9 @@ int main_rx() {
     sample_pcm_ratio = (FP_FLOAT) conf->rtlsdr_device_sample_rate / (FP_FLOAT) conf->audio_sample_rate;
     rx_pcm_size = (size_t) ((FP_FLOAT) conf->rtlsdr_samples / sample_pcm_ratio);
 
+    log_debug("Samples/PCM ratio: %0.2f", sample_pcm_ratio);
+    log_debug("PCM has %zu samples per iteration", rx_pcm_size);
+
     log_debug("Initializing Great Buffer");
     greatbuf = greatbuf_init(MAIN_RX_BUFFERS_SIZE, conf->rtlsdr_samples, rx_pcm_size);
     if (greatbuf == NULL) {
@@ -460,7 +463,7 @@ void *thread_rx_read() {
     while (keep_running) {
         pos = greatbuf_circbuf_head_acquire(greatbuf, GREATBUF_CIRCBUF_READ);
         if (pos == -1) {
-            log_error("Error acquiring IQ buffer head");
+            log_error("Error acquiring IQ buffer_int16 head");
             greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_READ);
             retval = EXIT_FAILURE;
             break;
@@ -556,7 +559,7 @@ void *thread_rx_samples() {
     while (keep_running) {
         pos = greatbuf_circbuf_tail_acquire(greatbuf, GREATBUF_CIRCBUF_READ);
         if (pos == -1) {
-            log_error("Error acquiring IQ buffer tail");
+            log_error("Error acquiring IQ buffer_int16 tail");
             greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_READ);
             retval = EXIT_FAILURE;
             break;
@@ -565,7 +568,7 @@ void *thread_rx_samples() {
 
         pos = greatbuf_circbuf_head_acquire(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
         if (pos == -1) {
-            log_error("Error acquiring Samples buffer head");
+            log_error("Error acquiring Samples buffer_int16 head");
             greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_READ);
             greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
             retval = EXIT_FAILURE;
@@ -621,7 +624,7 @@ void *thread_rx_demod() {
     while (keep_running) {
         pos = greatbuf_circbuf_tail_acquire(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
         if (pos == -1) {
-            log_error("Error acquiring samples buffer tail");
+            log_error("Error acquiring samples buffer_int16 tail");
             greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
             retval = EXIT_FAILURE;
             break;
@@ -630,7 +633,7 @@ void *thread_rx_demod() {
 
         pos = greatbuf_circbuf_head_acquire(greatbuf, GREATBUF_CIRCBUF_DEMOD);
         if (pos == -1) {
-            log_error("Error acquiring demod buffer head");
+            log_error("Error acquiring demod buffer_int16 head");
             greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
             greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_DEMOD);
             retval = EXIT_FAILURE;
@@ -768,7 +771,7 @@ void *thread_rx_filter() {
     while (keep_running) {
         pos = greatbuf_circbuf_tail_acquire(greatbuf, GREATBUF_CIRCBUF_DEMOD);
         if (pos == -1) {
-            log_error("Error acquiring demod buffer tail");
+            log_error("Error acquiring demod buffer_int16 tail");
             greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_DEMOD);
             retval = EXIT_FAILURE;
             break;
@@ -777,7 +780,7 @@ void *thread_rx_filter() {
 
         pos = greatbuf_circbuf_head_acquire(greatbuf, GREATBUF_CIRCBUF_FILTER);
         if (pos == -1) {
-            log_error("Error acquiring filtered buffer head");
+            log_error("Error acquiring filtered buffer_int16 head");
             greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_DEMOD);
             greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_FILTER);
             retval = EXIT_FAILURE;
@@ -893,7 +896,7 @@ void *thread_rx_resample() {
     while (keep_running) {
         pos = greatbuf_circbuf_tail_acquire(greatbuf, GREATBUF_CIRCBUF_FILTER);
         if (pos == -1) {
-            log_error("Error acquiring filtered buffer tail");
+            log_error("Error acquiring filtered buffer_int16 tail");
             greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_FILTER);
             retval = EXIT_FAILURE;
             break;
@@ -902,7 +905,7 @@ void *thread_rx_resample() {
 
         pos = greatbuf_circbuf_head_acquire(greatbuf, GREATBUF_CIRCBUF_RESAMPLE);
         if (pos == -1) {
-            log_error("Error acquiring pcm buffer head");
+            log_error("Error acquiring pcm buffer_int16 head");
             greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_FILTER);
             greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_RESAMPLE);
             retval = EXIT_FAILURE;
@@ -992,7 +995,7 @@ void *thread_rx_audio() {
     struct timespec *ts;
     struct timespec *delay;
 
-    audio_ctx *ctx;
+    audio_ctx *ctx_audio;
     wav_ctx *ctx_wav;
     int16_t *pcm_buffer;
     struct timespec now;
@@ -1004,25 +1007,34 @@ void *thread_rx_audio() {
 
     retval = EXIT_SUCCESS;
 
-    log_debug("Initializing audio context");
-    ctx = audio_init(conf->audio_monitor_device, conf->audio_sample_rate, 1, SND_PCM_FORMAT_S16_LE);
-    if (ctx == NULL) {
-        log_error("Unable to allocate codec context");
-        retval = EXIT_FAILURE;
-        pthread_exit(&retval);
+    if (conf->audio_monitor_enabled == FLAG_TRUE) {
+        log_debug("Initializing audio context");
+        ctx_audio = audio_init(conf->audio_monitor_device,
+                               conf->audio_sample_rate,
+                               1,
+                               SND_PCM_FORMAT_S16,
+                               conf->audio_frames_per_period);
+        if (ctx_audio == NULL) {
+            log_error("Unable to allocate codec context");
+            retval = EXIT_FAILURE;
+            pthread_exit(&retval);
+        }
     }
 
-    log_debug("Initializing wav context");
-    ctx_wav = wav_init(conf->audio_file_path, 1, conf->audio_sample_rate, 16);
-    if (ctx_wav == NULL) {
-        log_error("Unable to allocate codec context");
-        audio_free(ctx);
-        retval = EXIT_FAILURE;
-        pthread_exit(&retval);
-    }
+    if (conf->audio_file_enabled == FLAG_TRUE) {
+        log_debug("Initializing wav context");
+        ctx_wav = wav_init(conf->audio_file_path, 1, conf->audio_sample_rate, 16);
+        if (ctx_wav == NULL) {
+            log_error("Unable to allocate codec context");
+            if (conf->audio_monitor_enabled == 1)
+                audio_free(ctx_audio);
+            retval = EXIT_FAILURE;
+            pthread_exit(&retval);
+        }
 
-    log_debug("Opening WAV file");
-    wav_write_begin(ctx_wav);
+        log_debug("Opening WAV file");
+        wav_write_begin(ctx_wav);
+    }
 
     log_debug("Waiting for other threads to init");
     rx_audio_ready = 1;
@@ -1032,12 +1044,11 @@ void *thread_rx_audio() {
     while (keep_running) {
         pos = greatbuf_circbuf_tail_acquire(greatbuf, GREATBUF_CIRCBUF_RESAMPLE);
         if (pos == -1) {
-            log_error("Error acquiring filtered buffer tail");
+            log_error("Error acquiring filtered buffer_int16 tail");
             greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_RESAMPLE);
             retval = EXIT_FAILURE;
             break;
         }
-
 
         item = greatbuf_item_get(greatbuf, pos);
         ts = &item->ts;
@@ -1050,26 +1061,36 @@ void *thread_rx_audio() {
         utils_timespec_sub(ts, &now, delay);
 //        ui_message("Delay: %zu.%zu\n", delay->tv_sec, delay->tv_nsec);
 
-        result = audio_play_int16(ctx, pcm_buffer, rx_pcm_size);
-        if (result != EXIT_SUCCESS) {
-            log_error("Unable to play buffer");
-            retval = EXIT_FAILURE;
-            break;
+        if (conf->audio_monitor_enabled == FLAG_TRUE) {
+            result = audio_play_int16(ctx_audio, pcm_buffer, rx_pcm_size);
+            if (result != EXIT_SUCCESS) {
+                log_error("Unable to play buffer_int16");
+                retval = EXIT_FAILURE;
+                break;
+            }
         }
 
-        wav_write_data_int16(ctx_wav, pcm_buffer, rx_pcm_size);
+        if (conf->audio_file_enabled == FLAG_TRUE)
+            wav_write_data_int16(ctx_wav, pcm_buffer, rx_pcm_size);
+
+        if (conf->audio_stdout == FLAG_TRUE)
+            fwrite(pcm_buffer, sizeof(int16_t), rx_pcm_size, stdout);
 
         greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_RESAMPLE);
     }
 
-    log_debug("Clising WAV file");
-    wav_write_end(ctx_wav);
+    if (conf->audio_monitor_enabled == FLAG_TRUE) {
+        log_debug("Freeing audio context");
+        audio_free(ctx_audio);
+    }
 
-    log_debug("Freeing audio context");
-    audio_free(ctx);
+    if (conf->audio_file_enabled == FLAG_TRUE) {
+        log_debug("Closing WAV file");
+        wav_write_end(ctx_wav);
 
-    log_debug("Freeing WAV context");
-    wav_free(ctx_wav);
+        log_debug("Freeing WAV context");
+        wav_free(ctx_wav);
+    }
 
     main_stop();
 

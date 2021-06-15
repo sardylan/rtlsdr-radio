@@ -55,8 +55,6 @@ wav_ctx *wav_init(const char *file_path, uint16_t channels, uint32_t sample_rate
 
     ctx->data_size = 0;
 
-    ctx->fp = NULL;
-
     return ctx;
 }
 
@@ -65,12 +63,6 @@ void wav_free(wav_ctx *ctx) {
 
     if (ctx == NULL)
         return;
-
-    log_debug("Closing file");
-    if (ctx->fp != NULL) {
-        fclose(ctx->fp);
-        ctx->fp = NULL;
-    }
 
     log_debug("Freeing file path");
     if (ctx->file_path != NULL)

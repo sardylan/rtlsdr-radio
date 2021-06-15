@@ -37,51 +37,51 @@ frame *frame_init(size_t size_iq, size_t size_sample, size_t size_pcm) {
 
     f->number = 0;
 
-    log_trace("Setting IQ buffer samples_size");
+    log_trace("Setting IQ buffer_int16 samples_size");
     f->size_iq = size_iq;
 
-    log_trace("Allocating IQ buffer");
+    log_trace("Allocating IQ buffer_int16");
     f->iq = (uint8_t *) calloc(size_iq, sizeof(uint8_t));
     if (f->iq == NULL) {
-        log_error("Unable to allocate IQ buffer");
+        log_error("Unable to allocate IQ buffer_int16");
         frame_free(f);
         return NULL;
     }
 
-    log_trace("Setting Samples buffer samples_size");
+    log_trace("Setting Samples buffer_int16 samples_size");
     f->size_sample = size_sample;
 
-    log_trace("Allocating Samples buffer");
+    log_trace("Allocating Samples buffer_int16");
     f->samples = (FP_FLOAT complex *) calloc(size_sample, sizeof(FP_FLOAT complex));
     if (f->samples == NULL) {
-        log_error("Unable to allocate Samples buffer");
+        log_error("Unable to allocate Samples buffer_int16");
         frame_free(f);
         return NULL;
     }
 
-    log_trace("Allocating Demod buffer");
+    log_trace("Allocating Demod buffer_int16");
     f->demod = (int8_t *) calloc(size_sample, sizeof(int8_t));
     if (f->demod == NULL) {
-        log_error("Unable to allocate Demod buffer");
+        log_error("Unable to allocate Demod buffer_int16");
         frame_free(f);
         return NULL;
     }
 
-    log_trace("Allocating Filtered buffer");
+    log_trace("Allocating Filtered buffer_int16");
     f->filtered = (int8_t *) calloc(size_sample, sizeof(int8_t));
     if (f->filtered == NULL) {
-        log_error("Unable to allocate Filtered buffer");
+        log_error("Unable to allocate Filtered buffer_int16");
         frame_free(f);
         return NULL;
     }
 
-    log_trace("Setting PCM buffer samples_size");
+    log_trace("Setting PCM buffer_int16 samples_size");
     f->size_pcm = size_pcm;
 
-    log_trace("Allocating PCM buffer");
+    log_trace("Allocating PCM buffer_int16");
     f->pcm = (int8_t *) calloc(size_pcm, sizeof(int8_t));
     if (f->pcm == NULL) {
-        log_error("Unable to allocate PCM buffer");
+        log_error("Unable to allocate PCM buffer_int16");
         frame_free(f);
         return NULL;
     }
@@ -102,7 +102,7 @@ void frame_clear(frame *f, uint64_t number) {
     log_trace("Setting timestamp");
     timespec_get(&f->ts, TIME_UTC);
 
-    log_trace("Zeroing IQ buffer");
+    log_trace("Zeroing IQ buffer_int16");
     for (i = 0; i < f->size_iq; i++)
         f->iq[i] = 0;
 
@@ -113,7 +113,7 @@ void frame_clear(frame *f, uint64_t number) {
         f->filtered[i] = 0;
     }
 
-    log_trace("Zeroing PCM buffer");
+    log_trace("Zeroing PCM buffer_int16");
     for (i = 0; i < f->size_pcm; i++)
         f->pcm[i] = 0;
 
@@ -128,15 +128,15 @@ void frame_free(frame *f) {
     if (f->pcm != NULL)
         free(f->pcm);
 
-    log_trace("Freeing Filtered buffer");
+    log_trace("Freeing Filtered buffer_int16");
     if (f->filtered != NULL)
         free(f->filtered);
 
-    log_trace("Freeing Demod buffer");
+    log_trace("Freeing Demod buffer_int16");
     if (f->demod != NULL)
         free(f->demod);
 
-    log_trace("Freeing Samples buffer");
+    log_trace("Freeing Samples buffer_int16");
     if (f->samples != NULL)
         free(f->samples);
 

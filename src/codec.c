@@ -86,10 +86,10 @@ codec_ctx *codec_init(int32_t sample_rate, int32_t bitrate) {
         return NULL;
     }
 
-    log_debug("Allocation input buffer");
+    log_debug("Allocation input buffer_int16");
     ctx->input = (opus_int16 *) calloc(CODEC_FRAME_SIZE, sizeof(opus_int16));
     if (ctx->input == NULL) {
-        log_error("Unable to allocate input buffer");
+        log_error("Unable to allocate input buffer_int16");
         codec_free(ctx);
         return NULL;
     }

@@ -72,6 +72,7 @@ void log_message(const int level, const char *element, char *filename, const int
     if (strncmp(element, "greatbuf_", 9) == 0 && level >= LOG_LEVEL_DEBUG) return;
     if (strncmp(element, "fft_", 4) == 0 && level >= LOG_LEVEL_DEBUG) return;
     if (strncmp(element, "resample_", 9) == 0 && level >= LOG_LEVEL_DEBUG) return;
+    if (strncmp(element, "wav_", 4) == 0 && level >= LOG_LEVEL_DEBUG) return;
 
     if (strcmp(element, "thread_rx_read") == 0 && level >= LOG_LEVEL_TRACE) return;
     if (strcmp(element, "thread_rx_samples") == 0 && level >= LOG_LEVEL_DEBUG) return;
