@@ -95,7 +95,7 @@ struct cfg_t {
 
     bool_flag audio_stdout;
 
-    uint32_t codec_opus_bitrate;
+    int codec2_mode;
 
     char *network_server;
     uint16_t network_port;
@@ -123,6 +123,8 @@ int cfg_parse_modulation(modulation_type *, char *);
 
 int cfg_parse_filter_mode(filter_mode *, char *);
 
+int cfg_parse_codec2_mode(int *, char *);
+
 const char *cfg_tochar_bool(bool_flag);
 
 const char *cfg_tochar_log_level(int);
@@ -134,5 +136,7 @@ const char *cfg_tochar_work_mode(work_mode);
 const char *cfg_tochar_modulation(modulation_type);
 
 const char *cfg_tochar_filter_mode(filter_mode);
+
+const char *cfg_tochar_codec2_mode(int);
 
 #endif

@@ -86,7 +86,7 @@ void cfg_init() {
 
     conf->audio_stdout = CONFIG_AUDIO_STDOUT_DEFAULT;
 
-    conf->codec_opus_bitrate = CONFIG_CODEC_OPUS_BITRATE_DEFAULT;
+    conf->codec2_mode = CONFIG_CODEC2_MODE_DEFAULT;
 
     ln = strlen(CONFIG_NETWORK_SERVER_DEFAULT) + 1;
     conf->network_server = (char *) calloc(sizeof(char), ln);
@@ -143,7 +143,7 @@ void cfg_print() {
     ui_message("\n");
     ui_message("audio_stdout:                  %s\n", cfg_tochar_bool(conf->audio_stdout));
     ui_message("\n");
-    ui_message("codec_opus_bitrate:            %u (b/s)\n", conf->codec_opus_bitrate);
+    ui_message("codec2_mode:                   %s bit/s\n", cfg_tochar_codec2_mode(conf->codec2_mode));
     ui_message("\n");
     ui_message("network_server:                %s\n", conf->network_server);
     ui_message("network_port:                  %u\n", conf->network_port);
@@ -494,8 +494,13 @@ int cfg_parse_file(char *config_filename) {
             continue;
         }
 
-        if (strcmp(param, "codec_opus_bitrate") == 0) {
-            conf->codec_opus_bitrate = (uint32_t) strtol(value, &endptr, 10);
+        if (strcmp(param, "codec2_mode") == 0) {
+            if (cfg_parse_codec2_mode(&conf->codec2_mode, value) != EXIT_SUCCESS) {
+                log_error("Config file error in line %zu", line_num);
+                ret = EXIT_FAILURE;
+                break;
+            }
+
             continue;
         }
 
@@ -603,6 +608,41 @@ int cfg_parse_filter_mode(filter_mode *filter, char *value) {
     return ret;
 }
 
+int cfg_parse_codec2_mode(int *codec2_mode, char *value) {
+    int ret;
+
+    ret = EXIT_SUCCESS;
+
+    if (strcmp(value, "3200") == 0)
+        *codec2_mode = CODEC2_MODE_3200;
+    else if (strcmp(value, "2400") == 0)
+        *codec2_mode = CODEC2_MODE_2400;
+    else if (strcmp(value, "1600") == 0)
+        *codec2_mode = CODEC2_MODE_1600;
+    else if (strcmp(value, "1400") == 0)
+        *codec2_mode = CODEC2_MODE_1400;
+    else if (strcmp(value, "1300") == 0)
+        *codec2_mode = CODEC2_MODE_1300;
+    else if (strcmp(value, "1200") == 0)
+        *codec2_mode = CODEC2_MODE_1200;
+    else if (strcmp(value, "700") == 0)
+        *codec2_mode = CODEC2_MODE_700;
+    else if (strcmp(value, "700B") == 0)
+        *codec2_mode = CODEC2_MODE_700B;
+    else if (strcmp(value, "700C") == 0)
+        *codec2_mode = CODEC2_MODE_700C;
+    else if (strcmp(value, "450") == 0)
+        *codec2_mode = CODEC2_MODE_450;
+    else if (strcmp(value, "450PWB") == 0)
+        *codec2_mode = CODEC2_MODE_450PWB;
+    else {
+        log_error("Wrong mode: %s", value);
+        ret = EXIT_FAILURE;
+    }
+
+    return ret;
+}
+
 const char *cfg_tochar_bool(bool_flag value) {
     switch (value) {
         case FLAG_FALSE:
@@ -678,6 +718,35 @@ const char *cfg_tochar_filter_mode(filter_mode value) {
             return "FIR Software (Finite Impulse Response with no optimizations)";
         case FILTER_MODE_FFT_SW:
             return "Fast Fourier Transform (based on libfftw3)";
+        default:
+            return "";
+    }
+}
+
+const char *cfg_tochar_codec2_mode(int codec2_mode) {
+    switch (codec2_mode) {
+        case CODEC2_MODE_3200:
+            return "3200";
+        case CODEC2_MODE_2400:
+            return "2400";
+        case CODEC2_MODE_1600:
+            return "1600";
+        case CODEC2_MODE_1400:
+            return "1400";
+        case CODEC2_MODE_1300:
+            return "1300";
+        case CODEC2_MODE_1200:
+            return "1200";
+        case CODEC2_MODE_700:
+            return "700";
+        case CODEC2_MODE_700B:
+            return "700B";
+        case CODEC2_MODE_700C:
+            return "700C";
+        case CODEC2_MODE_450:
+            return "450";
+        case CODEC2_MODE_450PWB:
+            return "450PWB";
         default:
             return "";
     }

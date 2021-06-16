@@ -11,9 +11,9 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 find_package(Threads REQUIRED)
 
-pkg_check_modules(opus REQUIRED IMPORTED_TARGET opus)
 pkg_check_modules(rtlsdr REQUIRED IMPORTED_TARGET librtlsdr)
 pkg_check_modules(asound2 REQUIRED IMPORTED_TARGET alsa)
+pkg_check_modules(codec2 REQUIRED IMPORTED_TARGET codec2)
 
 add_executable(rtlsdr_radio
         agc.c agc.h
@@ -42,10 +42,10 @@ add_executable(rtlsdr_radio
 target_link_libraries(rtlsdr_radio
         Threads::Threads
         m
+        PkgConfig::rtlsdr
         PkgConfig::fftw3
-        PkgConfig::opus
         PkgConfig::asound2
-        PkgConfig::rtlsdr)
+        PkgConfig::codec2)
 
 target_compile_options(rtlsdr_radio
         PRIVATE

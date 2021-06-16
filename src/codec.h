@@ -20,28 +20,31 @@
 #ifndef __RTLSDR_RADIO__CODEC__H
 #define __RTLSDR_RADIO__CODEC__H
 
-#include <opus.h>
+#include <stdint.h>
 
-// Frame duration 20ms, at 8000Hz we have 160 samples
-#define CODEC_FRAME_SIZE 160
-
-#define CODEC_FRAME_BUFFER 8192
+#include <codec2/codec2.h>
 
 struct codec_ctx_t {
-    opus_int32 sample_rate;
-    opus_int32 bitrate;
+    int mode;
 
-    OpusEncoder *encoder;
+    struct CODEC2 *codec2;
 
-    opus_int16 *input;
+    size_t pcm_size;
+    size_t data_size;
 };
 
 typedef struct codec_ctx_t codec_ctx;
 
-codec_ctx *codec_init(int32_t, int32_t);
+codec_ctx *codec_init(int);
 
 void codec_free(codec_ctx *);
 
-int codec_encode(codec_ctx *, const int8_t *, uint8_t *, size_t, size_t *);
+size_t codec_get_pcm_size(codec_ctx *);
+
+size_t codec_get_data_size(codec_ctx *);
+
+void codec_encode(codec_ctx *, int16_t *, uint8_t *);
+
+void codec_decode(codec_ctx *, uint8_t *, int16_t *);
 
 #endif
