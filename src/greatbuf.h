@@ -26,11 +26,11 @@
 #include <time.h>
 #include <pthread.h>
 
-#define GREATBUF_CIRCBUF_READ 0
+#define GREATBUF_CIRCBUF_IQ 0
 #define GREATBUF_CIRCBUF_SAMPLES 1
 #define GREATBUF_CIRCBUF_DEMOD 2
-#define GREATBUF_CIRCBUF_FILTER 3
-#define GREATBUF_CIRCBUF_RESAMPLE 4
+#define GREATBUF_CIRCBUF_FILTERED 3
+#define GREATBUF_CIRCBUF_PCM 4
 #define GREATBUF_CIRCBUF_CODEC 5
 #define GREATBUF_CIRCBUF_MONITOR 6
 #define GREATBUF_CIRCBUF_NETWORK 7
@@ -73,16 +73,14 @@ struct greatbuf_item_t {
 };
 
 struct greatbuf_ctx_t {
-    uint64_t number;
-
     size_t size;
     struct greatbuf_item_t **items;
 
-    struct greatbuf_circbuf_t *circbuf_read;
+    struct greatbuf_circbuf_t *circbuf_iq;
     struct greatbuf_circbuf_t *circbuf_samples;
     struct greatbuf_circbuf_t *circbuf_demod;
-    struct greatbuf_circbuf_t *circbuf_lpf;
-    struct greatbuf_circbuf_t *circbuf_resample;
+    struct greatbuf_circbuf_t *circbuf_filtered;
+    struct greatbuf_circbuf_t *circbuf_pcm;
     struct greatbuf_circbuf_t *circbuf_codec;
     struct greatbuf_circbuf_t *circbuf_monitor;
     struct greatbuf_circbuf_t *circbuf_network;

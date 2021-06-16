@@ -243,8 +243,8 @@ greatbuf_ctx *greatbuf_init(size_t size, size_t samples_size, size_t pcm_size) {
     }
 
     log_debug("Allocating circbuf read");
-    ctx->circbuf_read = greatbuf_circbuf_init("read", ctx->size);
-    if (ctx->circbuf_read == NULL) {
+    ctx->circbuf_iq = greatbuf_circbuf_init("read", ctx->size);
+    if (ctx->circbuf_iq == NULL) {
         log_error("Unable to allocate circbuf read");
         greatbuf_free(ctx);
         return NULL;
@@ -267,16 +267,16 @@ greatbuf_ctx *greatbuf_init(size_t size, size_t samples_size, size_t pcm_size) {
     }
 
     log_debug("Allocating circbuf lpf");
-    ctx->circbuf_lpf = greatbuf_circbuf_init("lpf", ctx->size);
-    if (ctx->circbuf_lpf == NULL) {
+    ctx->circbuf_filtered = greatbuf_circbuf_init("lpf", ctx->size);
+    if (ctx->circbuf_filtered == NULL) {
         log_error("Unable to allocate circbuf lpf");
         greatbuf_free(ctx);
         return NULL;
     }
 
     log_debug("Allocating circbuf resample");
-    ctx->circbuf_resample = greatbuf_circbuf_init("resample", ctx->size);
-    if (ctx->circbuf_resample == NULL) {
+    ctx->circbuf_pcm = greatbuf_circbuf_init("resample", ctx->size);
+    if (ctx->circbuf_pcm == NULL) {
         log_error("Unable to allocate circbuf resample");
         greatbuf_free(ctx);
         return NULL;
@@ -323,11 +323,11 @@ void greatbuf_free(greatbuf_ctx *ctx) {
     free(ctx->items);
 
     log_debug("Freeing circbufs");
-    greatbuf_circbuf_free(ctx->circbuf_read);
+    greatbuf_circbuf_free(ctx->circbuf_iq);
     greatbuf_circbuf_free(ctx->circbuf_samples);
     greatbuf_circbuf_free(ctx->circbuf_demod);
-    greatbuf_circbuf_free(ctx->circbuf_lpf);
-    greatbuf_circbuf_free(ctx->circbuf_resample);
+    greatbuf_circbuf_free(ctx->circbuf_filtered);
+    greatbuf_circbuf_free(ctx->circbuf_pcm);
     greatbuf_circbuf_free(ctx->circbuf_codec);
     greatbuf_circbuf_free(ctx->circbuf_monitor);
     greatbuf_circbuf_free(ctx->circbuf_network);
@@ -339,11 +339,11 @@ void greatbuf_free(greatbuf_ctx *ctx) {
 void greatbuf_stop(greatbuf_ctx *ctx) {
     log_info("Stopping greatbuf");
 
-    ctx->circbuf_read->keep_running = 0;
+    ctx->circbuf_iq->keep_running = 0;
     ctx->circbuf_samples->keep_running = 0;
     ctx->circbuf_demod->keep_running = 0;
-    ctx->circbuf_lpf->keep_running = 0;
-    ctx->circbuf_resample->keep_running = 0;
+    ctx->circbuf_filtered->keep_running = 0;
+    ctx->circbuf_pcm->keep_running = 0;
     ctx->circbuf_codec->keep_running = 0;
     ctx->circbuf_monitor->keep_running = 0;
     ctx->circbuf_network->keep_running = 0;
@@ -351,16 +351,16 @@ void greatbuf_stop(greatbuf_ctx *ctx) {
 
 greatbuf_circbuf *greatbuf_circbuf_get(greatbuf_ctx *ctx, int circbuf) {
     switch (circbuf) {
-        case GREATBUF_CIRCBUF_READ:
-            return ctx->circbuf_read;
+        case GREATBUF_CIRCBUF_IQ:
+            return ctx->circbuf_iq;
         case GREATBUF_CIRCBUF_SAMPLES:
             return ctx->circbuf_samples;
         case GREATBUF_CIRCBUF_DEMOD:
             return ctx->circbuf_demod;
-        case GREATBUF_CIRCBUF_FILTER:
-            return ctx->circbuf_lpf;
-        case GREATBUF_CIRCBUF_RESAMPLE:
-            return ctx->circbuf_resample;
+        case GREATBUF_CIRCBUF_FILTERED:
+            return ctx->circbuf_filtered;
+        case GREATBUF_CIRCBUF_PCM:
+            return ctx->circbuf_pcm;
         case GREATBUF_CIRCBUF_CODEC:
             return ctx->circbuf_codec;
         case GREATBUF_CIRCBUF_MONITOR:
