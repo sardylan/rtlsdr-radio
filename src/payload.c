@@ -43,10 +43,10 @@ payload *payload_init() {
 
     p->timestamp = 0;
 
-    p->rms = 0;
-
     p->channel = 0;
     p->frequency = 0;
+
+    p->rms = 0;
 
     p->data_size = 0;
     p->data = NULL;
@@ -89,7 +89,7 @@ int payload_set_timestamp(payload *p, struct timespec *ts) {
 int payload_set_rms(payload *p, FP_FLOAT rms) {
     log_info("Setting RMS");
 
-    p->rms = abs((int) (rms * 10));
+    p->rms = rms;
 
     return EXIT_SUCCESS;
 }
@@ -108,10 +108,6 @@ int payload_set_data(payload *p, uint8_t *data, uint32_t data_size) {
 
     log_debug("Allocating data");
     p->data = (uint8_t *) realloc(p->data, data_size * sizeof(uint8_t));
-    if (p == NULL) {
-        log_error("Unable to allocate payload");
-        return EXIT_FAILURE;
-    }
 
     log_debug("Copying data");
     memcpy(p->data, data, data_size);
@@ -131,15 +127,15 @@ size_t payload_get_size(payload *p) {
 
     ln += sizeof(PAYLOAD_HEADER);
 
-    ln += sizeof(uint64_t);
-    ln += sizeof(uint64_t);
-
+    ln += sizeof(uint32_t);
     ln += sizeof(uint64_t);
 
-    ln += sizeof(uint8_t);
+    ln += sizeof(uint64_t);
 
     ln += sizeof(uint32_t);
     ln += sizeof(uint32_t);
+
+    ln += sizeof(float);
 
     ln += sizeof(uint32_t);
     ln += p->data_size;
@@ -176,10 +172,6 @@ int payload_serialize(payload *p, uint8_t *buffer, size_t buffer_size, size_t *b
     utils_uint64_to_be(buffer + ln, p->timestamp);
     ln += sizeof(uint64_t);
 
-    log_debug("Adds rms");
-    memcpy(buffer + ln, &p->rms, sizeof(uint8_t));
-    ln += sizeof(uint8_t);
-
     log_debug("Adds channel");
     utils_uint32_to_be(buffer + ln, p->channel);
     ln += sizeof(uint32_t);
@@ -187,6 +179,10 @@ int payload_serialize(payload *p, uint8_t *buffer, size_t buffer_size, size_t *b
     log_debug("Adds frequency");
     utils_uint32_to_be(buffer + ln, p->frequency);
     ln += sizeof(uint32_t);
+
+    log_debug("Adds rms");
+    memcpy(buffer + ln, &p->rms, sizeof(float));
+    ln += sizeof(uint8_t);
 
     log_debug("Adds data samples_size");
     utils_uint32_to_be(buffer + ln, p->data_size);

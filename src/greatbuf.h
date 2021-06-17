@@ -56,8 +56,10 @@ struct greatbuf_circbuf_t {
 struct greatbuf_item_t {
     size_t samples_size;
     size_t pcm_size;
+    size_t data_size;
 
     uint64_t number;
+
     struct timespec ts;
     struct timespec delay;
 
@@ -68,6 +70,9 @@ struct greatbuf_item_t {
     FP_FLOAT *filtered;
 
     int16_t *pcm;
+    uint8_t *data;
+
+    int contains_data;
 
     FP_FLOAT rms;
 };
@@ -94,11 +99,11 @@ greatbuf_circbuf *greatbuf_circbuf_init(const char *, size_t);
 
 void greatbuf_circbuf_free(greatbuf_circbuf *);
 
-greatbuf_item *greatbuf_item_init(size_t, size_t);
+greatbuf_item *greatbuf_item_init(size_t, size_t, size_t);
 
 void greatbuf_item_free(greatbuf_item *);
 
-greatbuf_ctx *greatbuf_init(size_t, size_t, size_t);
+greatbuf_ctx *greatbuf_init(size_t, size_t, size_t, size_t);
 
 void greatbuf_free(greatbuf_ctx *);
 

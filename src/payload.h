@@ -24,7 +24,7 @@
 
 # 0         1         2         3         4         5         6
 # 0123456789012345678901234567890123456789012345678901234567890123456789
-# GFPrrrrNNNNNNNNttttttttRccccFFFFdddd...
+# GFPrrrrNNNNNNNNttttttttCCCCffffRRRRdddd...
 
  */
 
@@ -41,10 +41,10 @@ struct payload_t {
 
     uint64_t timestamp;
 
-    uint8_t rms;
-
     uint32_t channel;
     uint32_t frequency;
+
+    float rms;
 
     uint32_t data_size;
     uint8_t *data;

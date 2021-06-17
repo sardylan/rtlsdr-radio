@@ -99,7 +99,7 @@ void greatbuf_circbuf_free(greatbuf_circbuf *circbuf) {
     free(circbuf);
 }
 
-greatbuf_item *greatbuf_item_init(size_t samples_size, size_t pcm_size) {
+greatbuf_item *greatbuf_item_init(size_t samples_size, size_t pcm_size, size_t data_size) {
     greatbuf_item *item;
     size_t i;
 
@@ -118,43 +118,52 @@ greatbuf_item *greatbuf_item_init(size_t samples_size, size_t pcm_size) {
 
     item->samples_size = samples_size;
     item->pcm_size = pcm_size;
+    item->data_size = data_size;
 
-    log_trace("Allocating IQ buffer_int16");
+    log_trace("Allocating IQ buffer");
     item->iq = (uint8_t *) calloc(item->samples_size * 2, sizeof(uint8_t));
     if (item->iq == NULL) {
-        log_error("Unable to allocate IQ buffer_int16");
+        log_error("Unable to allocate IQ buffer");
         greatbuf_item_free(item);
         return NULL;
     }
 
-    log_trace("Allocating samples buffer_int16");
+    log_trace("Allocating samples buffer");
     item->samples = (FP_FLOAT complex *) calloc(item->samples_size, sizeof(FP_FLOAT complex));
     if (item->samples == NULL) {
-        log_error("Unable to allocate samples buffer_int16");
+        log_error("Unable to allocate samples buffer");
         greatbuf_item_free(item);
         return NULL;
     }
 
-    log_trace("Allocating demod buffer_int16");
+    log_trace("Allocating demod buffer");
     item->demod = (FP_FLOAT *) calloc(item->samples_size, sizeof(FP_FLOAT));
     if (item->demod == NULL) {
-        log_error("Unable to allocate demod buffer_int16");
+        log_error("Unable to allocate demod buffer");
         greatbuf_item_free(item);
         return NULL;
     }
 
-    log_trace("Allocating filtered buffer_int16");
+    log_trace("Allocating filtered buffer");
     item->filtered = (FP_FLOAT *) calloc(item->samples_size, sizeof(FP_FLOAT));
     if (item->filtered == NULL) {
-        log_error("Unable to allocate filtered buffer_int16");
+        log_error("Unable to allocate filtered buffer");
         greatbuf_item_free(item);
         return NULL;
     }
 
-    log_trace("Allocating pcm buffer_int16");
+    log_trace("Allocating pcm buffer");
     item->pcm = (int16_t *) calloc(item->pcm_size, sizeof(int16_t));
     if (item->pcm == NULL) {
-        log_error("Unable to allocate pcm buffer_int16");
+        log_error("Unable to allocate pcm buffer");
+        greatbuf_item_free(item);
+        return NULL;
+    }
+
+    log_trace("Allocating data buffer");
+    item->data = (uint8_t *) calloc(item->data_size, sizeof(uint8_t));
+    if (item->data == NULL) {
+        log_error("Unable to allocate pcm buffer");
         greatbuf_item_free(item);
         return NULL;
     }
@@ -181,6 +190,8 @@ greatbuf_item *greatbuf_item_init(size_t samples_size, size_t pcm_size) {
         item->pcm[i] = 0;
     }
 
+    item->contains_data = 0;
+
     item->rms = 0;
 
     return item;
@@ -202,11 +213,13 @@ void greatbuf_item_free(greatbuf_item *item) {
         free(item->filtered);
     if (item->pcm != NULL)
         free(item->pcm);
+    if (item->data != NULL)
+        free(item->data);
 
     free(item);
 }
 
-greatbuf_ctx *greatbuf_init(size_t size, size_t samples_size, size_t pcm_size) {
+greatbuf_ctx *greatbuf_init(size_t size, size_t samples_size, size_t pcm_size, size_t data_size) {
     greatbuf_ctx *ctx;
     size_t i;
 
@@ -224,7 +237,7 @@ greatbuf_ctx *greatbuf_init(size_t size, size_t samples_size, size_t pcm_size) {
     log_debug("Setting samples_size");
     ctx->size = size;
 
-    log_debug("Allocating items buffer_int16");
+    log_debug("Allocating items buffer");
     ctx->items = (greatbuf_item **) calloc(ctx->size, sizeof(greatbuf_item *));
     if (ctx->items == NULL) {
         log_error("Unable to allocate items");
@@ -234,7 +247,7 @@ greatbuf_ctx *greatbuf_init(size_t size, size_t samples_size, size_t pcm_size) {
 
     log_debug("Initializing items");
     for (i = 0; i < ctx->size; i++) {
-        ctx->items[i] = greatbuf_item_init(samples_size, pcm_size);
+        ctx->items[i] = greatbuf_item_init(samples_size, pcm_size, data_size);
         if (ctx->items[i] == NULL) {
             log_error("Unable to allocate item");
             greatbuf_free(ctx);
@@ -319,7 +332,7 @@ void greatbuf_free(greatbuf_ctx *ctx) {
         if (ctx->items[i] != NULL)
             greatbuf_item_free(ctx->items[i]);
 
-    log_debug("Freeing items buffer_int16");
+    log_debug("Freeing items buffer");
     free(ctx->items);
 
     log_debug("Freeing circbufs");
@@ -379,11 +392,11 @@ void greatbuf_circbuf_status(greatbuf_ctx *ctx, int circbuf_num) {
     circbuf = greatbuf_circbuf_get(ctx, circbuf_num);
 
     dimension = 100 - (int) ((FP_FLOAT) (circbuf->free) * 100 / (FP_FLOAT) circbuf->size);
-    ui_message("Circular buffer_int16 %s: %d% (%zu/%zu)\n", circbuf->name, dimension, circbuf->free, ctx->size);
+    ui_message("Circular buffer %s: %d% (%zu/%zu)\n", circbuf->name, dimension, circbuf->free, ctx->size);
 }
 
 greatbuf_item *greatbuf_item_get(greatbuf_ctx *ctx, size_t pos) {
-    log_debug("Circular buffer_int16 item get");
+    log_debug("Circular buffer item get");
 
     return ctx->items[pos];
 }
@@ -392,7 +405,7 @@ ssize_t greatbuf_circbuf_head_acquire(greatbuf_ctx *ctx, int circbuf_num) {
     greatbuf_circbuf *circbuf;
     ssize_t pos;
 
-    log_debug("Circular buffer_int16 head acquire");
+    log_debug("Circular buffer head acquire");
 
     circbuf = NULL;
     pos = -1;
@@ -408,10 +421,10 @@ ssize_t greatbuf_circbuf_head_acquire(greatbuf_ctx *ctx, int circbuf_num) {
             circbuf->busy_head = 1;
             pos = (ssize_t) circbuf->head;
         } else {
-            log_warn("No free space in %s buffer_int16", circbuf->name);
+            log_warn("No free space in %s buffer", circbuf->name);
         }
     } else {
-        log_warn("Head busy in %s buffer_int16", circbuf->name);
+        log_warn("Head busy in %s buffer", circbuf->name);
     }
 
     pthread_mutex_unlock(&circbuf->mutex);
@@ -423,7 +436,7 @@ ssize_t greatbuf_circbuf_head_acquire(greatbuf_ctx *ctx, int circbuf_num) {
 void greatbuf_circbuf_head_release(greatbuf_ctx *ctx, int circbuf_num) {
     greatbuf_circbuf *circbuf;
 
-    log_debug("Circular buffer_int16 head release");
+    log_debug("Circular buffer head release");
 
     circbuf = NULL;
 
@@ -456,7 +469,7 @@ ssize_t greatbuf_circbuf_tail_acquire(greatbuf_ctx *ctx, int circbuf_num) {
     greatbuf_circbuf *circbuf;
     ssize_t pos;
 
-    log_debug("Circular buffer_int16 tail acquire");
+    log_debug("Circular buffer tail acquire");
 
     circbuf = NULL;
     pos = -1;
@@ -490,7 +503,7 @@ ssize_t greatbuf_circbuf_tail_acquire(greatbuf_ctx *ctx, int circbuf_num) {
 void greatbuf_circbuf_tail_release(greatbuf_ctx *ctx, int circbuf_num) {
     greatbuf_circbuf *circbuf;
 
-    log_debug("Circular buffer_int16 tail release");
+    log_debug("Circular buffer tail release");
 
     circbuf = NULL;
 
