@@ -42,7 +42,7 @@ const struct CMUnitTest tests[] = {
 };
 
 int main() {
-    return cmocka_run_group_tests(tests, NULL, NULL);
+    return cmocka_run_group_tests_name("utils", tests, NULL, NULL);
 }
 
 void test_utils_uint16_to_be(void **state) {
