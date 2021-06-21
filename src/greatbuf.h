@@ -111,16 +111,28 @@ void greatbuf_stop(greatbuf_ctx *);
 
 greatbuf_circbuf *greatbuf_circbuf_get(greatbuf_ctx *, int);
 
+#ifndef __RTLSDR__TESTS
+
 void greatbuf_circbuf_status(greatbuf_ctx *, int);
+
+#endif
 
 greatbuf_item *greatbuf_item_get(greatbuf_ctx *, size_t);
 
-ssize_t greatbuf_circbuf_head_acquire(greatbuf_ctx *, int);
+ssize_t greatbuf_head_acquire(greatbuf_ctx *, int);
 
-void greatbuf_circbuf_head_release(greatbuf_ctx *, int);
+void greatbuf_head_release(greatbuf_ctx *, int);
 
-ssize_t greatbuf_circbuf_tail_acquire(greatbuf_ctx *, int);
+ssize_t greatbuf_tail_acquire(greatbuf_ctx *, int);
 
-void greatbuf_circbuf_tail_release(greatbuf_ctx *, int);
+void greatbuf_tail_release(greatbuf_ctx *, int);
+
+ssize_t greatbuf_circbuf_head_acquire(greatbuf_circbuf *);
+
+void greatbuf_circbuf_head_release(greatbuf_circbuf *);
+
+ssize_t greatbuf_circbuf_tail_acquire(greatbuf_circbuf *);
+
+void greatbuf_circbuf_tail_release(greatbuf_circbuf * );
 
 #endif

@@ -20,6 +20,8 @@
 #ifndef __RTLSDR_RADIO__UI__H
 #define __RTLSDR_RADIO__UI__H
 
+#ifndef __RTLSDR__TESTS
+
 #include <time.h>
 
 #define UI_MESSAGES_OUTPUT stderr
@@ -33,5 +35,11 @@ void ui_header();
 void ui_usage();
 
 void ui_help();
+
+#else
+
+#define ui_message(format, ...)
+
+#endif
 
 #endif

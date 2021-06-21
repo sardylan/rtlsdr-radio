@@ -385,6 +385,8 @@ greatbuf_circbuf *greatbuf_circbuf_get(greatbuf_ctx *ctx, int circbuf) {
     }
 }
 
+#ifndef __RTLSDR__TESTS
+
 void greatbuf_circbuf_status(greatbuf_ctx *ctx, int circbuf_num) {
     greatbuf_circbuf *circbuf;
     int dimension;
@@ -395,23 +397,68 @@ void greatbuf_circbuf_status(greatbuf_ctx *ctx, int circbuf_num) {
     ui_message("Circular buffer %s: %d% (%zu/%zu)\n", circbuf->name, dimension, circbuf->free, ctx->size);
 }
 
+#endif
+
 greatbuf_item *greatbuf_item_get(greatbuf_ctx *ctx, size_t pos) {
     log_debug("Circular buffer item get");
 
     return ctx->items[pos];
 }
 
-ssize_t greatbuf_circbuf_head_acquire(greatbuf_ctx *ctx, int circbuf_num) {
+ssize_t greatbuf_head_acquire(greatbuf_ctx *ctx, int circbuf_num) {
     greatbuf_circbuf *circbuf;
     ssize_t pos;
 
     log_debug("Circular buffer head acquire");
 
-    circbuf = NULL;
-    pos = -1;
+    log_debug("Selecting circbuf");
+    circbuf = greatbuf_circbuf_get(ctx, circbuf_num);
+
+    pos = greatbuf_circbuf_head_acquire(circbuf);
+
+    return pos;
+}
+
+void greatbuf_head_release(greatbuf_ctx *ctx, int circbuf_num) {
+    greatbuf_circbuf *circbuf;
+
+    log_debug("Circular buffer head release");
 
     log_debug("Selecting circbuf");
     circbuf = greatbuf_circbuf_get(ctx, circbuf_num);
+
+    greatbuf_circbuf_head_release(circbuf);
+}
+
+ssize_t greatbuf_tail_acquire(greatbuf_ctx *ctx, int circbuf_num) {
+    greatbuf_circbuf *circbuf;
+    ssize_t pos;
+
+    log_debug("Circular buffer tail acquire");
+
+    log_trace("Selecting circbuf");
+    circbuf = greatbuf_circbuf_get(ctx, circbuf_num);
+
+    pos = greatbuf_circbuf_tail_acquire(circbuf);
+
+    return pos;
+}
+
+void greatbuf_tail_release(greatbuf_ctx *ctx, int circbuf_num) {
+    greatbuf_circbuf *circbuf;
+
+    log_debug("Circular buffer tail release");
+
+    log_trace("Selecting circbuf");
+    circbuf = greatbuf_circbuf_get(ctx, circbuf_num);
+
+    greatbuf_circbuf_tail_release(circbuf);
+}
+
+ssize_t greatbuf_circbuf_head_acquire(greatbuf_circbuf *circbuf) {
+    ssize_t pos;
+
+    pos = -1;
 
     log_trace("Acquiring lock");
     pthread_mutex_lock(&circbuf->mutex);
@@ -433,16 +480,7 @@ ssize_t greatbuf_circbuf_head_acquire(greatbuf_ctx *ctx, int circbuf_num) {
     return pos;
 }
 
-void greatbuf_circbuf_head_release(greatbuf_ctx *ctx, int circbuf_num) {
-    greatbuf_circbuf *circbuf;
-
-    log_debug("Circular buffer head release");
-
-    circbuf = NULL;
-
-    log_debug("Selecting circbuf");
-    circbuf = greatbuf_circbuf_get(ctx, circbuf_num);
-
+void greatbuf_circbuf_head_release(greatbuf_circbuf *circbuf) {
     log_trace("Acquiring lock");
     pthread_mutex_lock(&circbuf->mutex);
 
@@ -454,8 +492,9 @@ void greatbuf_circbuf_head_release(greatbuf_ctx *ctx, int circbuf_num) {
             circbuf->head = 0;
 
         circbuf->free--;
-        if (circbuf->free == 0)
+        if (circbuf->free == 0) {
             log_warn("Buffer %s full", circbuf->name);
+        }
     }
 
     pthread_mutex_unlock(&circbuf->mutex);
@@ -465,17 +504,10 @@ void greatbuf_circbuf_head_release(greatbuf_ctx *ctx, int circbuf_num) {
     pthread_cond_signal(&circbuf->cond);
 }
 
-ssize_t greatbuf_circbuf_tail_acquire(greatbuf_ctx *ctx, int circbuf_num) {
-    greatbuf_circbuf *circbuf;
+ssize_t greatbuf_circbuf_tail_acquire(greatbuf_circbuf *circbuf) {
     ssize_t pos;
 
-    log_debug("Circular buffer tail acquire");
-
-    circbuf = NULL;
     pos = -1;
-
-    log_debug("Selecting circbuf");
-    circbuf = greatbuf_circbuf_get(ctx, circbuf_num);
 
     log_trace("Acquiring lock");
     pthread_mutex_lock(&circbuf->mutex);
@@ -500,16 +532,7 @@ ssize_t greatbuf_circbuf_tail_acquire(greatbuf_ctx *ctx, int circbuf_num) {
     return pos;
 }
 
-void greatbuf_circbuf_tail_release(greatbuf_ctx *ctx, int circbuf_num) {
-    greatbuf_circbuf *circbuf;
-
-    log_debug("Circular buffer tail release");
-
-    circbuf = NULL;
-
-    log_debug("Selecting circbuf");
-    circbuf = greatbuf_circbuf_get(ctx, circbuf_num);
-
+void greatbuf_circbuf_tail_release(greatbuf_circbuf *circbuf) {
     log_trace("Acquiring lock");
     pthread_mutex_lock(&circbuf->mutex);
 

@@ -22,8 +22,12 @@
 
 #include <stddef.h>
 
+#ifndef __RTLSDR__TESTS
+
 #include "cfg.h"
 #include "buildflags.h"
+
+#endif
 
 #define LOG_LEVEL_OFF 0
 #define LOG_LEVEL_ERROR 1
@@ -64,6 +68,8 @@
 #define log_trace(message, ...)
 #endif
 
+#ifndef __RTLSDR__TESTS
+
 void log_init();
 
 void log_free();
@@ -77,5 +83,7 @@ void log_stop();
 void log_start_file();
 
 void log_stop_file();
+
+#endif
 
 #endif

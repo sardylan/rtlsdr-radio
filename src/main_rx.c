@@ -490,10 +490,10 @@ void *thread_rx_read() {
 
     log_debug("Starting read loop");
     while (keep_running) {
-        pos = greatbuf_circbuf_head_acquire(greatbuf, GREATBUF_CIRCBUF_IQ);
+        pos = greatbuf_head_acquire(greatbuf, GREATBUF_CIRCBUF_IQ);
         if (pos == -1) {
             log_error("Error acquiring IQ buffer head");
-            greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_IQ);
+            greatbuf_head_release(greatbuf, GREATBUF_CIRCBUF_IQ);
             retval = EXIT_FAILURE;
             break;
         }
@@ -518,7 +518,7 @@ void *thread_rx_read() {
                 break;
         }
 
-        greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_IQ);
+        greatbuf_head_release(greatbuf, GREATBUF_CIRCBUF_IQ);
 
         if (conf->source == SOURCE_RTLSDR) {
             log_trace("Read %zu bytes from RTL-SDR", bytes);
@@ -586,20 +586,20 @@ void *thread_rx_samples() {
 
     log_debug("Starting read loop");
     while (keep_running) {
-        pos = greatbuf_circbuf_tail_acquire(greatbuf, GREATBUF_CIRCBUF_IQ);
+        pos = greatbuf_tail_acquire(greatbuf, GREATBUF_CIRCBUF_IQ);
         if (pos == -1) {
             log_error("Error acquiring IQ buffer tail");
-            greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_IQ);
+            greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_IQ);
             retval = EXIT_FAILURE;
             break;
         }
         iq_buffer = greatbuf_item_get(greatbuf, pos)->iq;
 
-        pos = greatbuf_circbuf_head_acquire(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
+        pos = greatbuf_head_acquire(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
         if (pos == -1) {
             log_error("Error acquiring Samples buffer head");
-            greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_IQ);
-            greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
+            greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_IQ);
+            greatbuf_head_release(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
             retval = EXIT_FAILURE;
             break;
         }
@@ -608,8 +608,8 @@ void *thread_rx_samples() {
         log_trace("Converting IQ to complex samples");
         device_buffer_to_samples(iq_buffer, samples_buffer, len);
 
-        greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_IQ);
-        greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
+        greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_IQ);
+        greatbuf_head_release(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
     }
 
     main_stop();
@@ -651,20 +651,20 @@ void *thread_rx_demod() {
 
     log_debug("Starting demod loop");
     while (keep_running) {
-        pos = greatbuf_circbuf_tail_acquire(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
+        pos = greatbuf_tail_acquire(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
         if (pos == -1) {
             log_error("Error acquiring samples buffer tail");
-            greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
+            greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
             retval = EXIT_FAILURE;
             break;
         }
         samples_buffer = greatbuf_item_get(greatbuf, pos)->samples;
 
-        pos = greatbuf_circbuf_head_acquire(greatbuf, GREATBUF_CIRCBUF_DEMOD);
+        pos = greatbuf_head_acquire(greatbuf, GREATBUF_CIRCBUF_DEMOD);
         if (pos == -1) {
             log_error("Error acquiring demod buffer head");
-            greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
-            greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_DEMOD);
+            greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
+            greatbuf_head_release(greatbuf, GREATBUF_CIRCBUF_DEMOD);
             retval = EXIT_FAILURE;
             break;
         }
@@ -724,8 +724,8 @@ void *thread_rx_demod() {
             }
         }
 
-        greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
-        greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_DEMOD);
+        greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
+        greatbuf_head_release(greatbuf, GREATBUF_CIRCBUF_DEMOD);
     }
 
     main_stop();
@@ -798,20 +798,20 @@ void *thread_rx_filter() {
 
     log_debug("Starting filter loop");
     while (keep_running) {
-        pos = greatbuf_circbuf_tail_acquire(greatbuf, GREATBUF_CIRCBUF_DEMOD);
+        pos = greatbuf_tail_acquire(greatbuf, GREATBUF_CIRCBUF_DEMOD);
         if (pos == -1) {
             log_error("Error acquiring demod buffer tail");
-            greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_DEMOD);
+            greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_DEMOD);
             retval = EXIT_FAILURE;
             break;
         }
         demod_buffer = greatbuf_item_get(greatbuf, pos)->demod;
 
-        pos = greatbuf_circbuf_head_acquire(greatbuf, GREATBUF_CIRCBUF_FILTERED);
+        pos = greatbuf_head_acquire(greatbuf, GREATBUF_CIRCBUF_FILTERED);
         if (pos == -1) {
             log_error("Error acquiring filtered buffer head");
-            greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_DEMOD);
-            greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_FILTERED);
+            greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_DEMOD);
+            greatbuf_head_release(greatbuf, GREATBUF_CIRCBUF_FILTERED);
             retval = EXIT_FAILURE;
             break;
         }
@@ -860,8 +860,8 @@ void *thread_rx_filter() {
                 break;
         }
 
-        greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_DEMOD);
-        greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_FILTERED);
+        greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_DEMOD);
+        greatbuf_head_release(greatbuf, GREATBUF_CIRCBUF_FILTERED);
     }
 
     switch (conf->filter) {
@@ -923,31 +923,31 @@ void *thread_rx_resample() {
 
     log_debug("Starting read loop");
     while (keep_running) {
-        pos = greatbuf_circbuf_tail_acquire(greatbuf, GREATBUF_CIRCBUF_FILTERED);
+        pos = greatbuf_tail_acquire(greatbuf, GREATBUF_CIRCBUF_FILTERED);
         if (pos == -1) {
             log_error("Error acquiring filtered buffer tail");
-            greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_FILTERED);
+            greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_FILTERED);
             retval = EXIT_FAILURE;
             break;
         }
         filtered_buffer = greatbuf_item_get(greatbuf, pos)->filtered;
 
-        pos = greatbuf_circbuf_head_acquire(greatbuf, GREATBUF_CIRCBUF_PCM);
+        pos = greatbuf_head_acquire(greatbuf, GREATBUF_CIRCBUF_PCM);
         if (pos == -1) {
             log_error("Error acquiring pcm buffer head");
-            greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_FILTERED);
-            greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_PCM);
+            greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_FILTERED);
+            greatbuf_head_release(greatbuf, GREATBUF_CIRCBUF_PCM);
             retval = EXIT_FAILURE;
             break;
         }
         pcm_buffer = greatbuf_item_get(greatbuf, pos)->pcm;
 
-        pos = greatbuf_circbuf_head_acquire(greatbuf, GREATBUF_CIRCBUF_CODEC);
+        pos = greatbuf_head_acquire(greatbuf, GREATBUF_CIRCBUF_CODEC);
         if (pos == -1) {
             log_error("Error acquiring codec buffer head");
-            greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_FILTERED);
-            greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_PCM);
-            greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_CODEC);
+            greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_FILTERED);
+            greatbuf_head_release(greatbuf, GREATBUF_CIRCBUF_PCM);
+            greatbuf_head_release(greatbuf, GREATBUF_CIRCBUF_CODEC);
             retval = EXIT_FAILURE;
             break;
         }
@@ -955,9 +955,9 @@ void *thread_rx_resample() {
         log_trace("Resampling");
         resample_float_to_int16(res_ctx, filtered_buffer, conf->rtlsdr_samples, pcm_buffer, rx_pcm_size);
 
-        greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_FILTERED);
-        greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_PCM);
-        greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_CODEC);
+        greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_FILTERED);
+        greatbuf_head_release(greatbuf, GREATBUF_CIRCBUF_PCM);
+        greatbuf_head_release(greatbuf, GREATBUF_CIRCBUF_CODEC);
     }
 
     resample_free(res_ctx);
@@ -1004,19 +1004,19 @@ void *thread_rx_codec() {
 
     log_debug("Starting read loop");
     while (keep_running) {
-        pos = greatbuf_circbuf_tail_acquire(greatbuf, GREATBUF_CIRCBUF_PCM);
+        pos = greatbuf_tail_acquire(greatbuf, GREATBUF_CIRCBUF_PCM);
         if (pos == -1) {
             log_error("Error acquiring filtered buffer tail");
-            greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_PCM);
+            greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_PCM);
             retval = EXIT_FAILURE;
             break;
         }
 
-        pos = greatbuf_circbuf_head_acquire(greatbuf, GREATBUF_CIRCBUF_CODEC);
+        pos = greatbuf_head_acquire(greatbuf, GREATBUF_CIRCBUF_CODEC);
         if (pos == -1) {
             log_error("Error acquiring filtered buffer tail");
-            greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_PCM);
-            greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_CODEC);
+            greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_PCM);
+            greatbuf_head_release(greatbuf, GREATBUF_CIRCBUF_CODEC);
             retval = EXIT_FAILURE;
             break;
         }
@@ -1035,8 +1035,8 @@ void *thread_rx_codec() {
             }
         }
 
-        greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_PCM);
-        greatbuf_circbuf_head_release(greatbuf, GREATBUF_CIRCBUF_CODEC);
+        greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_PCM);
+        greatbuf_head_release(greatbuf, GREATBUF_CIRCBUF_CODEC);
     }
 
     main_stop();
@@ -1102,10 +1102,10 @@ void *thread_rx_audio() {
 
     log_debug("Starting read loop");
     while (keep_running) {
-        pos = greatbuf_circbuf_tail_acquire(greatbuf, GREATBUF_CIRCBUF_MONITOR);
+        pos = greatbuf_tail_acquire(greatbuf, GREATBUF_CIRCBUF_MONITOR);
         if (pos == -1) {
             log_error("Error acquiring monitor buffer tail");
-            greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_MONITOR);
+            greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_MONITOR);
             retval = EXIT_FAILURE;
             break;
         }
@@ -1128,7 +1128,7 @@ void *thread_rx_audio() {
         if (conf->audio_stdout == FLAG_TRUE)
             fwrite(pcm_buffer, sizeof(int16_t), rx_pcm_size, stdout);
 
-        greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_MONITOR);
+        greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_MONITOR);
     }
 
     if (conf->audio_monitor_enabled == FLAG_TRUE) {
@@ -1207,10 +1207,10 @@ void *thread_rx_network() {
 
     log_debug("Starting read loop");
     while (keep_running) {
-        pos = greatbuf_circbuf_tail_acquire(greatbuf, GREATBUF_CIRCBUF_CODEC);
+        pos = greatbuf_tail_acquire(greatbuf, GREATBUF_CIRCBUF_CODEC);
         if (pos == -1) {
             log_error("Error acquiring codec buffer tail");
-            greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_CODEC);
+            greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_CODEC);
             retval = EXIT_FAILURE;
             break;
         }
@@ -1241,7 +1241,7 @@ void *thread_rx_network() {
             }
         }
 
-        greatbuf_circbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_CODEC);
+        greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_CODEC);
     }
 
     log_debug("Closing network socket");
