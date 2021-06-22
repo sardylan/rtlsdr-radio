@@ -360,6 +360,16 @@ void greatbuf_stop(greatbuf_ctx *ctx) {
     ctx->circbuf_codec->keep_running = 0;
     ctx->circbuf_monitor->keep_running = 0;
     ctx->circbuf_network->keep_running = 0;
+
+    log_debug("Signaling condition");
+    pthread_cond_signal(&ctx->circbuf_iq->cond);
+    pthread_cond_signal(&ctx->circbuf_samples->cond);
+    pthread_cond_signal(&ctx->circbuf_demod->cond);
+    pthread_cond_signal(&ctx->circbuf_filtered->cond);
+    pthread_cond_signal(&ctx->circbuf_pcm->cond);
+    pthread_cond_signal(&ctx->circbuf_codec->cond);
+    pthread_cond_signal(&ctx->circbuf_monitor->cond);
+    pthread_cond_signal(&ctx->circbuf_network->cond);
 }
 
 greatbuf_circbuf *greatbuf_circbuf_get(greatbuf_ctx *ctx, int circbuf) {
@@ -528,6 +538,9 @@ ssize_t greatbuf_circbuf_tail_acquire(greatbuf_circbuf *circbuf) {
 
     pthread_mutex_unlock(&circbuf->mutex);
     log_trace("Releasing lock");
+
+    if (circbuf->keep_running == 0)
+        pos = -2;
 
     return pos;
 }

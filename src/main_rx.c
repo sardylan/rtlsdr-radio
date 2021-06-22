@@ -347,57 +347,73 @@ int main_rx() {
 #ifdef MAIN_RX_ENABLE_THREAD_READ
     log_debug("Joining read thread");
     pthread_join(rx_read_thread, (void **) &thread_result);
-    if (thread_result != EXIT_SUCCESS)
+    if (thread_result != EXIT_SUCCESS) {
+        log_error("Read thread exit without success");
         result = EXIT_FAILURE;
+    }
 #endif
 
 #ifdef MAIN_RX_ENABLE_THREAD_SAMPLES
     log_debug("Joining sample thread");
     pthread_join(rx_samples_thread, (void **) &thread_result);
-    if (thread_result != EXIT_SUCCESS)
+    if (thread_result != EXIT_SUCCESS) {
+        log_error("Sample thread exit without success");
         result = EXIT_FAILURE;
+    }
 #endif
 
 #ifdef MAIN_RX_ENABLE_THREAD_DEMOD
     log_debug("Joining demod thread");
     pthread_join(rx_demod_thread, (void **) &thread_result);
-    if (thread_result != EXIT_SUCCESS)
+    if (thread_result != EXIT_SUCCESS) {
+        log_error("Demod thread exit without success");
         result = EXIT_FAILURE;
+    }
 #endif
 
 #ifdef MAIN_RX_ENABLE_THREAD_FILTER
     log_debug("Joining filter thread");
     pthread_join(rx_filter_thread, (void **) &thread_result);
-    if (thread_result != EXIT_SUCCESS)
+    if (thread_result != EXIT_SUCCESS) {
+        log_error("Filter thread exit without success");
         result = EXIT_FAILURE;
+    }
 #endif
 
 #ifdef MAIN_RX_ENABLE_THREAD_RESAMPLE
     log_debug("Joining resample thread");
     pthread_join(rx_resample_thread, (void **) &thread_result);
-    if (thread_result != EXIT_SUCCESS)
+    if (thread_result != EXIT_SUCCESS) {
+        log_error("Resample thread exit without success");
         result = EXIT_FAILURE;
+    }
 #endif
 
 #ifdef MAIN_RX_ENABLE_THREAD_AUDIO
     log_debug("Joining audio thread");
     pthread_join(rx_audio_thread, (void **) &thread_result);
-    if (thread_result != EXIT_SUCCESS)
+    if (thread_result != EXIT_SUCCESS) {
+        log_error("Audio thread exit without success");
         result = EXIT_FAILURE;
+    }
 #endif
 
 #ifdef MAIN_RX_ENABLE_THREAD_CODEC
     log_debug("Joining codec thread");
     pthread_join(rx_codec_thread, (void **) &thread_result);
-    if (thread_result != EXIT_SUCCESS)
+    if (thread_result != EXIT_SUCCESS) {
+        log_error("Codec thread exit without success");
         result = EXIT_FAILURE;
+    }
 #endif
 
 #ifdef MAIN_RX_ENABLE_THREAD_NETWORK
     log_debug("Joining RX 2 network thread");
     pthread_join(rx_network_thread, (void **) &thread_result);
-    if (thread_result != EXIT_SUCCESS)
+    if (thread_result != EXIT_SUCCESS) {
+        log_error("Network thread exit without success");
         result = EXIT_FAILURE;
+    }
 #endif
 
     main_rx_end();
@@ -496,6 +512,9 @@ void *thread_rx_read() {
             greatbuf_head_release(greatbuf, GREATBUF_CIRCBUF_IQ);
             retval = EXIT_FAILURE;
             break;
+        } else if (pos == -2) {
+            greatbuf_head_release(greatbuf, GREATBUF_CIRCBUF_IQ);
+            break;
         }
 
         item = greatbuf_item_get(greatbuf, pos);
@@ -553,7 +572,7 @@ void *thread_rx_read() {
 
     main_stop();
 
-    log_info("Thread end");
+    log_info("Thread end: %d", retval);
 
     pthread_exit(&retval);
 }
@@ -592,6 +611,9 @@ void *thread_rx_samples() {
             greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_IQ);
             retval = EXIT_FAILURE;
             break;
+        } else if (pos == -2) {
+            greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_IQ);
+            break;
         }
         iq_buffer = greatbuf_item_get(greatbuf, pos)->iq;
 
@@ -601,6 +623,10 @@ void *thread_rx_samples() {
             greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_IQ);
             greatbuf_head_release(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
             retval = EXIT_FAILURE;
+            break;
+        } else if (pos == -2) {
+            greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_IQ);
+            greatbuf_head_release(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
             break;
         }
         samples_buffer = greatbuf_item_get(greatbuf, pos)->samples;
@@ -614,7 +640,7 @@ void *thread_rx_samples() {
 
     main_stop();
 
-    log_info("Thread end");
+    log_info("Thread end: %d", retval);
 
     pthread_exit(&retval);
 }
@@ -657,6 +683,9 @@ void *thread_rx_demod() {
             greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
             retval = EXIT_FAILURE;
             break;
+        } else if (pos == -2) {
+            greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
+            break;
         }
         samples_buffer = greatbuf_item_get(greatbuf, pos)->samples;
 
@@ -666,6 +695,10 @@ void *thread_rx_demod() {
             greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
             greatbuf_head_release(greatbuf, GREATBUF_CIRCBUF_DEMOD);
             retval = EXIT_FAILURE;
+            break;
+        } else if (pos == -2) {
+            greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_SAMPLES);
+            greatbuf_head_release(greatbuf, GREATBUF_CIRCBUF_DEMOD);
             break;
         }
         demod_buffer = greatbuf_item_get(greatbuf, pos)->demod;
@@ -730,7 +763,7 @@ void *thread_rx_demod() {
 
     main_stop();
 
-    log_info("Thread end");
+    log_info("Thread end: %d", retval);
 
     pthread_exit(&retval);
 }
@@ -804,6 +837,9 @@ void *thread_rx_filter() {
             greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_DEMOD);
             retval = EXIT_FAILURE;
             break;
+        } else if (pos == -2) {
+            greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_DEMOD);
+            break;
         }
         demod_buffer = greatbuf_item_get(greatbuf, pos)->demod;
 
@@ -813,6 +849,10 @@ void *thread_rx_filter() {
             greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_DEMOD);
             greatbuf_head_release(greatbuf, GREATBUF_CIRCBUF_FILTERED);
             retval = EXIT_FAILURE;
+            break;
+        } else if (pos == -2) {
+            greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_DEMOD);
+            greatbuf_head_release(greatbuf, GREATBUF_CIRCBUF_FILTERED);
             break;
         }
         filtered_buffer = greatbuf_item_get(greatbuf, pos)->filtered;
@@ -885,7 +925,7 @@ void *thread_rx_filter() {
 
     main_stop();
 
-    log_info("Thread end");
+    log_info("Thread end: %d", retval);
 
     pthread_exit(&retval);
 }
@@ -929,6 +969,9 @@ void *thread_rx_resample() {
             greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_FILTERED);
             retval = EXIT_FAILURE;
             break;
+        } else if (pos == -2) {
+            greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_FILTERED);
+            break;
         }
         filtered_buffer = greatbuf_item_get(greatbuf, pos)->filtered;
 
@@ -939,15 +982,19 @@ void *thread_rx_resample() {
             greatbuf_head_release(greatbuf, GREATBUF_CIRCBUF_PCM);
             retval = EXIT_FAILURE;
             break;
+        } else if (pos == -2) {
+            greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_FILTERED);
+            greatbuf_head_release(greatbuf, GREATBUF_CIRCBUF_PCM);
+            break;
         }
         pcm_buffer = greatbuf_item_get(greatbuf, pos)->pcm;
 
-        pos = greatbuf_head_acquire(greatbuf, GREATBUF_CIRCBUF_CODEC);
+        pos = greatbuf_head_acquire(greatbuf, GREATBUF_CIRCBUF_MONITOR);
         if (pos == -1) {
             log_error("Error acquiring codec buffer head");
             greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_FILTERED);
             greatbuf_head_release(greatbuf, GREATBUF_CIRCBUF_PCM);
-            greatbuf_head_release(greatbuf, GREATBUF_CIRCBUF_CODEC);
+            greatbuf_head_release(greatbuf, GREATBUF_CIRCBUF_MONITOR);
             retval = EXIT_FAILURE;
             break;
         }
@@ -957,14 +1004,14 @@ void *thread_rx_resample() {
 
         greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_FILTERED);
         greatbuf_head_release(greatbuf, GREATBUF_CIRCBUF_PCM);
-        greatbuf_head_release(greatbuf, GREATBUF_CIRCBUF_CODEC);
+        greatbuf_head_release(greatbuf, GREATBUF_CIRCBUF_MONITOR);
     }
 
     resample_free(res_ctx);
 
     main_stop();
 
-    log_info("Thread end");
+    log_info("Thread end: %d", retval);
 
     pthread_exit(&retval);
 }
@@ -1010,6 +1057,9 @@ void *thread_rx_codec() {
             greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_PCM);
             retval = EXIT_FAILURE;
             break;
+        } else if (pos == -2) {
+            greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_PCM);
+            break;
         }
 
         pos = greatbuf_head_acquire(greatbuf, GREATBUF_CIRCBUF_CODEC);
@@ -1018,6 +1068,10 @@ void *thread_rx_codec() {
             greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_PCM);
             greatbuf_head_release(greatbuf, GREATBUF_CIRCBUF_CODEC);
             retval = EXIT_FAILURE;
+            break;
+        } else if (pos == -2) {
+            greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_PCM);
+            greatbuf_head_release(greatbuf, GREATBUF_CIRCBUF_CODEC);
             break;
         }
 
@@ -1041,7 +1095,7 @@ void *thread_rx_codec() {
 
     main_stop();
 
-    log_info("Thread end");
+    log_info("Thread end: %d", retval);
 
     pthread_exit(&retval);
 }
@@ -1108,6 +1162,9 @@ void *thread_rx_audio() {
             greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_MONITOR);
             retval = EXIT_FAILURE;
             break;
+        } else if (pos == -2) {
+            greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_MONITOR);
+            break;
         }
 
         item = greatbuf_item_get(greatbuf, pos);
@@ -1146,7 +1203,7 @@ void *thread_rx_audio() {
 
     main_stop();
 
-    log_info("Thread end");
+    log_info("Thread end: %d", retval);
 
     pthread_exit(&retval);
 }
@@ -1213,6 +1270,9 @@ void *thread_rx_network() {
             greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_CODEC);
             retval = EXIT_FAILURE;
             break;
+        } else if (pos == -2) {
+            greatbuf_tail_release(greatbuf, GREATBUF_CIRCBUF_CODEC);
+            break;
         }
 
         item = greatbuf_item_get(greatbuf, pos);
@@ -1253,9 +1313,9 @@ void *thread_rx_network() {
     log_debug("Freeing payload");
     payload_free(p);
 
-    log_info("Thread end");
-
     main_stop();
+
+    log_info("Thread end: %d", retval);
 
     pthread_exit(&retval);
 }

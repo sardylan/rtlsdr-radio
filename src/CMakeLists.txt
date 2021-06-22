@@ -14,6 +14,7 @@ find_package(Threads REQUIRED)
 pkg_check_modules(rtlsdr REQUIRED IMPORTED_TARGET librtlsdr)
 pkg_check_modules(asound2 REQUIRED IMPORTED_TARGET alsa)
 pkg_check_modules(codec2 REQUIRED IMPORTED_TARGET codec2)
+pkg_check_modules(curl REQUIRED IMPORTED_TARGET libcurl)
 
 add_executable(rtlsdr_radio
         agc.c agc.h
@@ -45,7 +46,8 @@ target_link_libraries(rtlsdr_radio
         PkgConfig::rtlsdr
         PkgConfig::fftw3
         PkgConfig::asound2
-        PkgConfig::codec2)
+        PkgConfig::codec2
+        PkgConfig::curl)
 
 target_compile_options(rtlsdr_radio
         PRIVATE

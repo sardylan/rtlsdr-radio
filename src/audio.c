@@ -148,7 +148,7 @@ void audio_free(audio_ctx *ctx) {
 
     log_debug("Closing PCM");
     if (ctx->pcm != NULL) {
-        snd_pcm_drain(ctx->pcm);
+//        snd_pcm_drain(ctx->pcm);
         snd_pcm_close(ctx->pcm);
     }
 
