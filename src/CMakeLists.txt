@@ -29,6 +29,7 @@ add_executable(rtlsdr_radio
         fir.c fir.h fir_lpf.h
         frame.c frame.h
         greatbuf.c greatbuf.h
+        http.c http.h
         log.c log.h
         main.c main.h
         main_info.c main_info.h

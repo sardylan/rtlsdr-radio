@@ -20,6 +20,10 @@
 #include <stdio.h>
 #include <stdarg.h>
 
+#include <alsa/asoundlib.h>
+#include <codec2/version.h>
+#include <curl/curl.h>
+
 #include "ui.h"
 #include "version.h"
 #include "cfg.h"
@@ -46,7 +50,16 @@ void ui_message_out(const char *format, ...) {
 }
 
 void ui_header() {
-    ui_message("%s %s\n\n", APPLICATION_NAME, APPLICATION_VERSION);
+    ui_message("%s %s\n", APPLICATION_NAME, APPLICATION_VERSION);
+
+    ui_message("\n");
+    ui_message("Libs:\n", "");
+    ui_message("  - librtlsdr: %s\n", "");
+    ui_message("  - asound2: %s\n", snd_asoundlib_version());
+    ui_message("  - codec2: %s\n", CODEC2_VERSION);
+    ui_message("  - cURL: %s\n", curl_version());
+
+    ui_message("\n\n");
 }
 
 void ui_usage() {

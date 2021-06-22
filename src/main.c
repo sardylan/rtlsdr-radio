@@ -26,6 +26,7 @@
 #include "main_rx.h"
 #include "main_rx.h"
 #include "main_info.h"
+#include "http.h"
 #include "ui.h"
 #include "cfg.h"
 #include "log.h"
@@ -95,6 +96,14 @@ void signal_handler(int signum) {
     }
 }
 
+void program_global_init() {
+    http_global_init();
+}
+
+void program_global_cleanup() {
+    http_global_cleanup();
+}
+
 int main_program(int argc, char **argv) {
     int result;
 
@@ -105,6 +114,8 @@ int main_program(int argc, char **argv) {
     log_init();
 
     cfg_init();
+
+    program_global_init();
 
     result = cfg_parse(argc, argv);
 
@@ -139,6 +150,8 @@ int main_program(int argc, char **argv) {
     } else {
         ui_usage();
     }
+
+    program_global_cleanup();
 
     cfg_free();
 

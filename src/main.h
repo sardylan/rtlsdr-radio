@@ -22,6 +22,10 @@
 
 void signal_handler(int signum);
 
+void program_global_init();
+
+void program_global_cleanup();
+
 int main_program(int, char **);
 
 void main_stop();
