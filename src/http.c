@@ -30,12 +30,16 @@
 int http_global_init() {
     int result;
     CURLsslset ret;
+
+#ifndef __RTLSDR__TESTS
     char *message;
+#endif
 
     result = EXIT_SUCCESS;
 
     ret = curl_global_sslset(CURLSSLBACKEND_OPENSSL, NULL, NULL);
     if (ret != CURLSSLSET_OK) {
+#ifndef __RTLSDR__TESTS
         switch (ret) {
             case CURLSSLSET_UNKNOWN_BACKEND:
                 message = "Unknown backend";
@@ -52,6 +56,7 @@ int http_global_init() {
         }
 
         ui_message("Unable to setup SSL for curl: %s\n", message);
+#endif
 
         return EXIT_FAILURE;
     }
@@ -91,7 +96,7 @@ http_ctx *http_init(char *url_prefix) {
     }
     strcpy(ctx->url_prefix, url_prefix);
 
-    log_debug("Allocating URL prefix");
+    log_debug("Allocating token");
     ln = strlen(HTTP_TOKEN_DEFAULT);
     ctx->token = (char *) realloc(ctx->token, (ln + 1) * sizeof(char));
     if (ctx->token == NULL) {
@@ -122,8 +127,38 @@ void http_free(http_ctx *ctx) {
     free(ctx);
 }
 
+http_data *http_data_init() {
+    http_data *data;
+
+    data = (http_data *) malloc(sizeof(http_data));
+    if (data == NULL) {
+        log_error("Unable to allocate data");
+        return NULL;
+    }
+
+    data->data = NULL;
+    data->size = 0;
+
+    return data;
+}
+
+void http_data_free(http_data *data) {
+    if (data == NULL)
+        return;
+
+    if (data->data != NULL)
+        free(data->data);
+
+    free(data);
+}
+
 int http_url_concat(http_ctx *ctx, char *url, size_t url_max_size, const char *api_url) {
     size_t ln;
+
+    bzero(url, url_max_size);
+
+    if (api_url == NULL)
+        return EXIT_FAILURE;
 
     ln = strlen(ctx->url_prefix) + strlen(api_url);
     if (ln > url_max_size) {
@@ -131,11 +166,21 @@ int http_url_concat(http_ctx *ctx, char *url, size_t url_max_size, const char *a
         return EXIT_FAILURE;
     }
 
-    bzero(url, url_max_size);
     strcat(url, ctx->url_prefix);
     strcat(url, api_url);
 
     return EXIT_SUCCESS;
+}
+
+char *http_method_string(http_method method) {
+    switch (method) {
+        case HTTP_GET:
+            return "GET";
+        case HTTP_POST:
+            return "POST";
+        default:
+            return "";
+    }
 }
 
 void http_headers_add(struct curl_slist **headers, char *format, ...) {
@@ -149,16 +194,46 @@ void http_headers_add(struct curl_slist **headers, char *format, ...) {
     *headers = curl_slist_append(*headers, header_buffer);
 }
 
-int http_post(http_ctx *ctx, const char *api_url, const char *request_body,
-              const char *response_body, size_t response_body_size) {
+size_t http_callback_write(char *raw_data, size_t raw_data_size, size_t raw_data_num_members, void *http_data_ptr) {
+    http_data *data;
+    size_t size_real;
+    size_t ln;
+
+    data = (http_data *) http_data_ptr;
+    size_real = raw_data_size * raw_data_num_members;
+    ln = data->size + size_real + 1;
+
+    data->data = (char *) realloc(data->data, ln);
+    if (data->data == NULL) {
+        log_error("Unable to reallocate data for storing HTTP response");
+        return 0;
+    }
+
+    memcpy(data->data + data->size, raw_data, size_real);
+    data->size += size_real;
+
+    data->data[data->size] = '\0';
+
+    return size_real;
+}
+
+int http_do_call(http_ctx *ctx,
+                 const http_method method,
+                 const char *api_url,
+                 const char *request_body,
+                 http_data *response_data) {
+    int res;
+
     CURL *curl;
     char url[HTTP_URL_MAX_SIZE];
     struct curl_slist *headers;
-    CURLcode res;
+    CURLcode curl_res;
+    long status_code;
 
     int result;
 
     headers = NULL;
+    res = -EXIT_FAILURE;
 
     result = http_url_concat(ctx, url, HTTP_URL_MAX_SIZE, api_url);
     if (result != EXIT_SUCCESS) {
@@ -172,24 +247,36 @@ int http_post(http_ctx *ctx, const char *api_url, const char *request_body,
         return EXIT_FAILURE;
     }
 
-    http_headers_add(&headers, "X-Auth-Token: %s", ctx->token);
     http_headers_add(&headers, "Content-Type: application/json; Charset=UTF-8");
     http_headers_add(&headers, "Accept: application/json");
 
+    if (strlen(ctx->token) > 0)
+        http_headers_add(&headers, "X-Auth-Token: %s", ctx->token);
+
+    curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2TLS);
+
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, http_callback_write);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *) response_data);
+
+    curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, http_method_string(method));
     curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(curl, CURLOPT_USERAGENT, http_user_agent());
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, request_body);
 
-    //TODO: Implement callbacks for reading headers and resposne body
-
-    res = curl_easy_perform(curl);
-
-    response_body = NULL;
-    response_body_size = 0;
+    curl_res = curl_easy_perform(curl);
+    if (curl_res == CURLE_OK) {
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status_code);
+        res = (int) status_code;
+        log_debug("HTTP Status code: %zu", status_code);
+        log_debug("HTTP Response: %zu bytes", response_data->size);
+    } else {
+        res = (int) -curl_res;
+        log_error("HTTP request error %d: %s", curl_res, curl_easy_strerror(curl_res));
+    }
 
     curl_easy_cleanup(curl);
     curl_slist_free_all(headers);
 
-    return 0;
+    return res;
 }

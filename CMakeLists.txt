@@ -69,5 +69,10 @@ add_compile_definitions(FP_FLOAT=${RTLSDR_RADIO_FP_PRECISION})
 
 enable_testing()
 
+pkg_check_modules(rtlsdr REQUIRED IMPORTED_TARGET librtlsdr)
+pkg_check_modules(asound2 REQUIRED IMPORTED_TARGET alsa)
+pkg_check_modules(codec2 REQUIRED IMPORTED_TARGET codec2)
+pkg_check_modules(curl REQUIRED IMPORTED_TARGET libcurl)
+
 add_subdirectory(src)
 add_subdirectory(test)

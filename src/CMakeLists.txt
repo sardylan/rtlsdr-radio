@@ -11,11 +11,6 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 find_package(Threads REQUIRED)
 
-pkg_check_modules(rtlsdr REQUIRED IMPORTED_TARGET librtlsdr)
-pkg_check_modules(asound2 REQUIRED IMPORTED_TARGET alsa)
-pkg_check_modules(codec2 REQUIRED IMPORTED_TARGET codec2)
-pkg_check_modules(curl REQUIRED IMPORTED_TARGET libcurl)
-
 add_executable(rtlsdr_radio
         agc.c agc.h
         audio.c audio.h
