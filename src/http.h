@@ -20,6 +20,8 @@
 #ifndef __RTLSDR_RADIO__HTTP__H
 #define __RTLSDR_RADIO__HTTP__H
 
+#include <stdlib.h>
+
 #include <curl/curl.h>
 
 #include "version.h"

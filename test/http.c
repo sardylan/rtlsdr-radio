@@ -32,7 +32,9 @@
 
 const struct CMUnitTest tests[] = {
         cmocka_unit_test_setup_teardown(test_http_url_concat, test_http_setup, test_http_teardown),
-        cmocka_unit_test_setup_teardown(test_http_init, test_http_setup, test_http_teardown),
+        cmocka_unit_test_setup_teardown(test_http_get, test_http_setup, test_http_teardown),
+        cmocka_unit_test_setup_teardown(test_http_post_json_empty, test_http_setup, test_http_teardown),
+        cmocka_unit_test_setup_teardown(test_http_post_json_param_value, test_http_setup, test_http_teardown),
 };
 
 int main() {
@@ -100,14 +102,32 @@ void test_http_url_concat(void **state) {
     assert_int_equal(result, EXIT_SUCCESS);
     assert_memory_equal(expected, actual, strlen(expected));
 
-    input = URL_TEST_1_INPUT;
-    expected = URL_TEST_1_EXPECTED;
+    input = TEST_1_URL_INPUT;
+    expected = TEST_1_URL_EXPECTED;
     result = http_url_concat(ctx, actual, HTTP_URL_MAX_SIZE, input);
     assert_int_equal(result, EXIT_SUCCESS);
     assert_memory_equal(expected, actual, strlen(expected));
 }
 
-void test_http_init(void **state) {
+void test_http_get(void **state) {
+    http_ctx *ctx;
+    int status_code;
+    http_data *response_data;
+
+    ctx = (http_ctx *) *state;
+
+    response_data = http_data_init();
+
+    status_code = http_do_call(ctx, HTTP_GET, URL_API_TEST, NULL, response_data);
+    assert_true(status_code >= 0);
+
+    assert_int_equal(strlen(TEST_RESPONSE_BODY_GET), response_data->size);
+    assert_memory_equal(TEST_RESPONSE_BODY_GET, response_data->data, response_data->size);
+
+    http_data_free(response_data);
+}
+
+void test_http_post_json_empty(void **state) {
     http_ctx *ctx;
     int status_code;
     char *request_body;
@@ -115,15 +135,36 @@ void test_http_init(void **state) {
 
     ctx = (http_ctx *) *state;
 
-    request_body = BODY_EMPTY;
-
     response_data = http_data_init();
+
+    request_body = TEST_REQUEST_BODY_EMPTY;
 
     status_code = http_do_call(ctx, HTTP_POST, URL_API_TEST, request_body, response_data);
     assert_true(status_code >= 0);
 
-    assert_int_equal(strlen(BODY_EMPTY), response_data->size);
-    assert_memory_equal(BODY_EMPTY, response_data->data, response_data->size);
+    assert_int_equal(strlen(request_body), response_data->size);
+    assert_memory_equal(request_body, response_data->data, response_data->size);
+
+    http_data_free(response_data);
+}
+
+void test_http_post_json_param_value(void **state) {
+    http_ctx *ctx;
+    int status_code;
+    char *request_body;
+    http_data *response_data;
+
+    ctx = (http_ctx *) *state;
+
+    response_data = http_data_init();
+
+    request_body = TEST_REQUEST_BODY_PARAM_VALUE;
+
+    status_code = http_do_call(ctx, HTTP_POST, URL_API_TEST, request_body, response_data);
+    assert_true(status_code >= 0);
+
+    assert_int_equal(strlen(request_body), response_data->size);
+    assert_memory_equal(request_body, response_data->data, response_data->size);
 
     http_data_free(response_data);
 }

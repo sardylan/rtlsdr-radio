@@ -39,6 +39,7 @@ int http_global_init() {
 
     ret = curl_global_sslset(CURLSSLBACKEND_OPENSSL, NULL, NULL);
     if (ret != CURLSSLSET_OK) {
+
 #ifndef __RTLSDR__TESTS
         switch (ret) {
             case CURLSSLSET_UNKNOWN_BACKEND:
@@ -229,6 +230,7 @@ int http_do_call(http_ctx *ctx,
     struct curl_slist *headers;
     CURLcode curl_res;
     long status_code;
+    size_t request_body_size;
 
     int result;
 
@@ -247,7 +249,6 @@ int http_do_call(http_ctx *ctx,
         return EXIT_FAILURE;
     }
 
-    http_headers_add(&headers, "Content-Type: application/json; Charset=UTF-8");
     http_headers_add(&headers, "Accept: application/json");
 
     if (strlen(ctx->token) > 0)
@@ -262,7 +263,17 @@ int http_do_call(http_ctx *ctx,
     curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(curl, CURLOPT_USERAGENT, http_user_agent());
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, request_body);
+
+    if (method == HTTP_POST)
+        curl_easy_setopt(curl, CURLOPT_POST, 1L);
+
+    request_body_size = 0;
+    if (request_body != NULL) {
+        request_body_size = strlen(request_body);
+        http_headers_add(&headers, "Content-Type: application/json; Charset=UTF-8");
+        http_headers_add(&headers, "Content-Length: %llu", request_body_size);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, request_body);
+    }
 
     curl_res = curl_easy_perform(curl);
     if (curl_res == CURLE_OK) {

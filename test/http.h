@@ -22,13 +22,16 @@
 
 #include "../src/http.h"
 
-#define URL_PREFIX "http://127.0.0.1:8000"
-#define URL_API_TEST "/api/publiv/v1/test"
+#define URL_PREFIX "http://127.0.0.1:8000/app"
+#define URL_API_TEST "/api/public/v1/test"
 
-#define URL_TEST_1_INPUT "/test"
-#define URL_TEST_1_EXPECTED URL_PREFIX URL_TEST_1_INPUT
+#define TEST_1_URL_INPUT "/test"
+#define TEST_1_URL_EXPECTED URL_PREFIX TEST_1_URL_INPUT
 
-#define BODY_EMPTY "{}"
+#define TEST_REQUEST_BODY_EMPTY "{}"
+#define TEST_REQUEST_BODY_PARAM_VALUE "{\"param\": \"value\"}"
+
+#define TEST_RESPONSE_BODY_GET "{\"test\": \"test\"}"
 
 static int test_http_group_setup(void **);
 
@@ -40,6 +43,10 @@ static int test_http_teardown(void **);
 
 void test_http_url_concat(void **);
 
-void test_http_init(void **);
+void test_http_get(void **);
+
+void test_http_post_json_empty(void **);
+
+void test_http_post_json_param_value(void **);
 
 #endif
