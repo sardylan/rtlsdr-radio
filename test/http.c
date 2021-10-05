@@ -24,7 +24,9 @@
 #include <cmocka.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <time.h>
+#include <sys/wait.h>
 
 #include "http.h"
 
@@ -38,7 +40,54 @@ const struct CMUnitTest tests[] = {
 };
 
 int main() {
-    return cmocka_run_group_tests_name("http", tests, test_http_group_setup, test_http_group_teardown);
+    pid_t pid_child;
+    int child_ret;
+    int ret;
+
+    child_ret = 0;
+
+    pid_child = fork();
+
+    if (pid_child < 0)
+        ret = EXIT_FAILURE;
+    else if (pid_child == 0)
+        ret = main_child();
+    else
+        ret = main_parent();
+
+    if (pid_child > 0) {
+        fprintf(stderr, "Killing mock-api\n");
+        kill(pid_child, SIGINT);
+        (void) waitpid(pid_child, &child_ret, 0);
+    }
+
+    return ret | child_ret;
+}
+
+int main_parent() {
+    int ret;
+
+    fprintf(stderr, "Waiting for mock API\n");
+    sleep(TEST_HTTP_MOCK_API_WAIT);
+
+    fprintf(stderr, "Running tests\n");
+    ret = cmocka_run_group_tests_name("http", tests, test_http_group_setup, test_http_group_teardown);
+
+    return ret;
+}
+
+int main_child() {
+    char program_path[2048];
+    char *args[3];
+
+    sprintf(program_path, "%s/%s", PROJECT_DIR, TEST_HTTP_MOCK_API_SCRIPT);
+
+    args[0] = "python3";
+    args[1] = program_path;
+    args[2] = NULL;
+
+    fprintf(stderr, "Running mock-api\n");
+    return execvp("python3", (char *const *) args);
 }
 
 static int test_http_group_setup(void **state) {

@@ -65,7 +65,8 @@ else ()
     set(RTLSDR_RADIO_FP_DOUBLE TRUE)
 endif ()
 
-add_compile_definitions(FP_FLOAT=${RTLSDR_RADIO_FP_PRECISION})
+add_compile_definitions(FP_FLOAT="${RTLSDR_RADIO_FP_PRECISION}")
+add_compile_definitions(PROJECT_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 
 enable_testing()
 
