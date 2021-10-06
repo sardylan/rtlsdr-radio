@@ -111,7 +111,7 @@ static int test_http_group_teardown(void **state) {
 static int test_http_setup(void **state) {
     http_ctx *ctx;
 
-    ctx = http_init(URL_PREFIX);
+    ctx = http_init(URL_PREFIX, HTTP_API_PREFIX);
     if (ctx == NULL)
         return EXIT_FAILURE;
 
@@ -146,13 +146,13 @@ void test_http_url_concat(void **state) {
     assert_memory_equal(expected, actual, strlen(expected));
 
     input = "";
-    expected = URL_PREFIX;
+    expected = URL_PREFIX HTTP_API_PREFIX;
     result = http_url_concat(ctx, actual, HTTP_URL_MAX_SIZE, input);
     assert_int_equal(result, EXIT_SUCCESS);
     assert_memory_equal(expected, actual, strlen(expected));
 
-    input = TEST_1_URL_INPUT;
-    expected = TEST_1_URL_EXPECTED;
+    input = "/test";
+    expected = URL_PREFIX HTTP_API_PREFIX "/test";
     result = http_url_concat(ctx, actual, HTTP_URL_MAX_SIZE, input);
     assert_int_equal(result, EXIT_SUCCESS);
     assert_memory_equal(expected, actual, strlen(expected));

@@ -57,6 +57,7 @@ void ui_header() {
     ui_message("  - librtlsdr: %s\n", "");
     ui_message("  - asound2: %s\n", snd_asoundlib_version());
     ui_message("  - codec2: %s\n", CODEC2_VERSION);
+    ui_message("  - UUID: %s\n", "");
     ui_message("  - cURL: %s\n", curl_version());
 
     ui_message("\n\n");

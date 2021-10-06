@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <pwd.h>
 
 #include "cfg.h"
 #include "default.h"
@@ -39,6 +40,8 @@ void cfg_init() {
     size_t ln;
 
     conf = (cfg *) malloc(sizeof(cfg));
+
+    cfg_init_uuid();
 
     conf->ui_log_level = CONFIG_UI_LOG_LEVEL_DEFAULT;
     conf->file_log_level = CONFIG_FILE_LOG_LEVEL_DEFAULT;
@@ -105,7 +108,82 @@ void cfg_free() {
     free(conf);
 }
 
+void cfg_init_uuid() {
+    char uuid[UUID_STR_LEN];
+    FILE *fp;
+    size_t ln;
+    char *home_dir;
+    char *file_path;
+    struct passwd *pw;
+
+    int result;
+
+    log_info("Initializing UUID");
+
+    bzero(uuid, UUID_STR_LEN);
+
+    home_dir = getenv("HOME");
+
+    if (home_dir == NULL) {
+        pw = getpwuid(geteuid());
+        home_dir = pw->pw_dir;
+    }
+
+    ln = strlen(home_dir) + 1 + strlen(CFG_INSTANCE_FILE);
+    file_path = (char *) calloc(ln + 1, sizeof(char));
+    strcpy(file_path, home_dir);
+    strcat(file_path, "/");
+    strcat(file_path, CFG_INSTANCE_FILE);
+
+    log_trace("File path: %s", file_path);
+
+    log_debug("Opening file");
+    fp = fopen(file_path, "r");
+    if (fp != NULL) {
+        ln = fread(uuid, sizeof(char), UUID_STR_LEN - 1, fp);
+        if (ln != UUID_STR_LEN - 1)
+            bzero(uuid, UUID_STR_LEN);
+        fclose(fp);
+    } else {
+        log_info("File not found, creating random UUID");
+    }
+
+    ln = strlen(uuid);
+    if (ln == UUID_STR_LEN - 1) {
+        result = uuid_parse(uuid, conf->uuid);
+        if (result != EXIT_SUCCESS) {
+            log_warn("Unable to parse UUID from file, creating new random UUID");
+            bzero(uuid, UUID_STR_LEN);
+        }
+    }
+
+    ln = strlen(uuid);
+    if (ln == 0) {
+        log_trace("Generating random UUID");
+        uuid_generate_random(conf->uuid);
+    }
+
+    log_trace("Unparsing value");
+    uuid_unparse_lower(conf->uuid, uuid);
+
+    log_debug("Saving UUID to file");
+    fp = fopen(file_path, "w");
+    ln = fwrite(uuid, sizeof(char), UUID_STR_LEN - 1, fp);
+    if (ln != UUID_STR_LEN - 1) {
+        log_error("Unable to write UUID to file");
+    }
+    fclose(fp);
+
+    log_info("UUID: %s", uuid);
+}
+
 void cfg_print() {
+    char uuid[UUID_STR_LEN];
+
+    uuid_unparse_lower(conf->uuid, uuid);
+
+    ui_message("\n");
+    ui_message("UUID:                          %s\n", uuid);
     ui_message("\n");
     ui_message("ui_log_level:                  %s\n", cfg_tochar_log_level(conf->ui_log_level));
     ui_message("file_log_level:                %s\n", cfg_tochar_log_level(conf->file_log_level));

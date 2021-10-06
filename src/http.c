@@ -71,7 +71,7 @@ void http_global_cleanup() {
     curl_global_cleanup();
 }
 
-http_ctx *http_init(char *url_prefix) {
+http_ctx *http_init(const char *url_prefix, const char *api_prefix) {
     http_ctx *ctx;
     size_t ln;
 
@@ -88,6 +88,16 @@ http_ctx *http_init(char *url_prefix) {
     ctx->token = NULL;
 
     log_debug("Allocating URL prefix");
+    ln = strlen(api_prefix);
+    ctx->api_prefix = (char *) realloc(ctx->api_prefix, (ln + 1) * sizeof(char));
+    if (ctx->api_prefix == NULL) {
+        log_error("Unable to allocate API prefix");
+        http_free(ctx);
+        return NULL;
+    }
+    strcpy(ctx->api_prefix, api_prefix);
+
+    log_debug("Allocating API prefix");
     ln = strlen(url_prefix);
     ctx->url_prefix = (char *) realloc(ctx->url_prefix, (ln + 1) * sizeof(char));
     if (ctx->url_prefix == NULL) {
@@ -123,6 +133,10 @@ void http_free(http_ctx *ctx) {
     log_debug("Freeing URL prefix");
     if (ctx->url_prefix != NULL)
         free(ctx->url_prefix);
+
+    log_debug("Freeing API prefix");
+    if (ctx->api_prefix != NULL)
+        free(ctx->api_prefix);
 
     log_debug("Freeing context");
     free(ctx);
@@ -161,13 +175,14 @@ int http_url_concat(http_ctx *ctx, char *url, size_t url_max_size, const char *a
     if (api_url == NULL)
         return EXIT_FAILURE;
 
-    ln = strlen(ctx->url_prefix) + strlen(api_url);
+    ln = strlen(ctx->url_prefix) + strlen(ctx->api_prefix) + strlen(api_url);
     if (ln > url_max_size) {
-        log_error("Not enough space to concat url prefix and api");
+        log_error("Not enough space to concat url prefix, api prefix and api");
         return EXIT_FAILURE;
     }
 
     strcat(url, ctx->url_prefix);
+    strcat(url, ctx->api_prefix);
     strcat(url, api_url);
 
     return EXIT_SUCCESS;
@@ -261,7 +276,7 @@ int http_do_call(http_ctx *ctx,
 
     curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, http_method_string(method));
     curl_easy_setopt(curl, CURLOPT_URL, url);
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, http_user_agent());
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, HTTP_USER_AGENT);
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
     if (method == HTTP_POST)

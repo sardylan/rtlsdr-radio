@@ -30,11 +30,13 @@
 #define HTTP_URL_MAX_SIZE 1024
 #define HTTP_HEADER_MAX_SIZE 1024
 
-#define HTTP_USER_AGENT() APPLICATION_NAME " " APPLICATION_VERSION " HTTPClient (libcurl)"
-#define http_user_agent() HTTP_USER_AGENT()
+#define HTTP_USER_AGENT APPLICATION_NAME " " APPLICATION_VERSION " HTTPClient (libcurl)"
+
+#define HTTP_API_PREFIX "/api/public/v1/radio"
 
 struct http_ctx_t {
     char *url_prefix;
+    char *api_prefix;
     char *token;
 };
 
@@ -58,7 +60,7 @@ int http_global_init();
 
 void http_global_cleanup();
 
-http_ctx *http_init(char *);
+http_ctx *http_init(const char *, const char *);
 
 void http_free(http_ctx *);
 

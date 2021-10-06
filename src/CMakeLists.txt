@@ -43,6 +43,7 @@ target_link_libraries(rtlsdr_radio
         PkgConfig::fftw3
         PkgConfig::asound2
         PkgConfig::codec2
+        PkgConfig::uuid
         PkgConfig::curl)
 
 target_compile_options(rtlsdr_radio

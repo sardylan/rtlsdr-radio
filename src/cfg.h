@@ -20,18 +20,25 @@
 #ifndef __RTLSDR_RADIO__CFG__H
 #define __RTLSDR_RADIO__CFG__H
 
+#define CFG_INSTANCE_FILE ".rtlsdr-radio"
+
 #include <stddef.h>
 #include <stdint.h>
+#include <uuid/uuid.h>
 
 enum bool_flag_t {
     FLAG_FALSE = 0,
     FLAG_TRUE = 1
 };
 
+typedef enum bool_flag_t bool_flag;
+
 enum source_type_t {
     SOURCE_RTLSDR = 'r',
     SOURCE_FILE = 'f'
 };
+
+typedef enum source_type_t source_type;
 
 enum work_mode_t {
     MODE_VERSION = 'v',
@@ -40,11 +47,14 @@ enum work_mode_t {
     MODE_INFO = 'i'
 };
 
+typedef enum work_mode_t work_mode;
+
 enum modulation_type_t {
     MOD_TYPE_AM = 0,
     MOD_TYPE_FM = 1
 };
 
+typedef enum modulation_type_t modulation_type;
 
 enum filter_mode_t {
     FILTER_MODE_NONE = 0,
@@ -52,13 +62,11 @@ enum filter_mode_t {
     FILTER_MODE_FFT_SW = 2
 };
 
-typedef enum bool_flag_t bool_flag;
-typedef enum source_type_t source_type;
-typedef enum work_mode_t work_mode;
-typedef enum modulation_type_t modulation_type;
 typedef enum filter_mode_t filter_mode;
 
 struct cfg_t {
+    uuid_t uuid;
+
     int ui_log_level;
     int file_log_level;
     char *file_log_name;
@@ -106,6 +114,8 @@ typedef struct cfg_t cfg;
 void cfg_init();
 
 void cfg_free();
+
+void cfg_init_uuid();
 
 void cfg_print();
 
