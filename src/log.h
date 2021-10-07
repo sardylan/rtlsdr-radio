@@ -22,12 +22,8 @@
 
 #include <stddef.h>
 
-#ifndef __RTLSDR__TESTS
-
 #include "cfg.h"
 #include "buildflags.h"
-
-#endif
 
 #define LOG_LEVEL_OFF 0
 #define LOG_LEVEL_ERROR 1
@@ -37,6 +33,10 @@
 #define LOG_LEVEL_TRACE 5
 
 #define LOG_BUFFER 131072
+
+#ifdef __RTLSDR__TESTS
+#define log_message(...)
+#endif
 
 #ifdef RTLSDR_RADIO_LOG_ERROR_ENABLED
 #define log_error(message, ...) log_message(LOG_LEVEL_ERROR, __func__, __FILENAME__, __LINE__, message, ##__VA_ARGS__)

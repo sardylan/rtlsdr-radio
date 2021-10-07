@@ -32,7 +32,7 @@
 
 #define HTTP_USER_AGENT APPLICATION_NAME " " APPLICATION_VERSION " HTTPClient (libcurl)"
 
-#define HTTP_API_PREFIX "/api/public/v1/radio"
+#define HTTP_API_PREFIX "/api/public/v1"
 
 struct http_ctx_t {
     char *url_prefix;

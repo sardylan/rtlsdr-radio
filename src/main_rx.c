@@ -43,6 +43,7 @@
 #include "wav.h"
 #include "payload.h"
 #include "network.h"
+#include "buildflags.h"
 
 extern volatile int keep_running;
 extern cfg *conf;
@@ -709,7 +710,7 @@ void *thread_rx_demod() {
                 case MOD_TYPE_FM:
                     product = samples_buffer[j] * conj(prev_sample);
 
-#if FP_FLOAT == float
+#ifdef RTLSDR_RADIO_FP_FLOAT
                     real = crealf(product);
                     imag = cimagf(product);
 
@@ -717,7 +718,9 @@ void *thread_rx_demod() {
                         demod_buffer[j] = atan2f(imag, real) / (float) M_PI;
                     else
                         demod_buffer[j] = 0;
-#elif FP_FLOAT == double
+#endif
+
+#ifdef RTLSDR_RADIO_FP_DOUBLE
                     real = creal(product);
                     imag = cimag(product);
 
@@ -725,7 +728,9 @@ void *thread_rx_demod() {
                         demod_buffer[j] = atan2(imag, real) / M_PI;
                     else
                         demod_buffer[j] = 0;
-#elif FP_FLOAT == long double
+#endif
+
+#ifdef RTLSDR_RADIO_FP_LONG_DOUBLE
                     real = creall(product);
                     imag = cimagl(product);
 
@@ -733,19 +738,18 @@ void *thread_rx_demod() {
                         demod_buffer[j] = atan2l(imag, real) / M_PI;
                     else
                         demod_buffer[j] = 0;
-#else
-                    demod_buffer[j] = 0;
 #endif
+
                     prev_sample = samples_buffer[j];
                     break;
 
                 case MOD_TYPE_AM:
 
-#if FP_FLOAT == float
+#ifdef RTLSDR_RADIO_FP_FLOAT
                     demod_buffer[j] = cabsf(samples_buffer[j]) / (float) M_SQRT2;
-#elif FP_FLOAT == double
+#elifdef RTLSDR_RADIO_FP_DOUBLE
                     demod_buffer[j] = cabs(samples_buffer[j]) / M_SQRT2;
-#elif FP_FLOAT == long double
+#elifdef RTLSDR_RADIO_FP_LONG_DOUBLE
                     demod_buffer[j] = cabsl(samples_buffer[j]) / M_SQRT2;
 #else
                     demod_buffer[j] = 0;

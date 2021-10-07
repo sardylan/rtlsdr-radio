@@ -17,9 +17,10 @@
  */
 
 
-
 #ifndef __RTLSDR_RADIO__FIR_LPF__H
 #define __RTLSDR_RADIO__FIR_LPF__H
+
+#include "buildflags.h"
 
 /*
 

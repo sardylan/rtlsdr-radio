@@ -167,9 +167,10 @@ void test_http_get(void **state) {
 
     response_data = http_data_init();
 
-    status_code = http_do_call(ctx, HTTP_GET, URL_API_TEST, NULL, response_data);
+    status_code = http_do_call(ctx, HTTP_GET, URL_TEST, NULL, response_data);
     assert_true(status_code >= 0);
 
+    assert_int_equal(status_code, 200);
     assert_int_equal(strlen(TEST_RESPONSE_BODY_GET), response_data->size);
     assert_memory_equal(TEST_RESPONSE_BODY_GET, response_data->data, response_data->size);
 
@@ -188,9 +189,10 @@ void test_http_post_json_empty(void **state) {
 
     request_body = TEST_REQUEST_BODY_EMPTY;
 
-    status_code = http_do_call(ctx, HTTP_POST, URL_API_TEST, request_body, response_data);
+    status_code = http_do_call(ctx, HTTP_POST, URL_TEST, request_body, response_data);
     assert_true(status_code >= 0);
 
+    assert_int_equal(status_code, 200);
     assert_int_equal(strlen(request_body), response_data->size);
     assert_memory_equal(request_body, response_data->data, response_data->size);
 
@@ -209,9 +211,10 @@ void test_http_post_json_param_value(void **state) {
 
     request_body = TEST_REQUEST_BODY_PARAM_VALUE;
 
-    status_code = http_do_call(ctx, HTTP_POST, URL_API_TEST, request_body, response_data);
+    status_code = http_do_call(ctx, HTTP_POST, URL_TEST, request_body, response_data);
     assert_true(status_code >= 0);
 
+    assert_int_equal(status_code, 200);
     assert_int_equal(strlen(request_body), response_data->size);
     assert_memory_equal(request_body, response_data->data, response_data->size);
 

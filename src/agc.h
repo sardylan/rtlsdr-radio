@@ -23,6 +23,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "buildflags.h"
+
 struct agc_ctx_t {
     FP_FLOAT gain;
     FP_FLOAT dc_offset;

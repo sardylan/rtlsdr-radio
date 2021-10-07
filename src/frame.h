@@ -25,6 +25,8 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#include "buildflags.h"
+
 struct frame_t {
     uint64_t number;
     struct timespec ts;

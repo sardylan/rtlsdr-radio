@@ -26,6 +26,8 @@
 #include <time.h>
 #include <pthread.h>
 
+#include "buildflags.h"
+
 #define GREATBUF_CIRCBUF_IQ 0
 #define GREATBUF_CIRCBUF_SAMPLES 1
 #define GREATBUF_CIRCBUF_DEMOD 2

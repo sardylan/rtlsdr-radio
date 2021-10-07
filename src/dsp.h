@@ -24,6 +24,8 @@
 #include <stddef.h>
 #include <complex.h>
 
+#include "buildflags.h"
+
 FP_FLOAT dsp_complex_rms(FP_FLOAT complex *, size_t);
 
 FP_FLOAT dsp_rms(int8_t *, size_t data_size);

@@ -33,6 +33,8 @@
 #include <time.h>
 #include <string.h>
 
+#include "buildflags.h"
+
 #define PAYLOAD_HEADER "GFP"
 
 struct payload_t {

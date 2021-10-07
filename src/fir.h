@@ -22,6 +22,8 @@
 
 #include <stdint.h>
 
+#include "buildflags.h"
+
 struct fir_ctx_t {
     size_t kernel_size;
     FP_FLOAT *kernel;

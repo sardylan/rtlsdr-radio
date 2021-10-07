@@ -23,6 +23,8 @@
 #include <complex.h>
 #include <rtl-sdr.h>
 
+#include "buildflags.h"
+
 void device_list(int);
 
 int device_open(rtlsdr_dev_t **, uint32_t);

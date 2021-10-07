@@ -28,5 +28,18 @@
 
 #cmakedefine RTLSDR_RADIO_FP_FLOAT
 #cmakedefine RTLSDR_RADIO_FP_DOUBLE
+#cmakedefine RTLSDR_RADIO_FP_LONG_DOUBLE
+
+#ifdef RTLSDR_RADIO_FP_FLOAT
+#define FP_FLOAT float
+#endif
+
+#ifdef RTLSDR_RADIO_FP_DOUBLE
+#define FP_FLOAT double
+#endif
+
+#ifdef RTLSDR_RADIO_FP_LONG_DOUBLE
+#define FP_FLOAT long double
+#endif
 
 #endif

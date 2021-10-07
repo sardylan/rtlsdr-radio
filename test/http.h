@@ -25,11 +25,9 @@
 #define TEST_HTTP_MOCK_API_SCRIPT "utility/mock-api.py"
 #define TEST_HTTP_MOCK_API_WAIT 2
 
-#define URL_PREFIX "http://127.0.0.1:8000/app"
-#define URL_API_TEST "/api/public/v1/test"
+#define URL_PREFIX "http://127.0.0.1:8000"
 
-#define TEST_1_URL_INPUT "/test"
-#define TEST_1_URL_EXPECTED URL_PREFIX TEST_1_URL_INPUT
+#define URL_TEST "/test"
 
 #define TEST_REQUEST_BODY_EMPTY "{}"
 #define TEST_REQUEST_BODY_PARAM_VALUE "{\"param\": \"value\"}"

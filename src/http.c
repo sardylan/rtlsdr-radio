@@ -86,6 +86,7 @@ http_ctx *http_init(const char *url_prefix, const char *api_prefix) {
 
     ctx->url_prefix = NULL;
     ctx->token = NULL;
+    ctx->api_prefix = NULL;
 
     log_debug("Allocating URL prefix");
     ln = strlen(api_prefix);

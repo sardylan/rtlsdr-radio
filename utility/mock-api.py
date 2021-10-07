@@ -8,7 +8,7 @@ from hypercorn.config import Config
 app: FastAPI = FastAPI()
 
 
-@app.get("/app/api/public/v1/test")
+@app.get("/api/public/v1/test")
 async def test_get(request: Request):
     response_body: dict = {
         "test": "test"
@@ -21,7 +21,7 @@ async def test_get(request: Request):
     return response
 
 
-@app.post("/app/api/public/v1/test")
+@app.post("/api/public/v1/test")
 async def test_post(request: Request):
     request_body: dict = await request.json()
 
