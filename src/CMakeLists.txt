@@ -1,7 +1,9 @@
-if (RTLSDR_RADIO_FP_PRECISION STREQUAL "float")
+if (RTLSDR_RADIO_FP_FLOAT)
     pkg_check_modules(fftw3 REQUIRED IMPORTED_TARGET fftw3f)
-else ()
+elseif (RTLSDR_RADIO_FP_DOUBLE)
     pkg_check_modules(fftw3 REQUIRED IMPORTED_TARGET fftw3)
+elseif (RTLSDR_RADIO_FP_LONG_DOUBLE)
+    pkg_check_modules(fftw3 REQUIRED IMPORTED_TARGET fftw3l)
 endif ()
 
 configure_file(version.h.in version.h @ONLY)
@@ -49,3 +51,7 @@ target_link_libraries(rtlsdr_radio
 target_compile_options(rtlsdr_radio
         PRIVATE
         -Wall -Wextra -Wpedantic)
+
+install(TARGETS rtlsdr_radio
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        COMPONENT rtlsdr_radio)
